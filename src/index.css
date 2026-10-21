@@ -1,0 +1,438 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Newsreader Variable", "Newsreader", Georgia, "Times New Roman", serif;
+  --font-sans: "Hanken Grotesk Variable", "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* paper and ink */
+  --color-ink: #1f1b16;
+  --color-paper: #faf7f1;
+  --color-sand: #f3eee5;
+  --color-sand-2: #efe9de;
+  --color-stone: #e6e0d5;
+  --color-line: #e4dccd;
+  --color-line-2: #cfc5b4;
+  --color-body: #4a4239;
+  --color-muted: #6b6257;
+  --color-faint: #8a7f72;
+
+  /* festive cues: marigold, mango leaf, kasavu */
+  --color-maroon: #6e1f2e;
+  --color-maroon-deep: #5c1727;
+  --color-marigold: #d9962b;
+  --color-gold: #e9b865;
+  --color-gold-soft: #f1d9a6;
+  --color-cream: #fbefd7;
+  --color-kasavu: #d6b15e;
+  --color-amber-ink: #7a4e0b;
+  --color-amber-line: #e9d3a8;
+  --color-leaf: #3d7a4f;
+  --color-leaf-ink: #2c5e3b;
+  --color-leaf-deep: #2f5a3c;
+  --color-leaf-tint: #e1eee3;
+  --color-indigo: #5a6fb8;
+  --color-indigo-ink: #3e4f8f;
+
+  /* peacock teal is reserved for anything the AI says or proposes */
+  --color-peacock: #1f5f6b;
+  --color-peacock-deep: #123e46;
+  --color-peacock-tint: #e2eeee;
+  --color-peacock-line: #bcd6d6;
+  --color-peacock-wash: #f2f8f8;
+
+  /* attention */
+  --color-rust: #b5452b;
+  --color-rust-ink: #8e3320;
+  --color-rust-tint: #f8e3db;
+  --color-rust-line: #ebc3b4;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 400;
+    margin: 0;
+  }
+  button {
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-peacock);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  .on-dark :focus-visible {
+    outline-color: var(--color-gold-soft);
+  }
+  ::selection {
+    background: var(--color-cream);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* marigold-and-mango-leaf toran that tops every surface */
+@utility toran {
+  height: 12px;
+  background:
+    radial-gradient(circle at 7px 0, var(--color-marigold) 6px, transparent 6.5px) 0 0 / 14px 12px repeat-x,
+    linear-gradient(var(--color-leaf), var(--color-leaf)) 0 0 / 100% 3px no-repeat;
+}
+@utility toran-lg {
+  height: 16px;
+  background:
+    radial-gradient(circle at 9px 0, var(--color-marigold) 8px, transparent 8.5px) 0 0 / 18px 16px repeat-x,
+    linear-gradient(var(--color-leaf), var(--color-leaf)) 0 0 / 100% 4px no-repeat;
+}
+@utility toran-md {
+  height: 14px;
+  background:
+    radial-gradient(circle at 8px 0, var(--color-marigold) 7px, transparent 7.5px) 0 0 / 16px 14px repeat-x,
+    linear-gradient(var(--color-leaf), var(--color-leaf)) 0 0 / 100% 3px no-repeat;
+}
+@utility toran-beads {
+  height: 12px;
+  background:
+    radial-gradient(circle at 7px 0, var(--color-marigold) 6px, transparent 6.5px) 0 0 / 14px 12px repeat-x;
+}
+
+/* kolam dot grid behind hero moments */
+@utility kolam {
+  background: radial-gradient(rgba(217, 150, 43, 0.35) 1.3px, transparent 1.6px) 0 0 / 18px 18px;
+}
+@utility kolam-sm {
+  background: radial-gradient(rgba(217, 150, 43, 0.35) 1.3px, transparent 1.6px) 0 0 / 16px 16px;
+}
+@utility kolam-gold {
+  background: radial-gradient(rgba(233, 184, 101, 0.4) 1.3px, transparent 1.6px) 0 0 / 16px 16px;
+}
+
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility hatch {
+  background: repeating-linear-gradient(135deg, var(--color-sand) 0 8px, var(--color-sand-2) 8px 16px);
+}
+
+@utility shimmer {
+  background: linear-gradient(90deg, var(--color-sand-2), #f7f2ea, var(--color-sand-2));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 9px;
+    border: 1px solid transparent;
+    font: 600 14px / 1 var(--font-sans);
+    white-space: nowrap;
+    text-decoration: none;
+    transition:
+      background-color 0.15s,
+      border-color 0.15s,
+      color 0.15s,
+      transform 0.15s;
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+  }
+  .btn-sm {
+    min-height: 34px;
+    padding: 0 11px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .btn-lg {
+    min-height: 48px;
+    padding: 0 20px;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+  .btn-primary {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #3a332b;
+  }
+  .btn-secondary {
+    background: #fff;
+    border-color: var(--color-line);
+    color: var(--color-ink);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--color-line-2);
+    background: var(--color-paper);
+  }
+  .btn-outline {
+    background: transparent;
+    border-color: var(--color-line-2);
+    color: var(--color-ink);
+  }
+  .btn-outline:hover:not(:disabled) {
+    background: #fff;
+  }
+  .btn-ai {
+    background: var(--color-peacock);
+    color: #fff;
+  }
+  .btn-ai:hover:not(:disabled) {
+    background: var(--color-peacock-deep);
+  }
+  .btn-gold {
+    background: var(--color-marigold);
+    color: var(--color-ink);
+  }
+  .btn-gold:hover:not(:disabled) {
+    background: var(--color-gold);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-body);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--color-sand);
+    color: var(--color-ink);
+  }
+  .btn-danger {
+    background: transparent;
+    color: var(--color-rust-ink);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: var(--color-rust-tint);
+  }
+
+  .link {
+    color: var(--color-peacock);
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 4px;
+  }
+  .link:hover {
+    color: var(--color-peacock-deep);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* selectable chip: off is outlined, on is ink */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 13px;
+    border-radius: 999px;
+    border: 1px solid var(--color-line);
+    background: #fff;
+    color: var(--color-ink);
+    font: 500 14px / 1 var(--font-sans);
+    transition:
+      background-color 0.15s,
+      border-color 0.15s;
+  }
+  .chip:hover {
+    border-color: var(--color-line-2);
+  }
+  .chip[aria-pressed="true"],
+  .chip[aria-selected="true"] {
+    background: var(--color-ink);
+    border-color: var(--color-ink);
+    color: var(--color-paper);
+  }
+  .chip-sm {
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+
+  /* status pill: informs, never decorates */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font: 600 11px / 1 var(--font-sans);
+    white-space: nowrap;
+  }
+  .pill-warn {
+    background: var(--color-rust-tint);
+    color: var(--color-rust-ink);
+  }
+  .pill-due {
+    background: var(--color-cream);
+    color: var(--color-amber-ink);
+  }
+  .pill-ok {
+    background: var(--color-leaf-tint);
+    color: var(--color-leaf-ink);
+  }
+  .pill-idle {
+    background: var(--color-sand);
+    color: var(--color-body);
+  }
+  .pill-ai {
+    background: var(--color-peacock);
+    color: #fff;
+  }
+
+  .card {
+    background: #fff;
+    border: 1px solid var(--color-line);
+    border-radius: 16px;
+  }
+  .card-ai {
+    background: var(--color-peacock-tint);
+    border: 1px solid var(--color-peacock-line);
+    border-radius: 14px;
+  }
+
+  .field {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px;
+    border: 1px solid var(--color-line-2);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--color-ink);
+    font: 400 16px / 1.3 var(--font-sans);
+  }
+  .field:focus,
+  .field:focus-within {
+    outline: none;
+    border: 2px solid var(--color-ink);
+    padding: 0 13px;
+  }
+  .field::placeholder {
+    color: var(--color-muted);
+  }
+  .label {
+    font: 500 13px / 1 var(--font-sans);
+  }
+
+  .bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--color-sand-2);
+    overflow: hidden;
+  }
+  .bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+
+  .spinner {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--color-peacock-line);
+    border-top-color: var(--color-peacock);
+    animation: spin 0.8s linear infinite;
+  }
+
+  .scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.3s ease both;
+}
+@keyframes wave {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+}

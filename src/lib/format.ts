@@ -1,0 +1,57 @@
+const inrFormat = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+
+/** ₹18,00,000 — Indian lakh grouping. */
+export function inr(amount: number): string {
+  const sign = amount < 0 ? "−" : "";
+  return `${sign}₹${inrFormat.format(Math.abs(Math.round(amount)))}`;
+}
+
+/** +₹36,288 / −₹60,480, with a true minus sign. */
+export function inrSigned(amount: number): string {
+  if (amount === 0) return "₹0";
+  return `${amount > 0 ? "+" : "−"}₹${inrFormat.format(Math.abs(Math.round(amount)))}`;
+}
+
+/** ₹6.85L, ₹18L, ₹2.5L for lakhs; full figures below one lakh. */
+export function inrShort(amount: number): string {
+  const abs = Math.abs(amount);
+  if (abs < 100000) return inr(amount);
+  const lakhs = abs / 100000;
+  const text = lakhs >= 10 ? trim(lakhs.toFixed(1)) : trim(lakhs.toFixed(2));
+  return `${amount < 0 ? "−" : ""}₹${text}L`;
+}
+
+function trim(n: string): string {
+  return n.replace(/\.?0+$/, "");
+}
+
+export function pct(part: number, whole: number): number {
+  if (whole <= 0) return 0;
+  return Math.round((part / whole) * 100);
+}
+
+export function clamp(n: number, lo = 0, hi = 1): number {
+  return Math.min(hi, Math.max(lo, n));
+}
+
+export function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+/** "Ananya, Rohan" → "AR"; "Priya Menon" → "PM". */
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0]?.[0] ?? "";
+  const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : (parts[0]?.[1] ?? "");
+  return (first + last).toUpperCase();
+}
+
+export function slug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/[\s_]+/g, "-")
+    .slice(0, 48);
+}
