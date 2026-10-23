@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Kolam, Logo, Pill, Toran, usePageMeta } from "../components/ui";
+import { useStore } from "../store/store";
 
 const NAV = [
   { href: "#how", label: "How it works" },
@@ -105,6 +106,13 @@ const FEATURES = [
 ];
 
 type SampleId = "wedding" | "birthday" | "mela";
+
+/** The demo event each sample opens. */
+const SAMPLE_EVENT: Record<SampleId, string> = {
+  wedding: "ananya-rohan",
+  birthday: "aarav-6",
+  mela: "green-valley-mela",
+};
 
 const SAMPLES: Record<
   SampleId,
@@ -229,6 +237,7 @@ const H2 = "font-serif text-[clamp(34px,4.6vw,48px)] leading-[1.05] tracking-[-0
 export function Landing() {
   usePageMeta("Plannr");
   const navigate = useNavigate();
+  const { state, dispatch } = useStore();
   const [prompt, setPrompt] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [sample, setSample] = useState<SampleId>("wedding");
@@ -238,6 +247,13 @@ export function Landing() {
     e.preventDefault();
     navigate("/new", { state: { prompt: prompt.trim() || EXAMPLE } });
   };
+
+  /** Opens the sample events in this browser, without an account. */
+  const demo = (to = "/events") => {
+    if (state.mode !== "demo" || !state.session.signedIn) dispatch({ type: "enterDemo" });
+    navigate(to);
+  };
+  const signedIn = state.session.signedIn;
 
   return (
     <div className="bg-paper text-ink">
@@ -271,10 +287,10 @@ export function Landing() {
           </ul>
           <div className="flex-1" />
           <Link
-            to="/signin"
+            to={signedIn ? "/events" : "/signin"}
             className="hidden text-[15px] font-medium text-cream no-underline hover:text-white sm:inline"
           >
-            Log in
+            {signedIn ? "My events" : "Log in"}
           </Link>
           <Link to="/new" className="btn btn-gold btn-lg hidden sm:inline-flex">
             Start planning
@@ -302,10 +318,10 @@ export function Landing() {
               </a>
             ))}
             <Link
-              to="/signin"
+              to={signedIn ? "/events" : "/signin"}
               className="rounded-lg px-2 py-3 text-[17px] font-medium text-cream no-underline hover:bg-white/10"
             >
-              Log in
+              {signedIn ? "My events" : "Log in"}
             </Link>
           </div>
         )}
@@ -344,6 +360,15 @@ export function Landing() {
                 Start planning
               </button>
             </form>
+            {state.mode === "demo" && (
+              <button
+                type="button"
+                onClick={() => demo()}
+                className="self-start text-[15px] font-semibold text-gold-soft underline-offset-4 hover:text-white hover:underline"
+              >
+                Or try the demo with sample events →
+              </button>
+            )}
             <div className="flex flex-col gap-2.5">
               <span className="text-sm text-gold-soft">Or start with</span>
               <div className="flex flex-wrap gap-2">
@@ -546,9 +571,19 @@ export function Landing() {
               </p>
             </div>
           </div>
-          <Link to={`/sample/${sample}`} className="btn btn-primary btn-lg self-start">
-            Open the full sample plan
-          </Link>
+          {state.mode === "demo" ? (
+            <button
+              type="button"
+              className="btn btn-primary btn-lg self-start"
+              onClick={() => demo(`/events/${SAMPLE_EVENT[sample]}`)}
+            >
+              Open the full sample plan
+            </button>
+          ) : (
+            <Link to="/new" className="btn btn-primary btn-lg self-start">
+              Plan yours like this
+            </Link>
+          )}
         </section>
 
         <section className={`flex flex-col gap-8 py-[72px] ${PAD}`} aria-labelledby="voices">

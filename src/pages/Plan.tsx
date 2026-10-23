@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { canDraft } from "../components/intake";
 import { Logo, Toran, usePageMeta } from "../components/ui";
 import { aiEnabled, type PlanNotes, planNotes } from "../lib/ai";
@@ -21,6 +21,10 @@ export function Plan() {
   const [notes, setNotes] = useState<PlanNotes | undefined>();
   const [notesState, setNotesState] = useState<"loading" | "done" | "off">("loading");
   const [accepted, setAccepted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // ?accept=1: the planner signed in to save this draft, so finish what they started.
+  const [params] = useSearchParams();
+  const autoAccept = useRef(params.get("accept") === "1");
 
   useEffect(() => {
     if (state.draft.generated) return;
@@ -45,15 +49,24 @@ export function Plan() {
     };
   }, [p, plan]);
 
+  const onAccept = async () => {
+    if (!state.session.signedIn) return navigate("/signup?next=accept");
+    setAccepted(true);
+    setSaving(true);
+    if (!(await accept())) {
+      setAccepted(false);
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!autoAccept.current || drafting || !state.session.signedIn || !canDraft(p)) return;
+    autoAccept.current = false;
+    void onAccept();
+  });
+
   // Accepting empties the draft before the router leaves this screen; don't bounce to /new then.
   if (!canDraft(p)) return accepted ? null : <Navigate to="/new" replace />;
-
-  const onAccept = () => {
-    if (state.session.signedIn) {
-      setAccepted(true);
-      accept();
-    } else navigate("/signup?next=accept");
-  };
 
   if (drafting)
     return (
@@ -92,8 +105,8 @@ export function Plan() {
             <Link to="/new?mode=guided" className="btn btn-outline">
               Adjust
             </Link>
-            <button type="button" className="btn btn-primary btn-lg" onClick={onAccept}>
-              Accept and start planning
+            <button type="button" className="btn btn-primary btn-lg" onClick={onAccept} disabled={saving}>
+              {saving ? "Saving your plan…" : "Accept and start planning"}
             </button>
           </div>
         </div>

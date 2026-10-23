@@ -1,10 +1,14 @@
-import { Link, Navigate, useNavigate } from "react-router";
-import { Bar, HUE_COLOR, Logo, Menu, MenuDivider, MenuItem, Toran, usePageMeta } from "../components/ui";
-import { pastEvents, seedNotifications } from "../data/seed";
+import { useState } from "react";
+import { Link } from "react-router";
+import { AppShell } from "../components/shell";
+import { Bar, HUE_COLOR, usePageMeta } from "../components/ui";
+import { pastEvents } from "../data/seed";
 import type { PlannrEvent } from "../data/types";
+import { ApiError, api } from "../lib/api";
 import { daysUntil, greeting, plainDate, TODAY } from "../lib/dates";
 import { KIND_LABEL } from "../lib/intake";
 import { communityReadiness, personalReadiness } from "../lib/metrics";
+import { ROLE_LABEL } from "../shared/types";
 import { toast, useStore } from "../store/store";
 
 function readiness(ev: PlannrEvent): number | undefined {
@@ -16,100 +20,15 @@ function readiness(ev: PlannrEvent): number | undefined {
 export function Events() {
   usePageMeta("My events", { private: true });
   const { state, dispatch } = useStore();
-  const navigate = useNavigate();
-  if (!state.session.signedIn) return <Navigate to="/signin?next=/events" replace />;
   const live = state.events.filter((e) => !e.archived).sort((a, b) => a.date.localeCompare(b.date));
   const archived = state.events.filter((e) => e.archived);
-  const notifications = seedNotifications();
-  const unread = state.notificationsRead ? 0 : notifications.filter((n) => n.unread).length;
+  const past = [
+    ...archived.map((e) => ({ id: e.id, name: e.name, date: e.date, summary: "Archived", live: true })),
+    ...(state.mode === "demo" ? pastEvents().map((p) => ({ ...p, live: false })) : []),
+  ];
 
   return (
-    <div className="min-h-dvh bg-paper">
-      <Toran />
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3.5 sm:px-8">
-        <Logo to="/" />
-        <div className="flex items-center gap-2">
-          <Menu
-            label="Notifications"
-            button={({ open, toggle, id }) => (
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                aria-expanded={open}
-                aria-controls={id}
-                onClick={() => {
-                  toggle();
-                  if (!open) dispatch({ type: "readNotifications" });
-                }}
-              >
-                Updates{unread ? ` · ${unread}` : ""}
-              </button>
-            )}
-          >
-            {(close) =>
-              notifications.map((n) => (
-                <MenuItem
-                  key={n.id}
-                  onSelect={() => {
-                    close();
-                    if (n.eventId) navigate(`/events/${n.eventId}`);
-                  }}
-                >
-                  <span className="flex max-w-[300px] flex-col gap-0.5">
-                    <span className="text-sm font-medium">{n.text}</span>
-                    <span className="text-xs text-muted">{n.when}</span>
-                  </span>
-                </MenuItem>
-              ))
-            }
-          </Menu>
-          <Menu
-            label="Account"
-            button={({ open, toggle, id }) => (
-              <button
-                type="button"
-                aria-expanded={open}
-                aria-controls={id}
-                onClick={toggle}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-peacock text-xs font-semibold text-white"
-                aria-label="Account"
-              >
-                {state.session.initials}
-              </button>
-            )}
-          >
-            {(close) => (
-              <>
-                <span className="px-3 py-2 text-xs text-muted">
-                  {state.session.name} · {state.session.plan}
-                </span>
-                <MenuDivider />
-                <MenuItem
-                  onSelect={() => {
-                    close();
-                    dispatch({ type: "resetDemo" });
-                    dispatch({ type: "signIn" });
-                    dispatch(toast("Demo data restored."));
-                  }}
-                >
-                  Reset demo data
-                </MenuItem>
-                <MenuItem
-                  danger
-                  onSelect={() => {
-                    close();
-                    dispatch({ type: "signOut" });
-                    navigate("/");
-                  }}
-                >
-                  Sign out
-                </MenuItem>
-              </>
-            )}
-          </Menu>
-        </div>
-      </header>
-
+    <AppShell>
       <main className="mx-auto flex max-w-[1180px] flex-col gap-8 px-4 py-8 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex flex-col gap-1.5">
@@ -123,10 +42,13 @@ export function Events() {
           </Link>
         </div>
 
+        {state.mode === "account" && state.localImports.length > 0 && <Imports />}
+
         <section aria-label="Upcoming" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {live.map((ev) => {
             const r = readiness(ev);
             const days = daysUntil(ev.date);
+            const remote = state.remote[ev.id];
             return (
               <Link
                 key={ev.id}
@@ -137,7 +59,11 @@ export function Events() {
                 <div className="flex flex-1 flex-col gap-3 p-5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="eyebrow text-muted">{KIND_LABEL[ev.kind]}</span>
-                    <span className="font-mono text-[10px] text-muted">{ev.role}</span>
+                    <span className="font-mono text-[10px] text-muted">
+                      {remote
+                        ? `${ROLE_LABEL[remote.role]}${remote.side ? ` · ${remote.side}` : ""}`
+                        : ev.role}
+                    </span>
                   </div>
                   <span className="font-serif text-[28px] leading-[1.05] group-hover:underline group-hover:decoration-1 group-hover:underline-offset-4">
                     {ev.name}
@@ -166,46 +92,99 @@ export function Events() {
             to="/new?fresh=1"
             className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-line-2 p-6 text-center text-ink no-underline hover:border-ink"
           >
-            <span className="font-serif text-[26px]">Plan something new</span>
+            <span className="font-serif text-[26px]">
+              {live.length ? "Plan something new" : "Plan your first event"}
+            </span>
             <span className="text-sm text-body">Describe it in a sentence. Plannr drafts the rest.</span>
           </Link>
         </section>
 
-        <section aria-label="Past events" className="flex flex-col gap-3">
-          <h2 className="font-serif text-[26px]">Past events</h2>
-          <ul className="m-0 flex list-none flex-col rounded-2xl border border-line bg-surface p-0">
-            {[
-              ...archived.map((e) => ({
-                id: e.id,
-                name: e.name,
-                date: e.date,
-                summary: "Archived",
-                live: true,
-              })),
-              ...pastEvents().map((p) => ({ ...p, live: false })),
-            ].map((p, i) => (
-              <li
-                key={p.id}
-                className={`flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 text-sm ${i ? "border-t border-sand-2" : ""}`}
-              >
-                <span className="font-medium">{p.name}</span>
-                <span className="flex items-center gap-3 text-body">
-                  {p.summary} · {plainDate(p.date)}
-                  {p.live && (
-                    <button
-                      type="button"
-                      className="link text-xs"
-                      onClick={() => dispatch({ type: "archiveEvent", eventId: p.id, archived: false })}
-                    >
-                      Restore
-                    </button>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        {past.length > 0 && (
+          <section aria-label="Past events" className="flex flex-col gap-3">
+            <h2 className="font-serif text-[26px]">Past events</h2>
+            <ul className="m-0 flex list-none flex-col rounded-2xl border border-line bg-surface p-0">
+              {past.map((p, i) => (
+                <li
+                  key={p.id}
+                  className={`flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 text-sm ${i ? "border-t border-sand-2" : ""}`}
+                >
+                  <span className="font-medium">{p.name}</span>
+                  <span className="flex items-center gap-3 text-body">
+                    {p.summary} · {plainDate(p.date)}
+                    {p.live && (
+                      <button
+                        type="button"
+                        className="link text-xs"
+                        onClick={() => dispatch({ type: "archiveEvent", eventId: p.id, archived: false })}
+                      >
+                        Restore
+                      </button>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </main>
-    </div>
+    </AppShell>
+  );
+}
+
+/** Plans made on this device before signing in, offered to the account once. */
+function Imports() {
+  const { state, dispatch } = useStore();
+  const [busy, setBusy] = useState(false);
+  const list = state.localImports;
+  const save = async () => {
+    setBusy(true);
+    let saved = 0;
+    for (const ev of list) {
+      try {
+        dispatch({ type: "syncPlan", plan: await api.createPlan(ev) });
+        dispatch({ type: "dropImport", id: ev.id });
+        saved += 1;
+      } catch (e) {
+        // Already saved from another tab: nothing left to do for this one.
+        if (e instanceof ApiError && e.status === 409) dispatch({ type: "dropImport", id: ev.id });
+      }
+    }
+    setBusy(false);
+    dispatch(
+      toast(
+        saved ? `Saved ${saved} ${saved === 1 ? "plan" : "plans"} to your account.` : "Nothing new to save.",
+      ),
+    );
+  };
+  return (
+    <section
+      aria-label="Plans on this device"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-peacock-line bg-peacock-wash p-4"
+    >
+      <span className="flex min-w-0 flex-col gap-0.5 text-sm">
+        <span className="font-semibold">
+          {list.length === 1 ? `“${list[0]?.name}” is` : `${list.length} plans are`} only on this device
+        </span>
+        <span className="text-body">
+          You made {list.length === 1 ? "it" : "them"} before signing in. Save to keep{" "}
+          {list.length === 1 ? "it" : "them"} with your account.
+        </span>
+      </span>
+      <span className="flex gap-2">
+        <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={busy}>
+          {busy ? "Saving…" : "Save to my account"}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          disabled={busy}
+          onClick={() => {
+            for (const ev of list) dispatch({ type: "dropImport", id: ev.id });
+          }}
+        >
+          Discard
+        </button>
+      </span>
+    </section>
   );
 }

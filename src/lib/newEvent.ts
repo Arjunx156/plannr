@@ -109,7 +109,8 @@ export function eventFromDraft(
   const where = p.venues === "Home" ? "at home" : (p.city ?? "");
   const meta = [KIND_LABEL[kind], where, shortDate(date)].filter(Boolean).join(" · ");
   return {
-    id: existing?.id ?? `${slug(name)}-${Date.now().toString(36).slice(-4)}`,
+    // Ids are shared by every account on the server, so the suffix is random rather than a timestamp.
+    id: existing?.id ?? `${slug(name)}-${crypto.randomUUID().slice(0, 8)}`,
     kind,
     layout: "personal",
     name,

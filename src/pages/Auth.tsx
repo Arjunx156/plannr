@@ -1,28 +1,45 @@
 import { type ClipboardEvent, type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { Kolam, Logo, Toran, usePageMeta } from "../components/ui";
+import { Kolam, Logo, Spinner, Toran, usePageMeta } from "../components/ui";
+import { ApiError, api } from "../lib/api";
 import { longDate } from "../lib/dates";
 import { inr } from "../lib/format";
 import { draftPlan } from "../lib/plan";
+import type { AccountUser } from "../shared/types";
+import { useAccount } from "../store/account";
 import { toast, useStore } from "../store/store";
 
-type Channel = "phone" | "email";
+type Busy = "" | "google" | "send" | "verify" | "guest";
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function codeError(e: unknown): string {
+  if (!(e instanceof ApiError)) return "Something went wrong. Try again.";
+  if (e.status === 0) return e.message;
+  if (e.status === 429) return "Too many tries. Wait a minute, then try again.";
+  if (/expired/i.test(e.message)) return "That code has expired. Send a new one.";
+  if (/invalid|otp/i.test(e.message)) return "That code doesn't match. Check the latest email from Plannr.";
+  return e.message;
+}
 
 export function Auth({ mode }: { mode: "signup" | "signin" }) {
   const signup = mode === "signup";
-  usePageMeta(signup ? "Create your account" : "Log in", { private: true });
   const { state, dispatch } = useStore();
+  const { signedIn } = useAccount();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = params.get("next");
+  const methods = state.account.methods;
+  // A guest adding an email or Google keeps every plan; the server moves them across.
+  const upgrading = state.mode === "account" && !!state.account.user?.isAnonymous;
+  usePageMeta(upgrading ? "Save your plans" : signup ? "Create your account" : "Log in", { private: true });
   const draft = state.draft;
   const plan = draft.generated ? draftPlan(draft.profile) : undefined;
 
-  const [channel, setChannel] = useState<Channel>("phone");
-  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
-  const [error, setError] = useState("");
+  const [busy, setBusy] = useState<Busy>("");
+  const [error, setError] = useState(params.get("error") ? "Google sign-in didn't finish. Try again." : "");
   const [code, setCode] = useState<string[]>(Array(6).fill(""));
   const [seconds, setSeconds] = useState(30);
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
@@ -33,42 +50,100 @@ export function Auth({ mode }: { mode: "signup" | "signin" }) {
     return () => window.clearTimeout(t);
   }, [sent, seconds]);
 
-  const destination = channel === "phone" ? `+91 ${phone.slice(0, 5)} ${phone.slice(5)}` : email;
+  const query = next ? `?next=${encodeURIComponent(next)}` : "";
 
-  const finish = () => {
-    dispatch({ type: "signIn" });
-    if (signup) {
-      navigate(next === "accept" ? "/onboarding?next=accept" : "/onboarding");
+  /** Where to go once signed in: a name first if we don't have one, then wherever they were headed. */
+  const finish = (user: AccountUser | null) => {
+    if (!user) {
+      setBusy("");
+      setError("You're signed in, but we couldn't load your account. Refresh the page.");
       return;
     }
-    dispatch(toast(`Welcome back, ${state.session.firstName}.`));
-    navigate(next && next.startsWith("/") ? next : "/events");
+    if (user.isAnonymous || !user.name.trim()) {
+      navigate(`/onboarding${query}`);
+      return;
+    }
+    dispatch(toast(`Welcome${signup ? "" : " back"}, ${user.name.split(/\s+/)[0]}.`));
+    if (next === "accept") navigate("/new/generating?accept=1");
+    else navigate(next?.startsWith("/") ? next : "/events");
+  };
+
+  const fail = (e: unknown) => {
+    setBusy("");
+    setError(codeError(e));
+  };
+
+  const google = async () => {
+    setBusy("google");
+    setError("");
+    try {
+      const back = next === "accept" ? "/new/generating?accept=1" : next?.startsWith("/") ? next : "/events";
+      const { url } = await api.google({
+        callbackURL: back,
+        newUserCallbackURL: `/onboarding${query}`,
+        errorCallbackURL: `/${mode}${query ? `${query}&` : "?"}error=google`,
+      });
+      window.location.assign(url);
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const guest = async () => {
+    setBusy("guest");
+    setError("");
+    try {
+      await api.signInGuest();
+      finish(await signedIn());
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const sendCode = async () => {
+    setBusy("send");
+    try {
+      await api.sendCode(email);
+      setBusy("");
+      setSent(true);
+      setSeconds(30);
+      setCode(Array(6).fill(""));
+      window.setTimeout(() => boxes.current[0]?.focus(), 0);
+    } catch (e) {
+      fail(e);
+    }
   };
 
   const send = (e: FormEvent) => {
     e.preventDefault();
-    if (channel === "phone" && !/^[6-9]\d{9}$/.test(phone)) {
-      setError("Enter a 10-digit Indian mobile number, without +91.");
-      return;
-    }
-    if (channel === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!EMAIL.test(email)) {
       setError("Enter an email address like name@example.com.");
       return;
     }
     setError("");
-    setSent(true);
-    setSeconds(30);
-    setCode(Array(6).fill(""));
-    window.setTimeout(() => boxes.current[0]?.focus(), 0);
+    void sendCode();
   };
 
-  const verify = (e: FormEvent) => {
+  const verify = async (e: FormEvent) => {
     e.preventDefault();
     if (code.some((d) => !d)) {
-      setError("Enter all six digits from the message.");
+      setError("Enter all six digits from the email.");
       return;
     }
-    finish();
+    setBusy("verify");
+    setError("");
+    try {
+      await api.verifyCode(email, code.join(""));
+      finish(await signedIn());
+    } catch (err) {
+      fail(err);
+    }
+  };
+
+  const demo = () => {
+    dispatch({ type: "enterDemo" });
+    if (next === "accept") navigate("/new/generating?accept=1");
+    else navigate("/events");
   };
 
   const setDigit = (i: number, value: string) => {
@@ -91,6 +166,8 @@ export function Auth({ mode }: { mode: "signup" | "signin" }) {
     boxes.current[Math.min(5, digits.length)]?.focus();
   };
 
+  const accountsOff = methods && !methods.guest && !methods.email && !methods.google;
+
   return (
     <div className="grid min-h-dvh bg-paper lg:grid-cols-[480px_minmax(0,1fr)]">
       <aside className="on-dark relative flex flex-col justify-between gap-10 overflow-hidden bg-maroon p-6 text-cream sm:p-10">
@@ -101,9 +178,11 @@ export function Auth({ mode }: { mode: "signup" | "signin" }) {
         </div>
         <div className="relative flex flex-col gap-[18px]">
           <h1 className="font-serif text-[clamp(32px,4vw,44px)] leading-[1.08] tracking-[-0.015em] text-white">
-            {signup
-              ? "Save your plan so the whole family can work on it."
-              : "Welcome back. Your events are where you left them."}
+            {upgrading
+              ? "Add an email and your plans follow you to every device."
+              : signup
+                ? "Save your plan so the whole family can work on it."
+                : "Welcome back. Your events are where you left them."}
           </h1>
           {plan ? (
             <div className="flex flex-col gap-2.5 rounded-xl border border-[rgba(241,217,166,.35)] bg-[rgba(31,27,22,.25)] p-4 text-sm leading-[1.45]">
@@ -121,7 +200,7 @@ export function Auth({ mode }: { mode: "signup" | "signin" }) {
           ) : (
             <p className="m-0 max-w-[380px] text-[15px] leading-normal text-gold-soft">
               {signup
-                ? "Describe an event once, then plan it with family, co-planners and volunteers. Everyone sees the same budget."
+                ? "Describe an event once, then plan it with family, co-planners and volunteers. Everyone sees the same plan, and every change can be undone."
                 : "Budgets, tasks, vendors and guests for every event you plan, in one place."}
             </p>
           )}
@@ -134,189 +213,195 @@ export function Auth({ mode }: { mode: "signup" | "signin" }) {
       <main className="flex flex-col justify-center gap-5 px-5 py-12 sm:px-[72px]">
         <div className="mx-auto flex w-full max-w-[440px] flex-col gap-5">
           <h2 className="font-serif text-[34px] leading-[1.1]">
-            {signup ? "Create your account" : "Log in to Plannr"}
+            {upgrading ? "Keep your plans safe" : signup ? "Create your account" : "Log in to Plannr"}
           </h2>
-          <button type="button" className="btn btn-secondary btn-lg w-full border-line-2" onClick={finish}>
-            <GoogleMark />
-            Continue with Google
-          </button>
-          <div className="flex items-center gap-3 text-[13px] text-muted">
-            <span className="h-px flex-1 bg-line" />
-            or
-            <span className="h-px flex-1 bg-line" />
-          </div>
-          <div
-            role="tablist"
-            aria-label="Sign-in method"
-            className="grid grid-cols-2 rounded-[10px] bg-sand-2 p-1 text-sm font-semibold"
-          >
-            {(["email", "phone"] as const).map((c) => (
-              <button
-                key={c}
-                type="button"
-                role="tab"
-                aria-selected={channel === c}
-                onClick={() => {
-                  setChannel(c);
-                  setSent(false);
-                  setError("");
-                }}
-                className={`min-h-10 rounded-[7px] ${channel === c ? "bg-surface shadow-[0_1px_2px_rgba(0,0,0,.08)]" : "text-body"}`}
-              >
-                {c === "email" ? "Email" : "Phone"}
-              </button>
-            ))}
-          </div>
 
-          {!sent ? (
-            <form onSubmit={send} className="flex flex-col gap-5" noValidate>
-              {channel === "phone" ? (
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="phone" className="label">
-                    Mobile number
-                  </label>
-                  <div className="field gap-2.5">
-                    <span className="text-body">+91</span>
-                    <span aria-hidden="true" className="h-5 w-px bg-line" />
-                    <input
-                      id="phone"
-                      inputMode="numeric"
-                      autoComplete="tel-national"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                      placeholder="98470 12345"
-                      className="min-w-0 flex-1 bg-transparent outline-none"
-                      aria-invalid={!!error}
-                      aria-describedby={error ? "auth-error" : undefined}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor="email" className="label">
-                    Email
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value.trim())}
-                    placeholder="priya@example.com"
-                    className="field"
-                    aria-invalid={!!error}
-                    aria-describedby={error ? "auth-error" : undefined}
-                  />
-                </div>
+          {!methods ? (
+            <div className="flex min-h-[200px] items-center justify-center">
+              <Spinner label="Checking sign-in options" />
+            </div>
+          ) : accountsOff ? (
+            <div className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5">
+              <p className="m-0 text-[15px] leading-normal text-body">
+                Accounts aren't switched on for this copy of Plannr yet, so plans can't be saved online. You
+                can still try everything with demo data. It stays in this browser.
+              </p>
+              <button type="button" className="btn btn-primary btn-lg" onClick={demo}>
+                Explore the demo
+              </button>
+            </div>
+          ) : (
+            <>
+              {methods.google && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-lg w-full border-line-2"
+                  onClick={google}
+                  disabled={!!busy}
+                >
+                  <GoogleMark />
+                  {busy === "google" ? "Opening Google…" : "Continue with Google"}
+                </button>
               )}
+              {methods.google && methods.email && <Divider />}
+
+              {methods.email &&
+                (!sent ? (
+                  <form onSubmit={send} className="flex flex-col gap-4" noValidate>
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="email" className="label">
+                        Email
+                      </label>
+                      <input
+                        id="email"
+                        type="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value.trim())}
+                        placeholder="priya@example.com"
+                        className="field"
+                        aria-invalid={!!error}
+                        aria-describedby={error ? "auth-error" : undefined}
+                      />
+                    </div>
+                    <button type="submit" className="btn btn-primary btn-lg" disabled={!!busy}>
+                      {busy === "send" ? "Sending…" : "Email me a code"}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={verify} className="flex flex-col gap-5" noValidate>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="label">Email</span>
+                      <div className="field gap-2.5">
+                        <span className="min-w-0 flex-1 truncate">{email}</span>
+                        <button
+                          type="button"
+                          className="link text-[13px]"
+                          onClick={() => {
+                            setSent(false);
+                            setError("");
+                          }}
+                        >
+                          Change
+                        </button>
+                      </div>
+                    </div>
+                    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                      <legend className="label mb-2">6-digit code sent by email</legend>
+                      <div className="flex gap-2">
+                        {code.map((d, i) => (
+                          <input
+                            // biome-ignore lint/suspicious/noArrayIndexKey: the six boxes are fixed positions
+                            key={i}
+                            ref={(el) => {
+                              boxes.current[i] = el;
+                            }}
+                            value={d}
+                            inputMode="numeric"
+                            autoComplete={i === 0 ? "one-time-code" : "off"}
+                            aria-label={`Digit ${i + 1}`}
+                            onChange={(e) => setDigit(i, e.target.value)}
+                            onKeyDown={(e) => onKey(i, e)}
+                            onPaste={onPaste}
+                            className="h-14 w-12 rounded-[10px] border border-line-2 bg-surface text-center font-serif text-2xl outline-none focus:border-2 focus:border-ink"
+                          />
+                        ))}
+                      </div>
+                      <span className="text-[13px] text-muted">
+                        {seconds > 0 ? (
+                          <>Resend in 0:{String(seconds).padStart(2, "0")}</>
+                        ) : (
+                          <button type="button" className="link" onClick={sendCode} disabled={!!busy}>
+                            Resend code
+                          </button>
+                        )}
+                        {import.meta.env.DEV && " · Running locally: the code is in the server log."}
+                      </span>
+                    </fieldset>
+                    <button type="submit" className="btn btn-primary btn-lg" disabled={!!busy}>
+                      {busy === "verify"
+                        ? "Checking…"
+                        : upgrading
+                          ? "Verify and keep my plans"
+                          : signup
+                            ? plan
+                              ? "Verify and save plan"
+                              : "Verify and continue"
+                            : "Verify and log in"}
+                    </button>
+                  </form>
+                ))}
+
               {error && (
                 <p id="auth-error" role="alert" className="m-0 text-[13px] font-medium text-rust-ink">
                   {error}
                 </p>
               )}
-              <button type="submit" className="btn btn-primary btn-lg">
-                {channel === "phone" ? "Send code by SMS" : "Email me a code"}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={verify} className="flex flex-col gap-5" noValidate>
-              <div className="flex flex-col gap-1.5">
-                <span className="label">{channel === "phone" ? "Mobile number" : "Email"}</span>
-                <div className="field gap-2.5">
-                  <span className="min-w-0 flex-1 truncate">{destination}</span>
-                  <button
-                    type="button"
-                    className="link text-[13px]"
-                    onClick={() => {
-                      setSent(false);
-                      setError("");
-                    }}
-                  >
-                    Change
-                  </button>
-                </div>
-              </div>
-              <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-                <legend className="label mb-2">
-                  6-digit code sent {channel === "phone" ? "by SMS" : "by email"}
-                </legend>
-                <div className="flex gap-2">
-                  {code.map((d, i) => (
-                    <input
-                      // biome-ignore lint/suspicious/noArrayIndexKey: the six boxes are fixed positions
-                      key={i}
-                      ref={(el) => {
-                        boxes.current[i] = el;
-                      }}
-                      value={d}
-                      inputMode="numeric"
-                      autoComplete={i === 0 ? "one-time-code" : "off"}
-                      aria-label={`Digit ${i + 1}`}
-                      onChange={(e) => setDigit(i, e.target.value)}
-                      onKeyDown={(e) => onKey(i, e)}
-                      onPaste={onPaste}
-                      className="h-14 w-12 rounded-[10px] border border-line-2 bg-surface text-center font-serif text-2xl outline-none focus:border-2 focus:border-ink"
-                    />
-                  ))}
-                </div>
-                <span className="text-[13px] text-muted">
-                  {seconds > 0 ? (
-                    <>Resend in 0:{String(seconds).padStart(2, "0")}</>
-                  ) : (
-                    <button type="button" className="link" onClick={() => setSeconds(30)}>
-                      Resend code
+
+              {methods.guest && !upgrading && (
+                <>
+                  <Divider />
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-lg w-full"
+                      onClick={guest}
+                      disabled={!!busy}
+                    >
+                      {busy === "guest" ? "Setting things up…" : "Continue as a guest"}
                     </button>
-                  )}
-                  {channel === "phone" && (
-                    <>
-                      {" · or "}
-                      <button
-                        type="button"
-                        className="link font-medium"
-                        onClick={() => {
-                          setSeconds(30);
-                          dispatch(toast("Code sent on WhatsApp."));
-                        }}
-                      >
-                        get it on WhatsApp
-                      </button>
-                    </>
-                  )}
-                </span>
-              </fieldset>
-              {error && (
-                <p role="alert" className="m-0 text-[13px] font-medium text-rust-ink">
-                  {error}
-                </p>
+                    <span className="text-[13px] leading-[1.4] text-muted">
+                      No email needed. Your plans are saved online for this browser; add an email any time to
+                      use them on your phone too.
+                    </span>
+                  </div>
+                </>
               )}
-              <button type="submit" className="btn btn-primary btn-lg">
-                {signup ? (plan ? "Verify and save plan" : "Verify and continue") : "Verify and log in"}
-              </button>
-            </form>
+            </>
           )}
 
-          <div className="flex flex-col gap-1 border-t border-line pt-1.5">
-            {signup ? (
-              <>
-                <Link to={plan ? "/new/plan" : "/new"} className="link mt-1.5 text-sm">
-                  Keep planning as a guest
+          <div className="flex flex-col gap-1.5 border-t border-line pt-3 text-sm text-body">
+            {upgrading ? (
+              <Link to="/events" className="link">
+                Not now, back to my events
+              </Link>
+            ) : signup ? (
+              <span>
+                Already have an account?{" "}
+                <Link to={`/signin${query}`} className="link">
+                  Log in
                 </Link>
-                <span className="text-[13px] leading-[1.4] text-muted">
-                  Your draft stays on this device for 7 days. We'll remind you to save it before inviting
-                  anyone.
-                </span>
-              </>
+              </span>
             ) : (
-              <span className="mt-1.5 text-sm text-body">
+              <span>
                 New to Plannr?{" "}
-                <Link to="/signup" className="link">
+                <Link to={`/signup${query}`} className="link">
                   Create an account
                 </Link>
+              </span>
+            )}
+            {!upgrading && !accountsOff && (
+              <span>
+                Just looking?{" "}
+                <button type="button" className="link" onClick={demo}>
+                  Explore the demo
+                </button>{" "}
+                with sample events. It stays in this browser.
               </span>
             )}
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+function Divider() {
+  return (
+    <div className="flex items-center gap-3 text-[13px] text-muted">
+      <span className="h-px flex-1 bg-line" />
+      or
+      <span className="h-px flex-1 bg-line" />
     </div>
   );
 }

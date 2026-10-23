@@ -127,6 +127,7 @@ export function Modal({
   children,
   width = 480,
   label,
+  side = "center",
 }: {
   open: boolean;
   onClose: () => void;
@@ -134,6 +135,8 @@ export function Modal({
   children: ReactNode;
   width?: number;
   label?: string;
+  /** "right": a full-height sheet for working on one record beside the page. */
+  side?: "center" | "right";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -155,7 +158,7 @@ export function Modal({
       }}
       aria-labelledby={title ? titleId : undefined}
       aria-label={title ? undefined : label}
-      className="m-auto max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] overflow-auto rounded-2xl border-0 bg-surface p-0 text-ink shadow-[0_1px_2px_rgba(0,0,0,.06),0_16px_48px_rgba(60,40,20,.18)] backdrop:bg-[rgba(31,27,22,.45)]"
+      className={`${side === "right" ? "m-0 ml-auto h-dvh max-h-dvh w-full rounded-none" : "m-auto max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] rounded-2xl"} overflow-auto border-0 bg-surface p-0 text-ink shadow-[0_1px_2px_rgba(0,0,0,.06),0_16px_48px_rgba(60,40,20,.18)] backdrop:bg-[rgba(31,27,22,.45)]`}
       style={{ maxWidth: width }}
     >
       {open && (
@@ -325,7 +328,7 @@ export function Field({
         {label}
       </label>
       {children}
-      {hint}
+      {typeof hint === "string" ? <span className="text-xs leading-[1.4] text-muted">{hint}</span> : hint}
     </div>
   );
 }

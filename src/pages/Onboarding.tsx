@@ -1,8 +1,9 @@
 import { type FormEvent, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Logo, Toran, usePageMeta } from "../components/ui";
+import { api } from "../lib/api";
 import { initials } from "../lib/format";
-import { useStore } from "../store/store";
+import { toast, useStore } from "../store/store";
 import { useAcceptPlan } from "../store/useAcceptPlan";
 
 const LANGUAGES: { label: string; lang?: string; name: string }[] = [
@@ -35,7 +36,9 @@ export function Onboarding() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const accept = useAcceptPlan();
-  const [name, setName] = useState(state.session.name);
+  // A guest starts as "Guest planner"; co-planners should see a real name instead.
+  const guestName = state.account.user?.isAnonymous && state.session.name === "Guest planner";
+  const [name, setName] = useState(guestName ? "" : state.session.name);
   const [city, setCity] = useState(state.session.city);
   const [language, setLanguage] = useState(state.session.language);
   const [currency, setCurrency] = useState("INR");
@@ -45,9 +48,10 @@ export function Onboarding() {
   const district = DISTRICTS[cityKey];
   const cityName = city.split(",")[0]?.trim();
 
+  const next = params.get("next");
   const go = () => {
-    if (params.get("next") === "accept" && state.draft.generated) accept();
-    else navigate("/events");
+    if (next === "accept" && state.draft.generated) void accept();
+    else navigate(next?.startsWith("/") ? next : "/events");
   };
 
   const submit = (e: FormEvent) => {
@@ -67,6 +71,8 @@ export function Onboarding() {
         language,
       },
     });
+    if (state.mode === "account")
+      api.rename(clean).catch(() => dispatch(toast("Couldn't save your name yet. It will show as before.")));
     go();
   };
 
@@ -172,9 +178,11 @@ export function Onboarding() {
             </select>
           </div>
           <button type="submit" className="btn btn-primary btn-lg mt-2 min-h-[50px]">
-            {params.get("next") === "accept" && state.draft.generated
+            {next === "accept" && state.draft.generated
               ? "Continue to my plan"
-              : "Continue to my events"}
+              : next?.startsWith("/join/")
+                ? "Continue to the invite"
+                : "Continue to my events"}
           </button>
         </form>
       </main>

@@ -9,7 +9,16 @@ import {
   replay,
   stamp,
 } from "../src/shared/engine";
-import { changes, comments, events, invites, members, type Role, user } from "./db/schema";
+import type {
+  ActivityEntry,
+  CommentView,
+  HistoryEntry,
+  InvitePreview,
+  Member,
+  PlanSummary,
+  Role,
+} from "../src/shared/types";
+import { changes, comments, events, invites, members, user } from "./db/schema";
 import type { Db } from "./db/types";
 
 /**
@@ -52,13 +61,6 @@ async function requireRole(db: Db, eventId: string, userId: string, min: Role): 
 }
 
 // ---------------------------------------------------------------- plans
-
-export interface PlanSummary {
-  event: PlannrEvent;
-  version: number;
-  role: Role;
-  side: string | null;
-}
 
 export async function listPlans(db: Db, userId: string): Promise<PlanSummary[]> {
   const rows = await db
@@ -211,18 +213,6 @@ export async function undoChange(
   });
 }
 
-export interface HistoryEntry {
-  id: string;
-  seq: number;
-  kind: "action" | "undo" | "redo";
-  summary: string;
-  at: string;
-  by: string | null;
-  byId: string | null;
-  undone: boolean;
-  targetId: string | null;
-}
-
 export async function history(db: Db, eventId: string, userId: string, limit = 100): Promise<HistoryEntry[]> {
   await requireRole(db, eventId, userId, "viewer");
   const rows = await db
@@ -255,16 +245,39 @@ export async function history(db: Db, eventId: string, userId: string, limit = 1
   }));
 }
 
-// ---------------------------------------------------------------- people
-
-export interface Member {
-  userId: string;
-  name: string;
-  email: string | null;
-  role: Role;
-  side: string | null;
-  guest: boolean;
+/** The latest changes across every plan this person is part of, newest first. */
+export async function activity(db: Db, userId: string, limit = 60): Promise<ActivityEntry[]> {
+  const rows = await db
+    .select({
+      id: changes.id,
+      eventId: changes.eventId,
+      eventName: sql<string>`${events.data}->>'name'`,
+      kind: changes.kind,
+      summary: changes.summary,
+      createdAt: changes.createdAt,
+      byId: changes.userId,
+      by: user.name,
+    })
+    .from(changes)
+    .innerJoin(members, and(eq(members.eventId, changes.eventId), eq(members.userId, userId)))
+    .innerJoin(events, eq(events.id, changes.eventId))
+    .leftJoin(user, eq(user.id, changes.userId))
+    .where(eq(changes.quiet, false))
+    .orderBy(desc(changes.createdAt))
+    .limit(Math.min(200, Math.max(1, limit)));
+  return rows.map((r) => ({
+    id: r.id,
+    eventId: r.eventId,
+    eventName: r.eventName,
+    kind: r.kind,
+    summary: r.summary,
+    at: r.createdAt.toISOString(),
+    by: r.by,
+    mine: r.byId === userId,
+  }));
 }
+
+// ---------------------------------------------------------------- people
 
 export async function listMembers(db: Db, eventId: string, userId: string): Promise<Member[]> {
   await requireRole(db, eventId, userId, "viewer");
@@ -342,18 +355,6 @@ export async function createInvite(
   return { token, expiresAt: expiresAt.toISOString() };
 }
 
-export interface InvitePreview {
-  eventId: string;
-  eventName: string;
-  kind: PlannrEvent["kind"];
-  date: string;
-  role: Role;
-  side: string | null;
-  invitedBy: string;
-  valid: boolean;
-  reason?: string;
-}
-
 async function inviteRow(db: Db, token: string) {
   const [row] = await db
     .select({ invite: invites, event: events.data, inviter: user.name })
@@ -414,13 +415,6 @@ export async function acceptInvite(
 }
 
 // ---------------------------------------------------------------- comments
-
-export interface CommentView {
-  id: string;
-  body: string;
-  by: string | null;
-  at: string;
-}
 
 export async function listComments(
   db: Db,

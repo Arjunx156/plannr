@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { PlannrEvent } from "../../src/data/types";
 import type { EventAction } from "../../src/shared/engine";
+import type { Role } from "../../src/shared/types";
 
 // ---------------------------------------------------------------- accounts (Better Auth)
 
@@ -79,8 +80,6 @@ export const verification = pgTable(
 );
 
 // ---------------------------------------------------------------- plans
-
-export type Role = "owner" | "planner" | "viewer";
 
 export const events = pgTable(
   "events",

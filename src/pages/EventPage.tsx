@@ -1,67 +1,152 @@
-import { type FormEvent, useState } from "react";
-import { Link, Navigate, useParams } from "react-router";
+import { type FormEvent, lazy, Suspense, useState } from "react";
+import { Link, Navigate, NavLink, useParams, useSearchParams } from "react-router";
 import { AssistantPanel } from "../components/assistant";
+import { AppShell } from "../components/shell";
+import { TaskRow, TaskSheet, useEditable, useTaskToggle } from "../components/tasks";
 import {
   Field,
   HUE_COLOR,
-  Logo,
   Modal,
   Panel,
   Pill,
+  Spinner,
   StatTile,
-  Toran,
   toneText,
   usePageMeta,
 } from "../components/ui";
 import type { ActionId, CommunityEvent, Notice, PersonalEvent, PlannrEvent, Task } from "../data/types";
-import { daysUntil, dueLabel, longDate, shortDate, TODAY } from "../lib/dates";
+import { daysUntil, longDate, shortDate, TODAY } from "../lib/dates";
 import { inr, inrShort, pct } from "../lib/format";
 import { budgetTotals, communityReadiness, personalReadiness, tasksDone } from "../lib/metrics";
+import { ROLE_LABEL } from "../shared/types";
+import { usePlanFreshness } from "../store/account";
 import { toast, useStore } from "../store/store";
 
+const TasksTab = lazy(() => import("./EventTabs").then((m) => ({ default: m.TasksTab })));
+const HistoryTab = lazy(() => import("./EventTabs").then((m) => ({ default: m.HistoryTab })));
+const PeopleTab = lazy(() => import("./EventTabs").then((m) => ({ default: m.PeopleTab })));
+
+const TABS = [
+  { id: "", label: "Overview" },
+  { id: "tasks", label: "Tasks" },
+  { id: "history", label: "History" },
+  { id: "people", label: "People" },
+] as const;
+
+/** /events/:id/:tab? — one event, with its overview, tasks, history and people. */
 export function EventPage() {
-  const { id } = useParams();
+  const { id, tab = "" } = useParams();
   const { state } = useStore();
+  const [params, setParams] = useSearchParams();
   const ev = state.events.find((e) => e.id === id);
-  usePageMeta(ev?.name ?? "Event not found", { private: true });
-  if (!state.session.signedIn) return <Navigate to={`/signin?next=/events/${id ?? ""}`} replace />;
-  if (!ev) return <Missing />;
+  const current = TABS.find((t) => t.id === tab);
+  usePageMeta(ev ? (current?.id ? `${current.label} · ${ev.name}` : ev.name) : "Event not found", {
+    private: true,
+  });
+  usePlanFreshness(id);
+  const openTask = params.get("task");
+  const setTask = (taskId: string | null) =>
+    setParams(
+      (p) => {
+        if (taskId) p.set("task", taskId);
+        else p.delete("task");
+        return p;
+      },
+      { replace: !taskId },
+    );
+
+  if (!ev) {
+    // An account's plans may still be on their way from the server.
+    const loading = state.mode === "account" && state.account.status === "unknown";
+    return <AppShell>{loading ? <Loading /> : <Missing />}</AppShell>;
+  }
+  if (!current) return <Navigate to={`/events/${ev.id}`} replace />;
   return (
-    <div className="min-h-dvh bg-paper">
-      <Toran />
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3.5 sm:px-8">
-        <div className="flex items-center gap-4">
-          <Logo to="/events" />
-          <Link to="/events" className="link text-sm">
-            ← My events
-          </Link>
-        </div>
-        <span className="text-[13px] font-medium text-body">
-          {state.session.name} · <span className="font-mono text-[11px]">{ev.role}</span>
-        </span>
-      </header>
+    <AppShell>
+      <EventBar ev={ev} />
       {ev.layout === "empty" ? (
         <EmptyPlan ev={ev} />
-      ) : (
+      ) : tab === "" ? (
         <div className="mx-auto grid max-w-[1440px] gap-6 px-4 py-6 sm:px-8 xl:grid-cols-[minmax(0,1fr)_400px]">
           <main className="flex min-w-0 flex-col gap-6">
             <Hero ev={ev} />
-            {ev.layout === "personal" ? <Personal ev={ev} /> : <Community ev={ev} />}
+            {ev.layout === "personal" ? (
+              <Personal ev={ev} onOpenTask={setTask} />
+            ) : (
+              <Community ev={ev} onOpenTask={setTask} />
+            )}
           </main>
           <aside className="xl:sticky xl:top-4 xl:self-start">
             <AssistantPanel ev={ev} />
           </aside>
         </div>
+      ) : (
+        <Suspense fallback={<Loading />}>
+          {tab === "tasks" && <TasksTab ev={ev} onOpenTask={setTask} />}
+          {tab === "history" && <HistoryTab ev={ev} />}
+          {tab === "people" && <PeopleTab ev={ev} />}
+        </Suspense>
       )}
+      <TaskSheet ev={ev} taskId={openTask} onClose={() => setTask(null)} />
+    </AppShell>
+  );
+}
+
+function EventBar({ ev }: { ev: PlannrEvent }) {
+  const { state } = useStore();
+  const editable = useEditable(ev);
+  const remote = state.remote[ev.id];
+  const tab = ({ isActive }: { isActive: boolean }) =>
+    `-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold no-underline ${isActive ? "border-ink text-ink" : "border-transparent text-body hover:text-ink"}`;
+  return (
+    <div className="border-b border-line bg-surface">
+      <div className="mx-auto flex max-w-[1440px] flex-col gap-1 px-4 pt-3 sm:px-8">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <Link to="/events" className="link text-body">
+            ← My events
+          </Link>
+          <span aria-hidden="true" className="text-line-2">
+            /
+          </span>
+          <span className="font-semibold">{ev.name}</span>
+          <span className="font-mono text-[11px] text-muted">
+            {remote ? `${ROLE_LABEL[remote.role]}${remote.side ? ` · ${remote.side}` : ""}` : ev.role}
+          </span>
+        </div>
+        {ev.layout !== "empty" && (
+          <nav aria-label="Event sections" className="flex gap-1 overflow-x-auto">
+            {TABS.map((t) => (
+              <NavLink key={t.id} to={`/events/${ev.id}${t.id ? `/${t.id}` : ""}`} end className={tab}>
+                {t.label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
+      </div>
+      {!editable && (
+        <p className="m-0 border-t border-line bg-peacock-wash px-4 py-2 text-center text-[13px] text-body sm:px-8">
+          You can view this plan and follow along. Ask the owner to make you a co-planner to change it.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Loading() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center">
+      <Spinner label="Loading" />
     </div>
   );
 }
 
 function Missing() {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-paper p-6 text-center">
-      <Logo to="/" />
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-6 text-center">
       <h1 className="font-serif text-4xl">We couldn't find that event</h1>
+      <p className="m-0 max-w-[420px] text-body">
+        It may have been removed, or it's shared with a different account than the one you're signed in to.
+      </p>
       <Link to="/events" className="btn btn-primary">
         Back to my events
       </Link>
@@ -70,16 +155,21 @@ function Missing() {
 }
 
 function EmptyPlan({ ev }: { ev: PlannrEvent }) {
+  const editable = useEditable(ev);
   return (
     <main className="mx-auto flex max-w-[640px] flex-col gap-4 px-4 py-16 text-center">
       <span className="eyebrow text-muted">{ev.eyebrow}</span>
       <h1 className="font-serif text-[44px] leading-[1.05]">{ev.name}</h1>
       <p className="m-0 text-body">
-        No plan yet. Describe the day in a sentence and Plannr will draft the budget, tasks and vendors.
+        {editable
+          ? "No plan yet. Describe the day in a sentence and Plannr will draft the budget, tasks and vendors."
+          : "No plan yet. It shows up here as soon as a co-planner drafts one."}
       </p>
-      <Link to={`/new?event=${ev.id}`} className="btn btn-primary btn-lg self-center">
-        Plan it with Plannr
-      </Link>
+      {editable && (
+        <Link to={`/new?event=${ev.id}`} className="btn btn-primary btn-lg self-center">
+          Plan it with Plannr
+        </Link>
+      )}
     </main>
   );
 }
@@ -108,7 +198,7 @@ function Hero({ ev }: { ev: PersonalEvent | CommunityEvent }) {
 
 // ---------------------------------------------------------------- personal
 
-function Personal({ ev }: { ev: PersonalEvent }) {
+function Personal({ ev, onOpenTask }: { ev: PersonalEvent; onOpenTask: (id: string) => void }) {
   const r = personalReadiness(ev, TODAY);
   const t = budgetTotals(ev.budget);
   return (
@@ -160,7 +250,7 @@ function Personal({ ev }: { ev: PersonalEvent }) {
         </Panel>
       )}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Tasks ev={ev} />
+        <Tasks ev={ev} onOpenTask={onOpenTask} />
         <Panel title="Vendors">
           <VendorGroup label="Booked" items={ev.vendors.booked} tone="ok" />
           <VendorGroup label="In conversation" items={ev.vendors.talking} tone="due" />
@@ -273,12 +363,12 @@ function Budget({ ev }: { ev: PersonalEvent }) {
 
 // ---------------------------------------------------------------- shared
 
-function Tasks({ ev }: { ev: PersonalEvent | CommunityEvent }) {
+function Tasks({ ev, onOpenTask }: { ev: PersonalEvent | CommunityEvent; onOpenTask: (id: string) => void }) {
   const { dispatch } = useStore();
+  const editable = useEditable(ev);
+  const { toggle, ticked } = useTaskToggle(ev);
   const [title, setTitle] = useState("");
   const [showDone, setShowDone] = useState(false);
-  // Tasks ticked during this visit stay in place, struck through, so the tick is visible and undoable.
-  const [ticked, setTicked] = useState<string[]>([]);
   const settled = (t: Task) => t.done && !ticked.includes(t.id);
   const list = [...ev.tasks.list].sort(
     (a, b) => Number(settled(a)) - Number(settled(b)) || a.due.localeCompare(b.due),
@@ -302,71 +392,56 @@ function Tasks({ ev }: { ev: PersonalEvent | CommunityEvent }) {
     <Panel
       title="Tasks"
       aside={
-        <button type="button" className="link text-xs" onClick={() => setShowDone((s) => !s)}>
-          {showDone ? "Hide done" : `Show done (${ev.tasks.list.filter((t) => t.done).length})`}
-        </button>
+        <span className="flex gap-3">
+          <button type="button" className="link text-xs" onClick={() => setShowDone((s) => !s)}>
+            {showDone ? "Hide done" : `Show done (${ev.tasks.list.filter((t) => t.done).length})`}
+          </button>
+          <Link to={`/events/${ev.id}/tasks`} className="link text-xs">
+            All tasks
+          </Link>
+        </span>
       }
     >
       <span className="text-xs text-muted">
         {tasksDone(ev.tasks)} of {ev.tasks.total} done across the whole plan
       </span>
       <ul className="m-0 flex list-none flex-col p-0">
-        {visible.map((t) => {
-          const due = dueLabel(t.due);
-          return (
-            <li key={t.id} className="flex items-start gap-3 border-t border-sand-2 py-2.5">
-              <input
-                type="checkbox"
-                id={`task-${t.id}`}
-                checked={t.done}
-                onChange={() => {
-                  setTicked((prev) => (prev.includes(t.id) ? prev : [...prev, t.id]));
-                  dispatch({ type: "toggleTask", eventId: ev.id, taskId: t.id });
-                  if (!t.done)
-                    dispatch(toast(`Done: ${t.title}`, { type: "toggleTask", eventId: ev.id, taskId: t.id }));
-                }}
-                className="mt-1 h-4 w-4 accent-[var(--color-leaf)]"
-              />
-              <label htmlFor={`task-${t.id}`} className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className={`text-sm font-medium ${t.done ? "text-muted line-through" : ""}`}>
-                  {t.title}
-                </span>
-                <span className="text-xs text-muted">
-                  {t.who}
-                  {t.note ? ` · ${t.note}` : ""}
-                </span>
-              </label>
-              <span
-                className={`shrink-0 text-xs font-medium ${due.late && !t.done ? "text-rust-ink" : "text-body"}`}
-              >
-                {due.text}
-              </span>
-            </li>
-          );
-        })}
+        {visible.map((t) => (
+          <TaskRow
+            key={t.id}
+            ev={ev}
+            task={t}
+            editable={editable}
+            onToggle={toggle}
+            onOpen={(x) => onOpenTask(x.id)}
+          />
+        ))}
         {!visible.length && <li className="py-2 text-sm text-muted">Nothing open. Enjoy the quiet.</li>}
       </ul>
-      <form onSubmit={add} className="flex gap-2">
-        <label htmlFor={`new-task-${ev.id}`} className="sr-only">
-          New task
-        </label>
-        <input
-          id={`new-task-${ev.id}`}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Add a task"
-          className="field flex-1"
-        />
-        <button type="submit" className="btn btn-secondary btn-sm" disabled={!title.trim()}>
-          Add
-        </button>
-      </form>
+      {editable && (
+        <form onSubmit={add} className="flex gap-2">
+          <label htmlFor={`new-task-${ev.id}`} className="sr-only">
+            New task
+          </label>
+          <input
+            id={`new-task-${ev.id}`}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Add a task"
+            className="field flex-1"
+          />
+          <button type="submit" className="btn btn-secondary btn-sm" disabled={!title.trim()}>
+            Add
+          </button>
+        </form>
+      )}
     </Panel>
   );
 }
 
 function Notices({ ev }: { ev: PersonalEvent | CommunityEvent }) {
   const { dispatch } = useStore();
+  const editable = useEditable(ev);
   const [booking, setBooking] = useState(false);
   const [savings, setSavings] = useState(false);
   const open = ev.notices.filter((n) => n.status === "open");
@@ -451,7 +526,7 @@ function Notices({ ev }: { ev: PersonalEvent | CommunityEvent }) {
                 </span>
               ))}
               {n.why && <span className="text-xs leading-[1.4] text-peacock">{n.why}</span>}
-              <div className="mt-1 flex flex-wrap gap-2">
+              <div className={`mt-1 flex-wrap gap-2 ${editable ? "flex" : "hidden"}`}>
                 {n.primary && (
                   <button
                     type="button"
@@ -482,13 +557,15 @@ function Notices({ ev }: { ev: PersonalEvent | CommunityEvent }) {
               <span>
                 <span className="text-leaf-ink">✓</span> {n.result ?? n.label}
               </span>
-              <button
-                type="button"
-                className="link text-xs"
-                onClick={() => dispatch({ type: "reopenNotice", eventId: ev.id, noticeId: n.id })}
-              >
-                Reopen
-              </button>
+              {editable && (
+                <button
+                  type="button"
+                  className="link text-xs"
+                  onClick={() => dispatch({ type: "reopenNotice", eventId: ev.id, noticeId: n.id })}
+                >
+                  Reopen
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -586,8 +663,9 @@ function Savings({
 
 // ---------------------------------------------------------------- community
 
-function Community({ ev }: { ev: CommunityEvent }) {
+function Community({ ev, onOpenTask }: { ev: CommunityEvent; onOpenTask: (id: string) => void }) {
   const { dispatch } = useStore();
+  const editable = useEditable(ev);
   const r = communityReadiness(ev);
   const received = ev.funds.sources.reduce((s, x) => s + x.received, 0);
   const expected = ev.funds.sources.reduce((s, x) => s + x.expected, 0);
@@ -624,7 +702,7 @@ function Community({ ev }: { ev: CommunityEvent }) {
       </div>
       <Notices ev={ev} />
       <div className="grid gap-6 lg:grid-cols-2">
-        <Tasks ev={ev} />
+        <Tasks ev={ev} onOpenTask={onOpenTask} />
         <Panel title="Permits & bookings">
           <ul className="m-0 flex list-none flex-col p-0">
             {ev.permits.map((p) => (
@@ -663,7 +741,9 @@ function Community({ ev }: { ev: CommunityEvent }) {
                 <span className="text-xs text-muted">by {a.by}</span>
               </span>
               <span className="tabular">{inr(a.amount)}</span>
-              {a.status === "pending" ? (
+              {a.status === "pending" && !editable ? (
+                <Pill tone="due">waiting</Pill>
+              ) : a.status === "pending" ? (
                 <span className="flex gap-1.5">
                   <button
                     type="button"
@@ -710,6 +790,7 @@ function Community({ ev }: { ev: CommunityEvent }) {
 
 function Shifts({ ev }: { ev: CommunityEvent }) {
   const { dispatch } = useStore();
+  const editable = useEditable(ev);
   return (
     <Panel title="Volunteer shifts">
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users must be able to scroll a wide table (WCAG scrollable-region-focusable) */}
@@ -737,7 +818,8 @@ function Shifts({ ev }: { ev: CommunityEvent }) {
                     <td key={`${role.role}-${ev.shifts.slots[i]}`} className="py-2.5 pr-3">
                       <div className="flex flex-col gap-1">
                         <span>{slot.names.join(", ") || <span className="text-muted">—</span>}</span>
-                        {gap > 0 && (
+                        {gap > 0 && !editable && <span className="text-xs text-rust-ink">Needs {gap}</span>}
+                        {gap > 0 && editable && (
                           <label className="flex items-center gap-1.5 text-xs text-rust-ink">
                             <span>Needs {gap}</span>
                             <select

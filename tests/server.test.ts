@@ -56,6 +56,21 @@ describe("accounts", () => {
     expect((await new Client().call("/api/events")).status).toBe(401);
   });
 
+  test("changes from other sites are refused", async () => {
+    const priya = new Client();
+    await priya.guest();
+    const res = await app.request("/api/events", {
+      method: "POST",
+      headers: {
+        origin: "https://evil.example",
+        "content-type": "application/json",
+        cookie: [...priya.cookies].map(([k, v]) => `${k}=${v}`).join("; "),
+      },
+      body: JSON.stringify({ event: wedding() }),
+    });
+    expect(res.status).toBe(403);
+  });
+
   test("a guest gets a real account with a session", async () => {
     const priya = new Client();
     const id = await priya.guest();
@@ -135,6 +150,33 @@ describe("plans, history and undo", () => {
     expect(hist.json.history).toEqual([]);
   });
 
+  test("a new draft replaces an empty event and can be undone", async () => {
+    const priya = new Client();
+    await priya.guest();
+    const empty = seedEvents().find((e) => e.layout === "empty");
+    if (!empty) throw new Error("seed has an event without a plan");
+    const ev = { ...empty, id: `empty-${crypto.randomUUID().slice(0, 8)}` };
+    await priya.call("/api/events", { body: { event: ev } });
+    const draft = { ...wedding(), name: "Ignored", id: "ignored" };
+    const res = await priya.call(`/api/events/${ev.id}/actions`, {
+      body: { actions: [{ type: "replacePlan", event: draft }] },
+    });
+    expect(res.status).toBe(200);
+    expect(res.json.event.id).toBe(ev.id);
+    expect(res.json.event.layout).toBe("personal");
+    const hist = await priya.call(`/api/events/${ev.id}/history`);
+    expect(hist.json.history[0].summary).toBe("Drafted the plan");
+    const undone = await priya.call(`/api/events/${ev.id}/history/${hist.json.history[0].id}/undo`, {
+      body: {},
+    });
+    expect(undone.json.event.layout).toBe("empty");
+
+    const missing = await priya.call(`/api/events/${ev.id}/actions`, {
+      body: { actions: [{ type: "replacePlan" }] },
+    });
+    expect(missing.status).toBe(400);
+  });
+
   test("rejects unknown changes and oversized batches", async () => {
     const priya = new Client();
     await priya.guest();
@@ -211,6 +253,30 @@ describe("planning together", () => {
     );
   });
 
+  test("the inbox shows co-planners' changes across plans", async () => {
+    const priya = new Client();
+    await priya.guest();
+    const ev = wedding();
+    await priya.call("/api/events", { body: { event: ev } });
+    const invite = await priya.call(`/api/events/${ev.id}/invites`, { body: { role: "planner" } });
+    const rohan = new Client();
+    await rohan.guest();
+    await rohan.call("/api/auth/update-user", { body: { name: "Rohan" } });
+    await rohan.call(`/api/invites/${invite.json.token}/accept`, { body: {} });
+    await rohan.call(`/api/events/${ev.id}/actions`, {
+      body: { actions: [{ type: "renameEvent", name: "Ananya & Rohan" }] },
+    });
+    const feed = await priya.call("/api/activity");
+    expect(feed.json.activity[0]).toMatchObject({
+      eventId: ev.id,
+      eventName: "Ananya & Rohan",
+      summary: "Renamed the event to “Ananya & Rohan”",
+      by: "Rohan",
+      mine: false,
+    });
+    expect((await new Client().call("/api/activity")).status).toBe(401);
+  });
+
   test("comments sit with the record they're about", async () => {
     const priya = new Client();
     await priya.guest();
@@ -231,6 +297,7 @@ describe("upgrading a guest", () => {
   test("signing in by email code keeps the guest's plans", async () => {
     const priya = new Client();
     await priya.guest();
+    await priya.call("/api/auth/update-user", { body: { name: "Priya" } });
     const ev = wedding();
     await priya.call("/api/events", { body: { event: ev } });
 
@@ -246,6 +313,7 @@ describe("upgrading a guest", () => {
 
     const me = await priya.call("/api/me");
     expect(me.json.user.email).toBe(email);
+    expect(me.json.user.name).toBe("Priya");
     expect(me.json.user.isAnonymous).toBeFalsy();
     const plans = await priya.call("/api/events");
     expect(plans.json.plans.map((p: { event: { id: string } }) => p.event.id)).toEqual([ev.id]);

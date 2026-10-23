@@ -45,7 +45,9 @@ export type EventAction =
   | { type: "approveExpense"; eventId: string; approvalId: string; status: "approved" | "declined" }
   | { type: "assignShift"; eventId: string; role: string; slot: number; name: string }
   | { type: "archiveEvent"; eventId: string; archived: boolean }
-  | { type: "renameEvent"; eventId: string; name: string };
+  | { type: "renameEvent"; eventId: string; name: string }
+  /** Puts a freshly drafted plan in place of an event that had none, or an earlier draft. */
+  | { type: "replacePlan"; eventId: string; event: PlannrEvent };
 
 export const EVENT_ACTION_TYPES = new Set<EventAction["type"]>([
   "toggleTask",
@@ -70,6 +72,7 @@ export const EVENT_ACTION_TYPES = new Set<EventAction["type"]>([
   "assignShift",
   "archiveEvent",
   "renameEvent",
+  "replacePlan",
 ]);
 
 /** Conversation with the assistant: saved with the plan, but not part of its history. */
@@ -429,6 +432,9 @@ export function applyEventAction(ev: PlannrEvent, action: EventAction): PlannrEv
       return { ...ev, archived: action.archived };
     case "renameEvent":
       return { ...ev, name: action.name.trim().slice(0, 120) || ev.name };
+    case "replacePlan":
+      // The id and archive state belong to the event, not the draft.
+      return { ...action.event, id: ev.id, archived: ev.archived } as PlannrEvent;
   }
 }
 
@@ -493,6 +499,8 @@ export function describeAction(action: EventAction, ev: PlannrEvent): string {
       return action.archived ? "Archived the event" : "Restored the event";
     case "renameEvent":
       return `Renamed the event to ${quote(action.name)}`;
+    case "replacePlan":
+      return ev.layout === "empty" ? "Drafted the plan" : "Replaced the plan with a new draft";
     case "pushMessage":
     case "previewStatus":
     case "messageActionDone":

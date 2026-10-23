@@ -1,7 +1,9 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { anonymous, emailOTP } from "better-auth/plugins";
-import { schema } from "./db/schema";
+import { eq } from "drizzle-orm";
+import type { SignInMethods } from "../src/shared/types";
+import { schema, user } from "./db/schema";
 import type { Db } from "./db/types";
 import { moveOwnership } from "./plans";
 
@@ -26,12 +28,6 @@ export interface AuthEnv {
   VERCEL_PROJECT_PRODUCTION_URL?: string;
   /** "production" on a self-hosted server; Vercel deployments are detected on their own. */
   PLANNR_ENV?: string;
-}
-
-export interface SignInMethods {
-  guest: true;
-  email: boolean;
-  google: boolean;
 }
 
 const DEV_SECRET = "plannr-development-secret-not-for-production-use";
@@ -99,6 +95,15 @@ export function createAuth(db: Db, env: AuthEnv) {
     trustedOrigins: origins,
     database: drizzleAdapter(db, { provider: "pg", schema }),
     session: { expiresIn: 60 * 60 * 24 * 60, updateAge: 60 * 60 * 24 },
+    // Better Auth decides "production" from NODE_ENV, which local preview builds set too.
+    // Guests share IPs behind mobile carriers, so starting one is allowed more often than
+    // a password-style sign-in; sending codes keeps the email plugin's own stricter limit.
+    rateLimit: {
+      enabled: isProduction(env),
+      window: 60,
+      max: 200,
+      customRules: { "/sign-in/anonymous": { window: 60, max: 20 } },
+    },
     socialProviders: methods.google
       ? { google: { clientId: env.GOOGLE_CLIENT_ID ?? "", clientSecret: env.GOOGLE_CLIENT_SECRET ?? "" } }
       : undefined,
@@ -108,6 +113,10 @@ export function createAuth(db: Db, env: AuthEnv) {
         generateName: () => "Guest planner",
         onLinkAccount: async ({ anonymousUser, newUser }) => {
           await moveOwnership(db, anonymousUser.user.id, newUser.user.id);
+          // A new email account has no name yet; keep the one the guest already chose.
+          const guestName = anonymousUser.user.name?.trim();
+          if (!newUser.user.name?.trim() && guestName && guestName !== "Guest planner")
+            await db.update(user).set({ name: guestName }).where(eq(user.id, newUser.user.id));
         },
       }),
       ...(methods.email

@@ -17,10 +17,20 @@ export async function mockAi(page: Page, mocks: AiMocks) {
     await page.route(`**/api/ai/${route}`, (r) => r.fulfill({ json: body }));
 }
 
-/** Starts signed in as the demo planner, with the demo seeded. */
+/** Starts in the demo, with the sample events seeded in this browser. */
 export async function signInDemo(page: Page) {
   await page.goto("/signin?next=/events");
-  await page.getByRole("button", { name: "Continue with Google" }).click();
+  await page.getByRole("button", { name: "Explore the demo" }).click();
+  await expect(page).toHaveURL(/\/events$/);
+}
+
+/** Starts a real guest account on the test server, named so co-planners can tell who's who. */
+export async function signInGuest(page: Page, name: string) {
+  await page.goto("/signin");
+  await page.getByRole("button", { name: "Continue as a guest" }).click();
+  await expect(page).toHaveURL(/\/onboarding/);
+  await page.getByLabel("Your name").fill(name);
+  await page.getByRole("button", { name: "Continue to my events" }).click();
   await expect(page).toHaveURL(/\/events$/);
 }
 

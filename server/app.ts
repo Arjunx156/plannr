@@ -3,10 +3,19 @@ import { z } from "zod";
 import type { PlannrEvent } from "../src/data/types";
 import { EVENT_ACTION_TYPES, type EventAction } from "../src/shared/engine";
 import { type AiConfig, aiConfig, handleAi, MAX_BODY, rateLimiter } from "./ai";
-import { type Auth, type AuthEnv, createAuth, devOutbox, isProduction, signInMethods } from "./auth";
+import {
+  type Auth,
+  type AuthEnv,
+  createAuth,
+  devOutbox,
+  isProduction,
+  signInMethods,
+  trustedOrigins,
+} from "./auth";
 import type { Db } from "./db/types";
 import {
   acceptInvite,
+  activity,
   addComment,
   applyActions,
   createInvite,
@@ -56,8 +65,11 @@ const eventShape = z
 const actionShape = z
   .object({
     type: z.string().refine((t) => EVENT_ACTION_TYPES.has(t as EventAction["type"]), "Unknown change"),
+    // Only a new draft carries a whole plan; it gets the same checks as creating one.
+    event: eventShape.optional(),
   })
-  .passthrough();
+  .passthrough()
+  .refine((a) => a.type !== "replacePlan" || !!a.event, "A new draft needs its plan");
 
 const roleShape = z.enum(["planner", "viewer"]);
 
@@ -117,7 +129,12 @@ export function createApp(deps: { db: Db; env: AppEnv; auth?: Auth; ai?: () => A
   app.get("/invites/:token", async (c) => c.json(await previewInvite(db, c.req.param("token"))));
 
   // ------------------------------------------------------------ signed in from here on
+  const origins = trustedOrigins(env);
   app.use("*", async (c, next) => {
+    // Writes only from Plannr's own pages; the session cookie alone isn't proof of intent.
+    const origin = c.req.header("origin");
+    if (c.req.method !== "GET" && origin && !origins.includes(origin))
+      return c.json({ error: "Requests must come from Plannr" }, 403);
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) return c.json({ error: "Sign in to continue" }, 401);
     c.set("userId", session.user.id);
@@ -134,6 +151,8 @@ export function createApp(deps: { db: Db; env: AppEnv; auth?: Auth; ai?: () => A
   );
 
   app.get("/events", async (c) => c.json({ plans: await listPlans(db, c.get("userId")) }));
+
+  app.get("/activity", async (c) => c.json({ activity: await activity(db, c.get("userId")) }));
 
   app.post("/events", async (c) => {
     if (Number(c.req.header("content-length") ?? 0) > MAX_EVENT_BYTES)
