@@ -1,64 +1,51 @@
+import { mkdirSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { join } from "node:path";
+import { getRequestListener } from "@hono/node-server";
 import type { Connect, Plugin } from "vite";
-import { type AiConfig, aiConfig, handleAi, MAX_BODY, rateLimiter } from "./ai.js";
+import { type AppEnv, createApp } from "./app";
 
-const PREFIX = "/api/ai/";
-
-function readBody(req: IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    let size = 0;
-    const chunks: Buffer[] = [];
-    req.on("data", (c: Buffer) => {
-      size += c.length;
-      if (size > MAX_BODY) {
-        reject(new Error("too large"));
-        req.destroy();
-      } else chunks.push(c);
-    });
-    req.on("end", () => {
-      try {
-        resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {});
-      } catch {
-        resolve(undefined);
-      }
-    });
-    req.on("error", reject);
-  });
-}
-
-function middleware(getConfig: () => AiConfig): Connect.NextHandleFunction {
-  const allow = rateLimiter();
+/**
+ * Serves /api from `vite` and `vite preview` with a Postgres that runs inside the dev
+ * server: kept in .data/pglite between restarts, or in memory when PLANNR_DB=memory
+ * (the journey tests). Set DATABASE_URL to use a real database instead.
+ */
+function middleware(env: AppEnv): Connect.NextHandleFunction {
+  let listener: Promise<ReturnType<typeof getRequestListener>> | undefined;
+  const start = async () => {
+    const db = env.DATABASE_URL
+      ? (await import("./db/neon")).createNeonDb(env.DATABASE_URL)
+      : await (await import("./db/local")).createLocalDb(env.PLANNR_DB === "memory" ? undefined : dataDir());
+    return getRequestListener(createApp({ db, env }).fetch);
+  };
   return async (req: IncomingMessage, res: ServerResponse, next: Connect.NextFunction) => {
-    if (!req.url?.startsWith(PREFIX)) return next();
-    const route = req.url.slice(PREFIX.length).split("?")[0] ?? "";
-    const send = (status: number, body: unknown) => {
-      res.statusCode = status;
-      res.setHeader("content-type", "application/json");
-      res.end(JSON.stringify(body));
-    };
-    if (route !== "status" && req.method !== "POST") return send(405, { error: "Use POST" });
-    if (route !== "status" && !allow(req.socket.remoteAddress ?? "local"))
-      return send(429, { error: "Too many requests" });
+    if (!req.url?.startsWith("/api/") && req.url !== "/api") return next();
     try {
-      const body = req.method === "POST" ? await readBody(req) : {};
-      const out = await handleAi(route, body, getConfig());
-      send(out.status, out.body);
-    } catch {
-      send(413, { error: "Request too large" });
+      listener ??= start();
+      await (await listener)(req, res);
+    } catch (e) {
+      console.error("[api] failed to start:", e);
+      res.statusCode = 500;
+      res.end(JSON.stringify({ error: "The local API failed to start" }));
     }
   };
 }
 
-/** Serves /api/ai/* from `vite` and `vite preview`, reading the key from .env.local. */
-export function plannrAi(env: Record<string, string | undefined>): Plugin {
-  const getConfig = () => aiConfig({ ...env, ...process.env });
+function dataDir(): string {
+  const dir = join(process.cwd(), ".data", "pglite");
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+export function plannrApi(env: Record<string, string | undefined>): Plugin {
+  const merged = () => ({ ...env, ...process.env }) as AppEnv;
   return {
-    name: "plannr-ai",
+    name: "plannr-api",
     configureServer(server) {
-      server.middlewares.use(middleware(getConfig));
+      server.middlewares.use(middleware(merged()));
     },
     configurePreviewServer(server) {
-      server.middlewares.use(middleware(getConfig));
+      server.middlewares.use(middleware(merged()));
     },
   };
 }

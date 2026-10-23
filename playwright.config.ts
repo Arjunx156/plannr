@@ -30,6 +30,6 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     // No key: every AI call in the tests is mocked, and the rest must work without it.
-    env: { GEMINI_API_KEY: "" },
+    env: { GEMINI_API_KEY: "", PLANNR_DB: "memory", PLANNR_DEV_OUTBOX: "1" },
   },
 });
