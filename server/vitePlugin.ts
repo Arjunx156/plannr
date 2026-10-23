@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Connect, Plugin } from "vite";
-import { type AiConfig, aiConfig, handleAi, MAX_BODY, rateLimiter } from "./ai.ts";
+import { type AiConfig, aiConfig, handleAi, MAX_BODY, rateLimiter } from "./ai.js";
 
 const PREFIX = "/api/ai/";
 

@@ -3,7 +3,7 @@
  * same origin, so the key stays on the server. Run `bun run build && bun run start`.
  */
 import { join, normalize } from "node:path";
-import { aiConfig, handleAi, MAX_BODY, rateLimiter } from "./ai.ts";
+import { aiConfig, handleAi, MAX_BODY, rateLimiter } from "./ai.js";
 
 const DIST = join(import.meta.dir, "..", "dist");
 const port = Number(process.env.PORT ?? 3000);

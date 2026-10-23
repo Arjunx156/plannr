@@ -12,7 +12,7 @@ import {
   sanitizeAssistant,
   sanitizeIntake,
   sanitizePlan,
-} from "./prompts.ts";
+} from "./prompts.js";
 
 /**
  * The one place that talks to Gemini. The key comes from the server's environment
