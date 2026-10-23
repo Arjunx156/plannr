@@ -11,7 +11,7 @@ import { useAcceptPlan } from "../store/useAcceptPlan";
 
 /** /new/generating: the drafted plan, with Gemini's notes when AI is on. */
 export function Plan() {
-  usePageMeta("Your plan");
+  usePageMeta("Your plan", { private: true });
   const { state, dispatch } = useStore();
   const navigate = useNavigate();
   const accept = useAcceptPlan();
@@ -99,7 +99,7 @@ export function Plan() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-          <section className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-5">
+          <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5">
             <div className="flex items-baseline justify-between">
               <h2 className="font-serif text-[24px]">Budget</h2>
               <span className="tabular text-sm font-semibold">{inr(plan.budget.total)}</span>
@@ -118,7 +118,7 @@ export function Plan() {
               </div>
             ))}
           </section>
-          <section className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-5">
+          <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5">
             <h2 className="font-serif text-[24px]">Timeline</h2>
             <ol className="m-0 flex list-none flex-col p-0">
               {plan.timeline.map((t) => (
@@ -138,7 +138,7 @@ export function Plan() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-5">
+          <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5">
             <h2 className="font-serif text-[24px]">Vendors to book</h2>
             <div className="flex flex-wrap gap-1.5">
               {plan.vendors.map((v) => (
@@ -149,7 +149,7 @@ export function Plan() {
             </div>
             <span className="text-sm text-rust-ink">{plan.vendorNote}</span>
           </section>
-          <section className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-5">
+          <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5">
             <h2 className="font-serif text-[24px]">Guests · {plan.guests.total}</h2>
             <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-sm">
               {plan.guests.groups.map((g) => (
@@ -184,7 +184,7 @@ export function Plan() {
                 {notes.tips.length > 0 && (
                   <ol className="m-0 grid list-none gap-3 p-0 md:grid-cols-2">
                     {notes.tips.map((t, i) => (
-                      <li key={t.title} className="flex gap-3 rounded-xl bg-white p-3.5">
+                      <li key={t.title} className="flex gap-3 rounded-xl bg-surface p-3.5">
                         <span className="font-serif text-[28px] leading-none text-marigold italic">
                           {i + 1}
                         </span>
@@ -211,7 +211,7 @@ export function Plan() {
                     <span className="eyebrow text-amber-ink">{plan.ideas}</span>
                     <div className="flex flex-wrap gap-1.5">
                       {notes.ideas.map((x) => (
-                        <span key={x} className="rounded-full bg-white px-3 py-1.5 text-xs font-medium">
+                        <span key={x} className="rounded-full bg-surface px-3 py-1.5 text-xs font-medium">
                           {x}
                         </span>
                       ))}

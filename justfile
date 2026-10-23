@@ -19,3 +19,7 @@ fmt:
 
 test *args:
     bun test {{args}}
+
+# Browser journeys and accessibility checks against the production build
+e2e *args:
+    bun x playwright test {{args}}

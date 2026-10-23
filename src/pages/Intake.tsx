@@ -1,4 +1,4 @@
-import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { canDraft, PriorityPicker } from "../components/intake";
 import { Logo, Toran, usePageMeta } from "../components/ui";
@@ -122,15 +122,21 @@ function readAnswer(text: string, p: Profile, field: QuestionField | undefined):
 export function Intake() {
   const [params, setParams] = useSearchParams();
   const mode = params.get("mode") === "guided" ? "guided" : "chat";
-  usePageMeta(mode === "guided" ? "Guided plan" : "Describe your event");
+  usePageMeta(mode === "guided" ? "Guided plan" : "Describe your event", {
+    description:
+      "Tell Plannr about your wedding, birthday or community event in a sentence, by typing or speaking. It asks only for what's missing, then drafts the plan.",
+  });
   const { state, dispatch } = useStore();
   const location = useLocation();
   const draft = state.draft;
   const booted = useRef(false);
+  // The chat mounts only after the draft is set up, so its greeting can't be wiped by a reset.
+  const [ready, setReady] = useState(false);
   // The landing page hands its sentence over in router state; keep it for the chat to send once.
   const [autoSend] = useState(() => (location.state as { prompt?: string } | null)?.prompt);
 
-  useEffect(() => {
+  // A layout effect, so the reset lands before the first paint and before the chat's own effects.
+  useLayoutEffect(() => {
     if (booted.current) return;
     booted.current = true;
     const type = params.get("type") as Kind | null;
@@ -154,6 +160,7 @@ export function Intake() {
     }
     // Drop it from history so a reload doesn't send it again.
     if (prompt) window.history.replaceState({ ...window.history.state, usr: null }, "");
+    setReady(true);
   }, [autoSend, dispatch, params, state.events]);
 
   const setMode = (m: "chat" | "guided") => {
@@ -183,7 +190,7 @@ export function Intake() {
               role="tab"
               aria-selected={mode === m}
               onClick={() => setMode(m)}
-              className={`min-h-9 rounded-[7px] ${mode === m ? "bg-white shadow-[0_1px_2px_rgba(0,0,0,.08)]" : "text-body hover:text-ink"}`}
+              className={`min-h-9 rounded-[7px] ${mode === m ? "bg-surface shadow-[0_1px_2px_rgba(0,0,0,.08)]" : "text-body hover:text-ink"}`}
             >
               {m === "chat" ? "Describe it" : "Guided form"}
             </button>
@@ -207,11 +214,12 @@ export function Intake() {
           )}
         </span>
       </header>
-      {mode === "chat" ? (
-        <Chat draft={draft} autoSend={autoSend} onEdit={() => setMode("guided")} />
-      ) : (
-        <Guided />
-      )}
+      {ready &&
+        (mode === "chat" ? (
+          <Chat draft={draft} autoSend={autoSend} onEdit={() => setMode("guided")} />
+        ) : (
+          <Guided />
+        ))}
     </div>
   );
 }
@@ -434,7 +442,7 @@ function Chat({ draft, autoSend, onEdit }: { draft: Draft; autoSend?: string; on
 
         <form
           onSubmit={onSubmit}
-          className="sticky bottom-3 mt-auto flex flex-col gap-2.5 rounded-2xl border-[1.5px] border-ink bg-white py-3 pr-3 pl-[18px] shadow-[0_8px_24px_rgba(40,25,10,.08)]"
+          className="sticky bottom-3 mt-auto flex flex-col gap-2.5 rounded-2xl border-[1.5px] border-ink bg-surface py-3 pr-3 pl-[18px] shadow-[0_8px_24px_rgba(40,25,10,.08)]"
         >
           <label htmlFor="chat-input" className="sr-only">
             Message Plannr
@@ -538,7 +546,7 @@ function ProfilePanel({
   return (
     <aside
       aria-label="What Plannr understood"
-      className="flex flex-col gap-3.5 border-t border-line bg-white p-5 sm:p-7 lg:border-t-0 lg:border-l"
+      className="flex flex-col gap-3.5 border-t border-line bg-surface p-5 sm:p-7 lg:border-t-0 lg:border-l"
     >
       <div className="flex items-baseline justify-between">
         <h2 className="font-serif text-2xl leading-none">What I've understood</h2>

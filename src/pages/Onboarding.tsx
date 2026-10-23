@@ -30,7 +30,7 @@ const DISTRICTS: Record<string, string> = {
 };
 
 export function Onboarding() {
-  usePageMeta("Almost there");
+  usePageMeta("Almost there", { private: true });
   const { state, dispatch } = useStore();
   const navigate = useNavigate();
   const [params] = useSearchParams();

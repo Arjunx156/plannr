@@ -91,7 +91,7 @@ export function AssistantPanel({
   return (
     <section
       aria-label="Plannr assistant"
-      className="flex max-h-[calc(100dvh-32px)] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-line bg-white"
+      className="flex max-h-[calc(100dvh-32px)] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-line bg-surface"
     >
       <header className="flex items-center justify-between gap-3 border-b border-line px-[18px] py-3.5">
         <span className="flex items-center gap-2.5">
@@ -201,7 +201,7 @@ export function AssistantPanel({
   );
 }
 
-function PreviewCard({ preview, onDecide }: { preview: Preview; onDecide: (apply: boolean) => void }) {
+export function PreviewCard({ preview, onDecide }: { preview: Preview; onDecide: (apply: boolean) => void }) {
   return (
     <div className="card-ai flex flex-col gap-2.5 rounded-xl p-3.5">
       <div className="flex items-center justify-between gap-2">

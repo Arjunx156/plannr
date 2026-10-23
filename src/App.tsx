@@ -1,29 +1,49 @@
+import { lazy, Suspense } from "react";
 import { Link, Route, Routes } from "react-router";
-import { Logo, Toasts } from "./components/ui";
-import { Auth } from "./pages/Auth";
-import { EventPage } from "./pages/EventPage";
-import { Events } from "./pages/Events";
-import { Intake } from "./pages/Intake";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { Logo, Spinner, Toasts } from "./components/ui";
 import { Landing } from "./pages/Landing";
-import { Onboarding } from "./pages/Onboarding";
-import { Plan } from "./pages/Plan";
+
+// The landing page ships in the first bundle; every other screen loads when it is opened.
+const Intake = lazy(() => import("./pages/Intake").then((m) => ({ default: m.Intake })));
+const Plan = lazy(() => import("./pages/Plan").then((m) => ({ default: m.Plan })));
+const Auth = lazy(() => import("./pages/Auth").then((m) => ({ default: m.Auth })));
+const Onboarding = lazy(() => import("./pages/Onboarding").then((m) => ({ default: m.Onboarding })));
+const Events = lazy(() => import("./pages/Events").then((m) => ({ default: m.Events })));
+const EventPage = lazy(() => import("./pages/EventPage").then((m) => ({ default: m.EventPage })));
+// The component gallery exists in development and in the build the journey tests run against.
+const SHOW_GALLERY = import.meta.env.DEV || import.meta.env.VITE_GALLERY === "1";
+const Gallery = SHOW_GALLERY
+  ? lazy(() => import("./pages/Gallery").then((m) => ({ default: m.Gallery })))
+  : null;
 
 export function App() {
   return (
-    <>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/new" element={<Intake />} />
-        <Route path="/new/generating" element={<Plan />} />
-        <Route path="/signin" element={<Auth mode="signin" />} />
-        <Route path="/signup" element={<Auth mode="signup" />} />
-        <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/events" element={<Events />} />
-        <Route path="/events/:id" element={<EventPage />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+    <ErrorBoundary>
+      <Suspense fallback={<Loading />}>
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/new" element={<Intake />} />
+          <Route path="/new/generating" element={<Plan />} />
+          <Route path="/signin" element={<Auth mode="signin" />} />
+          <Route path="/signup" element={<Auth mode="signup" />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/events" element={<Events />} />
+          <Route path="/events/:id" element={<EventPage />} />
+          {Gallery && <Route path="/gallery" element={<Gallery />} />}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
       <Toasts />
-    </>
+    </ErrorBoundary>
+  );
+}
+
+function Loading() {
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-paper">
+      <Spinner label="Loading" />
+    </div>
   );
 }
 

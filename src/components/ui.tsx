@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router";
-import type { Person, Tone } from "../data/types";
+import type { Hue, Person, Tone } from "../data/types";
 import { useStore } from "../store/store";
 
 export function Logo({
@@ -155,7 +155,7 @@ export function Modal({
       }}
       aria-labelledby={title ? titleId : undefined}
       aria-label={title ? undefined : label}
-      className="m-auto max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] overflow-auto rounded-2xl border-0 bg-white p-0 text-ink shadow-[0_1px_2px_rgba(0,0,0,.06),0_16px_48px_rgba(60,40,20,.18)] backdrop:bg-[rgba(31,27,22,.45)]"
+      className="m-auto max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] overflow-auto rounded-2xl border-0 bg-surface p-0 text-ink shadow-[0_1px_2px_rgba(0,0,0,.06),0_16px_48px_rgba(60,40,20,.18)] backdrop:bg-[rgba(31,27,22,.45)]"
       style={{ maxWidth: width }}
     >
       {open && (
@@ -222,7 +222,7 @@ export function Menu({
           id={id}
           role="menu"
           aria-label={label}
-          className={`rise absolute top-[calc(100%+6px)] z-30 flex min-w-[210px] flex-col rounded-xl border border-line bg-white p-1.5 shadow-[0_12px_32px_rgba(40,25,10,.16)] ${align === "right" ? "right-0" : "left-0"}`}
+          className={`rise absolute top-[calc(100%+6px)] z-30 flex min-w-[210px] flex-col rounded-xl border border-line bg-surface p-1.5 shadow-[0_12px_32px_rgba(40,25,10,.16)] ${align === "right" ? "right-0" : "left-0"}`}
         >
           {children(() => setOpen(false))}
         </div>
@@ -330,11 +330,90 @@ export function Field({
   );
 }
 
-/** Sets the tab title and description for the current screen. */
-export function usePageMeta(title: string, description?: string) {
+const DEFAULT_TITLE = "Plannr · Describe the day, get a plan you can run";
+const DEFAULT_DESCRIPTION =
+  "Describe your wedding, birthday or community event in one sentence, in your language. Plannr drafts the budget, tasks, vendors and guest list, keeps them in sync, and waits for your approval on every change.";
+
+function meta(attr: "name" | "property", key: string, content: string) {
+  let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
+  if (!el) {
+    el = document.createElement("meta");
+    el.setAttribute(attr, key);
+    document.head.append(el);
+  }
+  el.content = content;
+}
+
+/**
+ * Sets the tab title, description and share title for the current screen. Signed-in
+ * screens pass `private` so search engines skip them.
+ */
+export function usePageMeta(title: string, opts: { description?: string; private?: boolean } = {}) {
+  const { description = DEFAULT_DESCRIPTION, private: hidden = false } = opts;
   useEffect(() => {
-    document.title =
-      title === "Plannr" ? "Plannr · Describe the day, get a plan you can run" : `${title} · Plannr`;
-    if (description) document.querySelector('meta[name="description"]')?.setAttribute("content", description);
-  }, [title, description]);
+    const full = title === "Plannr" ? DEFAULT_TITLE : `${title} · Plannr`;
+    document.title = full;
+    meta("name", "description", description);
+    meta("property", "og:title", full);
+    meta("property", "og:description", description);
+    meta("name", "robots", hidden ? "noindex, nofollow" : "index, follow");
+  }, [title, description, hidden]);
+}
+
+/** Each kind of event keeps its colour everywhere: marigold weddings, indigo birthdays, leaf community events. */
+export const HUE_COLOR: Record<Hue, string> = {
+  marigold: "var(--color-marigold)",
+  indigo: "var(--color-indigo)",
+  leaf: "var(--color-leaf)",
+  maroon: "var(--color-maroon)",
+};
+
+/** A headline number with its progress and one line of context. */
+export function StatTile({
+  label,
+  value,
+  sub,
+  bar,
+  color,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  bar: number;
+  color?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-4">
+      <span className="eyebrow text-muted">{label}</span>
+      <span className="font-serif text-[32px] leading-none tabular">{value}</span>
+      <Bar value={bar} color={color} label={label} />
+      <span className="text-xs leading-[1.4] text-body">{sub}</span>
+    </div>
+  );
+}
+
+/** A titled section of a screen, with an optional control on the right. */
+export function Panel({
+  title,
+  aside,
+  children,
+  id,
+}: {
+  title: string;
+  aside?: ReactNode;
+  children: ReactNode;
+  id?: string;
+}) {
+  return (
+    <section
+      id={id}
+      className="flex flex-col gap-3.5 rounded-2xl border border-line bg-surface p-5 scroll-mt-4"
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="font-serif text-[24px] leading-none">{title}</h2>
+        {aside}
+      </div>
+      {children}
+    </section>
+  );
 }

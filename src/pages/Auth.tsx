@@ -10,7 +10,7 @@ type Channel = "phone" | "email";
 
 export function Auth({ mode }: { mode: "signup" | "signin" }) {
   const signup = mode === "signup";
-  usePageMeta(signup ? "Create your account" : "Log in");
+  usePageMeta(signup ? "Create your account" : "Log in", { private: true });
   const { state, dispatch } = useStore();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -161,7 +161,7 @@ export function Auth({ mode }: { mode: "signup" | "signin" }) {
                   setSent(false);
                   setError("");
                 }}
-                className={`min-h-10 rounded-[7px] ${channel === c ? "bg-white shadow-[0_1px_2px_rgba(0,0,0,.08)]" : "text-body"}`}
+                className={`min-h-10 rounded-[7px] ${channel === c ? "bg-surface shadow-[0_1px_2px_rgba(0,0,0,.08)]" : "text-body"}`}
               >
                 {c === "email" ? "Email" : "Phone"}
               </button>
@@ -255,7 +255,7 @@ export function Auth({ mode }: { mode: "signup" | "signin" }) {
                       onChange={(e) => setDigit(i, e.target.value)}
                       onKeyDown={(e) => onKey(i, e)}
                       onPaste={onPaste}
-                      className="h-14 w-12 rounded-[10px] border border-line-2 bg-white text-center font-serif text-2xl outline-none focus:border-2 focus:border-ink"
+                      className="h-14 w-12 rounded-[10px] border border-line-2 bg-surface text-center font-serif text-2xl outline-none focus:border-2 focus:border-ink"
                     />
                   ))}
                 </div>

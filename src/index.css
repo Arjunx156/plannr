@@ -5,9 +5,10 @@
   --font-sans: "Hanken Grotesk Variable", "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
-  /* paper and ink */
+  /* paper and ink. Surfaces sit on paper: cards, fields, menus. */
   --color-ink: #1f1b16;
   --color-paper: #faf7f1;
+  --color-surface: #ffffff;
   --color-sand: #f3eee5;
   --color-sand-2: #efe9de;
   --color-stone: #e6e0d5;
@@ -147,12 +148,48 @@
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Lamp-lit night: the same tokens, redefined for a dim hall. Day-of mode uses it after
+ * sunset; anything built from the tokens above follows without changes.
+ */
+@layer base {
+  [data-theme="night"] {
+    --color-ink: #f3ece0;
+    --color-paper: #14110d;
+    --color-surface: #1f1a15;
+    --color-sand: #29231c;
+    --color-sand-2: #302920;
+    --color-stone: #3a3228;
+    --color-line: #3a3228;
+    --color-line-2: #52483b;
+    --color-body: #d8cdbb;
+    --color-muted: #a99d8b;
+    --color-faint: #8a7f72;
+    --color-cream: #3a2a10;
+    --color-amber-ink: #f1d9a6;
+    --color-amber-line: #6b4e1c;
+    --color-leaf-ink: #9fd3ab;
+    --color-leaf-tint: #1d3324;
+    --color-peacock: #6fb3bf;
+    --color-peacock-deep: #8fc8d2;
+    --color-peacock-tint: #17292c;
+    --color-peacock-line: #2c4a4f;
+    --color-peacock-wash: #142124;
+    --color-rust-ink: #f0a58e;
+    --color-rust-tint: #3a221b;
+    --color-rust-line: #6b3a2c;
+    color-scheme: dark;
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+}
+
 @utility hatch {
   background: repeating-linear-gradient(135deg, var(--color-sand) 0 8px, var(--color-sand-2) 8px 16px);
 }
 
 @utility shimmer {
-  background: linear-gradient(90deg, var(--color-sand-2), #f7f2ea, var(--color-sand-2));
+  background: linear-gradient(90deg, var(--color-sand-2), var(--color-surface), var(--color-sand-2));
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
@@ -199,10 +236,10 @@
     color: var(--color-paper);
   }
   .btn-primary:hover:not(:disabled) {
-    background: #3a332b;
+    background: color-mix(in srgb, var(--color-ink) 86%, var(--color-paper));
   }
   .btn-secondary {
-    background: #fff;
+    background: var(--color-surface);
     border-color: var(--color-line);
     color: var(--color-ink);
   }
@@ -216,18 +253,19 @@
     color: var(--color-ink);
   }
   .btn-outline:hover:not(:disabled) {
-    background: #fff;
+    background: var(--color-surface);
   }
   .btn-ai {
     background: var(--color-peacock);
-    color: #fff;
+    color: var(--color-surface);
   }
   .btn-ai:hover:not(:disabled) {
     background: var(--color-peacock-deep);
   }
+  /* Marigold is the same in every theme, so its text stays dark in every theme. */
   .btn-gold {
     background: var(--color-marigold);
-    color: var(--color-ink);
+    color: #1f1b16;
   }
   .btn-gold:hover:not(:disabled) {
     background: var(--color-gold);
@@ -269,7 +307,7 @@
     padding: 0 13px;
     border-radius: 999px;
     border: 1px solid var(--color-line);
-    background: #fff;
+    background: var(--color-surface);
     color: var(--color-ink);
     font: 500 14px / 1 var(--font-sans);
     transition:
@@ -319,11 +357,11 @@
   }
   .pill-ai {
     background: var(--color-peacock);
-    color: #fff;
+    color: var(--color-surface);
   }
 
   .card {
-    background: #fff;
+    background: var(--color-surface);
     border: 1px solid var(--color-line);
     border-radius: 16px;
   }
@@ -341,7 +379,7 @@
     padding: 0 14px;
     border: 1px solid var(--color-line-2);
     border-radius: 10px;
-    background: #fff;
+    background: var(--color-surface);
     color: var(--color-ink);
     font: 400 16px / 1.3 var(--font-sans);
   }
@@ -433,6 +471,6 @@
     display: none !important;
   }
   body {
-    background: #fff;
+    background: var(--color-surface);
   }
 }

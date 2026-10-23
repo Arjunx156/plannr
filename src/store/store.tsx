@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useReducer } from "react";
-import { DEMO_USER, seedEvents } from "../data/seed";
+import { DEMO_USER, SEED_IDS, seedEvents } from "../data/seed";
 import type {
   Category,
   ChangeId,
@@ -11,7 +11,7 @@ import type {
   Profile,
   Task,
 } from "../data/types";
-import { addDays } from "../lib/dates";
+import { addDays, dayMonth, daysBetween, demoShift, fridayOnOrBefore, TODAY } from "../lib/dates";
 import { emptyProfile, type Question, type QuestionField } from "../lib/intake";
 
 export interface Session {
@@ -49,7 +49,9 @@ export interface Toast {
 }
 
 export interface AppState {
-  version: 1;
+  version: 2;
+  /** Days the demo story was moved when it was seeded; a new week reseeds it. */
+  demoShift: number;
   session: Session;
   events: PlannrEvent[];
   draft: Draft;
@@ -103,7 +105,8 @@ function freshDraft(forEvent?: string): Draft {
 
 export function initialState(): AppState {
   return {
-    version: 1,
+    version: 2,
+    demoShift: demoShift(),
     session: { signedIn: false, ...DEMO_USER },
     events: seedEvents(),
     draft: freshDraft(),
@@ -116,12 +119,25 @@ function load(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return initialState();
-    const saved = JSON.parse(raw) as AppState;
-    if (saved.version !== 1 || !Array.isArray(saved.events)) return initialState();
-    return { ...saved, toasts: [] };
+    return migrate(JSON.parse(raw) as SavedState);
   } catch {
     return initialState();
   }
+}
+
+/**
+ * Keeps the planner's own events and draft, and reseeds the demo events when they
+ * were saved by an older version or in an earlier week, so the demo never goes stale.
+ */
+type SavedState = Partial<Omit<AppState, "version">> & { version?: number };
+
+export function migrate(saved: SavedState): AppState {
+  const fresh = initialState();
+  if ((saved.version !== 1 && saved.version !== 2) || !Array.isArray(saved.events)) return fresh;
+  const state = { ...fresh, ...saved, version: 2 as const, toasts: [] };
+  if (saved.version === 2 && saved.demoShift === fresh.demoShift) return state;
+  const own = saved.events.filter((e) => !SEED_IDS.includes(e.id));
+  return { ...state, demoShift: fresh.demoShift, events: [...fresh.events, ...own] };
 }
 
 type EventFn<E> = (ev: E) => E;
@@ -166,14 +182,16 @@ function withThread<E extends PersonalEvent | CommunityEvent>(ev: E, fn: (t: Mes
 
 function applyChange(ev: PersonalEvent, change: ChangeId): PersonalEvent {
   if (change === "move-haldi") {
+    const haldi = ev.functions.find((f) => f.id === "haldi");
+    if (!haldi) return ev;
+    const friday = fridayOnOrBefore(haldi.date);
+    const shift = daysBetween(haldi.date, friday);
     const moved = withTasks(ev, (list) =>
-      list.map((t) => (t.fn === "haldi" ? { ...t, due: addDays(t.due, -1) } : t)),
+      list.map((t) => (t.fn === "haldi" ? { ...t, due: addDays(t.due, shift) } : t)),
     );
     return {
       ...moved,
-      functions: ev.functions.map((f) =>
-        f.id === "haldi" ? { ...f, date: "2027-04-23", time: "5:00 pm" } : f,
-      ),
+      functions: ev.functions.map((f) => (f.id === "haldi" ? { ...f, date: friday, time: "5:00 pm" } : f)),
     };
   }
   if (change === "cut-decor") {
@@ -201,7 +219,7 @@ function applyChange(ev: PersonalEvent, change: ChangeId): PersonalEvent {
           id: "w-urulis",
           title: "Source 30 brass urulis",
           who: "You",
-          due: "2027-03-15",
+          due: addDays(ev.date, -41),
           done: false,
           note: "Décor",
         },
@@ -296,7 +314,7 @@ export function reducer(state: AppState, action: Action): AppState {
               amount: 8000,
               estimate: true,
               status: "unpaid",
-              due: "2027-04-25",
+              due: e.date,
             },
           ],
         })),
@@ -340,7 +358,7 @@ export function reducer(state: AppState, action: Action): AppState {
         };
         const withPhoto = withCategory(booked, "photo", (c) => ({
           ...c,
-          status: "Booked · advance due 11 Oct",
+          status: `Booked · advance due ${dayMonth(addDays(TODAY, 14))}`,
           tone: "due",
           projected: action.price,
           items: c.items.map((i) =>
@@ -389,7 +407,7 @@ export function reducer(state: AppState, action: Action): AppState {
               id: "b-stars",
               title: "Stick glow-in-the-dark stars on the ceiling",
               who: "Vivek",
-              due: "2026-10-16",
+              due: addDays(e.date, -1),
               done: false,
               note: "Décor",
             },
@@ -408,14 +426,14 @@ export function reducer(state: AppState, action: Action): AppState {
               id: "m-areca-1",
               title: "Tell food stalls about areca-leaf plates",
               who: "Rekha",
-              due: "2026-10-10",
+              due: addDays(e.date, -28),
               done: false,
             },
             {
               id: "m-areca-2",
               title: "Order 3,000 areca plates for the stalls",
               who: "Thomas",
-              due: "2026-10-24",
+              due: addDays(e.date, -14),
               done: false,
             },
           ],

@@ -11,7 +11,9 @@
     "preview": "vite preview",
     "start": "bun server/serve.ts",
     "lint": "biome check .",
-    "test": "bun test"
+    "test": "bun test",
+    "e2e": "playwright test",
+    "brand": "bun scripts/brand-assets.ts"
   },
   "dependencies": {
     "@fontsource-variable/hanken-grotesk": "^5.3.0",
@@ -22,7 +24,9 @@
     "react-router": "^8.5.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
     "@biomejs/biome": "^2.5.15",
+    "@playwright/test": "1.56.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/bun": "^1.4.3",
     "@types/node": "^24.19.2",

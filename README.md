@@ -16,7 +16,27 @@ instead of "Gemini · live plan".
 Production: `bun run build && bun run start` serves `dist/` and the AI routes on one port (`PORT`, default 3000).
 Set `GEMINI_API_KEY` in the server's environment.
 
-`just check` runs format, lint, types, tests and the production build.
+`just check` runs format, lint, types, unit tests and the production build. `just e2e` (or `bun run e2e`)
+runs the browser journeys and accessibility checks against the production build, on desktop and phone sizes.
+CI (`.github/workflows/ci.yml`) runs both on every push and pull request.
+
+| Command | What it does |
+| --- | --- |
+| `bun run dev` | App and AI routes on http://localhost:5173 |
+| `bun test` | Unit tests, with the clock pinned to the demo story's day |
+| `bun run e2e` | Journey tests in Chromium; Gemini is mocked per test |
+| `bun run brand` | Regenerates the favicon PNGs and the share image in `public/` |
+
+The component gallery lives at `/gallery` in development: every shared component on paper and in the
+lamp-lit night theme, at full or phone width.
+
+### Environment
+
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | Server only | Turns on the AI routes |
+| `GEMINI_MODEL` | Server only | Optional model override |
+| `SITE_URL` | Build | Public origin for canonical links, share images and `sitemap.xml`. On Vercel the production domain is used automatically. |
 
 ## How AI is wired
 
@@ -42,5 +62,8 @@ Model: `gemini-flash-lite-latest` by default; override with `GEMINI_MODEL`.
 `/onboarding` · `/events` my events · `/events/:id` dashboard with tasks, budget, vendors, notices, funds,
 volunteer shifts and the assistant.
 
-Demo data is set on Sunday 27 Sep 2026 (`src/lib/dates.ts`) and persists in `localStorage`; "Reset demo data"
-in the account menu restores it.
+The demo story was written for Sunday 27 Sep 2026 (`STORY_DAY` in `src/lib/dates.ts`). It moves forward in
+whole weeks so it always starts from today with weekdays intact, and dates written into its text are rendered
+from the moved dates (`freshen` in `src/data/seed.ts`). Past events keep their real dates. Everything persists
+in `localStorage`; a saved demo from an earlier week is reseeded, while events you created are kept. "Reset
+demo data" in the account menu restores it.

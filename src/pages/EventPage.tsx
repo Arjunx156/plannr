@@ -1,25 +1,29 @@
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Link, Navigate, useParams } from "react-router";
 import { AssistantPanel } from "../components/assistant";
-import { Bar, Field, Logo, Modal, Pill, Toran, toneText, usePageMeta } from "../components/ui";
+import {
+  Field,
+  HUE_COLOR,
+  Logo,
+  Modal,
+  Panel,
+  Pill,
+  StatTile,
+  Toran,
+  toneText,
+  usePageMeta,
+} from "../components/ui";
 import type { ActionId, CommunityEvent, Notice, PersonalEvent, PlannrEvent, Task } from "../data/types";
 import { daysUntil, dueLabel, longDate, shortDate, TODAY } from "../lib/dates";
 import { inr, inrShort, pct } from "../lib/format";
 import { budgetTotals, communityReadiness, personalReadiness, tasksDone } from "../lib/metrics";
 import { toast, useStore } from "../store/store";
 
-const HUE_BAR: Record<PlannrEvent["hue"], string> = {
-  marigold: "var(--color-marigold)",
-  indigo: "var(--color-indigo)",
-  leaf: "var(--color-leaf)",
-  maroon: "var(--color-maroon)",
-};
-
 export function EventPage() {
   const { id } = useParams();
   const { state } = useStore();
   const ev = state.events.find((e) => e.id === id);
-  usePageMeta(ev?.name ?? "Event not found");
+  usePageMeta(ev?.name ?? "Event not found", { private: true });
   if (!state.session.signedIn) return <Navigate to={`/signin?next=/events/${id ?? ""}`} replace />;
   if (!ev) return <Missing />;
   return (
@@ -83,8 +87,8 @@ function EmptyPlan({ ev }: { ev: PlannrEvent }) {
 function Hero({ ev }: { ev: PersonalEvent | CommunityEvent }) {
   const days = daysUntil(ev.date);
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-line bg-white">
-      <div className="h-2" style={{ background: HUE_BAR[ev.hue] }} />
+    <section className="relative overflow-hidden rounded-2xl border border-line bg-surface">
+      <div className="h-2" style={{ background: HUE_COLOR[ev.hue] }} />
       <div className="flex flex-wrap items-end justify-between gap-6 p-6">
         <div className="flex min-w-0 flex-col gap-2">
           <span className="eyebrow text-muted">{ev.eyebrow}</span>
@@ -102,54 +106,6 @@ function Hero({ ev }: { ev: PersonalEvent | CommunityEvent }) {
   );
 }
 
-function Stat({
-  label,
-  value,
-  sub,
-  bar,
-  color,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  bar: number;
-  color?: string;
-}) {
-  return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-line bg-white p-4">
-      <span className="eyebrow text-muted">{label}</span>
-      <span className="font-serif text-[32px] leading-none tabular">{value}</span>
-      <Bar value={bar} color={color} label={label} />
-      <span className="text-xs leading-[1.4] text-body">{sub}</span>
-    </div>
-  );
-}
-
-function Card({
-  title,
-  aside,
-  children,
-  id,
-}: {
-  title: string;
-  aside?: ReactNode;
-  children: ReactNode;
-  id?: string;
-}) {
-  return (
-    <section
-      id={id}
-      className="flex flex-col gap-3.5 rounded-2xl border border-line bg-white p-5 scroll-mt-4"
-    >
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-serif text-[24px] leading-none">{title}</h2>
-        {aside}
-      </div>
-      {children}
-    </section>
-  );
-}
-
 // ---------------------------------------------------------------- personal
 
 function Personal({ ev }: { ev: PersonalEvent }) {
@@ -158,27 +114,27 @@ function Personal({ ev }: { ev: PersonalEvent }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat
+        <StatTile
           label="Readiness"
           value={`${pct(r.overall, 1)}%`}
           sub={r.overdue ? `${r.overdue} overdue ${r.overdue === 1 ? "task" : "tasks"}` : ev.pace}
           bar={r.overall}
           color="var(--color-peacock)"
         />
-        <Stat
+        <StatTile
           label="Budget"
           value={inrShort(t.spent)}
           sub={`spent of ${inrShort(t.total)} · projected ${inrShort(t.projected)}`}
           bar={t.spent / Math.max(1, t.total)}
           color={t.over > 0 ? "var(--color-rust)" : "var(--color-leaf)"}
         />
-        <Stat
+        <StatTile
           label="Tasks"
           value={`${r.tasksDone}/${r.tasksTotal}`}
           sub={`${ev.tasks.list.filter((x) => !x.done).length} open on the list`}
           bar={r.tasks}
         />
-        <Stat
+        <StatTile
           label="Guests"
           value={`${ev.rsvp.confirmed}`}
           sub={`confirmed of ${ev.rsvp.total} · ${ev.rsvp.pending} waiting`}
@@ -188,7 +144,7 @@ function Personal({ ev }: { ev: PersonalEvent }) {
       </div>
       <Notices ev={ev} />
       {ev.functions.length > 0 && (
-        <Card title="Functions">
+        <Panel title="Functions">
           <ol className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2 lg:grid-cols-4">
             {ev.functions.map((f) => (
               <li key={f.id} className="flex flex-col gap-1 rounded-xl bg-sand p-3">
@@ -201,16 +157,16 @@ function Personal({ ev }: { ev: PersonalEvent }) {
               </li>
             ))}
           </ol>
-        </Card>
+        </Panel>
       )}
       <div className="grid gap-6 lg:grid-cols-2">
         <Tasks ev={ev} />
-        <Card title="Vendors">
+        <Panel title="Vendors">
           <VendorGroup label="Booked" items={ev.vendors.booked} tone="ok" />
           <VendorGroup label="In conversation" items={ev.vendors.talking} tone="due" />
           <VendorGroup label="Still to book" items={ev.vendors.needed} tone="idle" />
           {ev.vendors.note && <span className="text-xs text-rust-ink">{ev.vendors.note}</span>}
-        </Card>
+        </Panel>
       </div>
       <Budget ev={ev} />
     </>
@@ -250,7 +206,7 @@ function Budget({ ev }: { ev: PersonalEvent }) {
   const t = budgetTotals(ev.budget);
   const max = Math.max(...ev.budget.categories.map((c) => Math.max(c.planned, c.projected ?? 0)), 1);
   return (
-    <Card
+    <Panel
       title="Budget"
       aside={
         <span className={`text-sm font-semibold ${t.over > 0 ? "text-rust-ink" : "text-leaf-ink"}`}>
@@ -258,7 +214,8 @@ function Budget({ ev }: { ev: PersonalEvent }) {
         </span>
       }
     >
-      <div className="scroll-x">
+      {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users must be able to scroll a wide table (WCAG scrollable-region-focusable) */}
+      <section className="scroll-x" aria-label="Budget by category" tabIndex={0}>
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
             <tr className="text-left text-xs text-muted">
@@ -308,9 +265,9 @@ function Budget({ ev }: { ev: PersonalEvent }) {
             })}
           </tbody>
         </table>
-      </div>
+      </section>
       <span className="text-xs text-muted">{ev.budget.source}</span>
-    </Card>
+    </Panel>
   );
 }
 
@@ -320,10 +277,13 @@ function Tasks({ ev }: { ev: PersonalEvent | CommunityEvent }) {
   const { dispatch } = useStore();
   const [title, setTitle] = useState("");
   const [showDone, setShowDone] = useState(false);
+  // Tasks ticked during this visit stay in place, struck through, so the tick is visible and undoable.
+  const [ticked, setTicked] = useState<string[]>([]);
+  const settled = (t: Task) => t.done && !ticked.includes(t.id);
   const list = [...ev.tasks.list].sort(
-    (a, b) => Number(a.done) - Number(b.done) || a.due.localeCompare(b.due),
+    (a, b) => Number(settled(a)) - Number(settled(b)) || a.due.localeCompare(b.due),
   );
-  const visible = showDone ? list : list.filter((t) => !t.done);
+  const visible = showDone ? list : list.filter((t) => !settled(t));
   const add = (e: FormEvent) => {
     e.preventDefault();
     const clean = title.trim();
@@ -339,7 +299,7 @@ function Tasks({ ev }: { ev: PersonalEvent | CommunityEvent }) {
     setTitle("");
   };
   return (
-    <Card
+    <Panel
       title="Tasks"
       aside={
         <button type="button" className="link text-xs" onClick={() => setShowDone((s) => !s)}>
@@ -360,6 +320,7 @@ function Tasks({ ev }: { ev: PersonalEvent | CommunityEvent }) {
                 id={`task-${t.id}`}
                 checked={t.done}
                 onChange={() => {
+                  setTicked((prev) => (prev.includes(t.id) ? prev : [...prev, t.id]));
                   dispatch({ type: "toggleTask", eventId: ev.id, taskId: t.id });
                   if (!t.done)
                     dispatch(toast(`Done: ${t.title}`, { type: "toggleTask", eventId: ev.id, taskId: t.id }));
@@ -400,7 +361,7 @@ function Tasks({ ev }: { ev: PersonalEvent | CommunityEvent }) {
           Add
         </button>
       </form>
-    </Card>
+    </Panel>
   );
 }
 
@@ -480,7 +441,7 @@ function Notices({ ev }: { ev: PersonalEvent | CommunityEvent }) {
           {open.map((n) => (
             <article
               key={n.id}
-              className={`flex flex-col gap-2 rounded-2xl border p-4 ${n.tone === "ai" ? "card-ai" : n.tone === "warn" ? "border-rust-line bg-white" : "border-line bg-white"}`}
+              className={`flex flex-col gap-2 rounded-2xl border p-4 ${n.tone === "ai" ? "card-ai" : n.tone === "warn" ? "border-rust-line bg-surface" : "border-line bg-surface"}`}
             >
               <Pill tone={n.tone === "info" ? "idle" : n.tone}>{n.label}</Pill>
               <span className="text-[15px] leading-[1.4] font-medium">{n.text}</span>
@@ -633,28 +594,28 @@ function Community({ ev }: { ev: CommunityEvent }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat
+        <StatTile
           label="Readiness"
           value={`${pct(r.overall, 1)}%`}
           sub={`${r.permitsDone} of ${r.permitsTotal} permits cleared`}
           bar={r.overall}
           color="var(--color-peacock)"
         />
-        <Stat
+        <StatTile
           label="Funds"
           value={inrShort(received)}
           sub={`received of ${inrShort(expected)} · ${inrShort(ev.funds.spent)} spent`}
           bar={r.funds}
           color="var(--color-leaf)"
         />
-        <Stat
+        <StatTile
           label="Volunteers"
           value={`${r.volunteersFilled}/${r.volunteersNeeded}`}
           sub="shift places filled"
           bar={r.volunteers}
           color="var(--color-marigold)"
         />
-        <Stat
+        <StatTile
           label="Passes"
           value={`${ev.passes.issued}`}
           sub={`of ${ev.passes.capacity} · ${ev.stalls.booked}/${ev.stalls.total} stalls booked`}
@@ -664,7 +625,7 @@ function Community({ ev }: { ev: CommunityEvent }) {
       <Notices ev={ev} />
       <div className="grid gap-6 lg:grid-cols-2">
         <Tasks ev={ev} />
-        <Card title="Permits & bookings">
+        <Panel title="Permits & bookings">
           <ul className="m-0 flex list-none flex-col p-0">
             {ev.permits.map((p) => (
               <li key={p.label} className="flex justify-between gap-3 border-t border-sand-2 py-2.5 text-sm">
@@ -673,9 +634,9 @@ function Community({ ev }: { ev: CommunityEvent }) {
               </li>
             ))}
           </ul>
-        </Card>
+        </Panel>
       </div>
-      <Card title="Funds" id="approvals">
+      <Panel title="Funds" id="approvals">
         <ul className="m-0 flex list-none flex-col p-0">
           {ev.funds.sources.map((s) => (
             <li
@@ -740,7 +701,7 @@ function Community({ ev }: { ev: CommunityEvent }) {
             </li>
           ))}
         </ul>
-      </Card>
+      </Panel>
       <Shifts ev={ev} />
       <span className="text-xs text-muted">Event day: {longDate(ev.date)}</span>
     </>
@@ -750,8 +711,9 @@ function Community({ ev }: { ev: CommunityEvent }) {
 function Shifts({ ev }: { ev: CommunityEvent }) {
   const { dispatch } = useStore();
   return (
-    <Card title="Volunteer shifts">
-      <div className="scroll-x">
+    <Panel title="Volunteer shifts">
+      {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users must be able to scroll a wide table (WCAG scrollable-region-focusable) */}
+      <section className="scroll-x" aria-label="Volunteer shifts by role and time" tabIndex={0}>
         <table className="w-full min-w-[620px] border-collapse text-sm">
           <thead>
             <tr className="text-left text-xs text-muted">
@@ -779,7 +741,7 @@ function Shifts({ ev }: { ev: CommunityEvent }) {
                           <label className="flex items-center gap-1.5 text-xs text-rust-ink">
                             <span>Needs {gap}</span>
                             <select
-                              className="rounded-md border border-line bg-white px-1 py-0.5 text-xs text-ink"
+                              className="rounded-md border border-line bg-surface px-1 py-0.5 text-xs text-ink"
                               value=""
                               aria-label={`Assign a volunteer to ${role.role}, ${ev.shifts.slots[i]}`}
                               onChange={(e) =>
@@ -810,7 +772,7 @@ function Shifts({ ev }: { ev: CommunityEvent }) {
             ))}
           </tbody>
         </table>
-      </div>
-    </Card>
+      </section>
+    </Panel>
   );
 }

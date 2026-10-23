@@ -227,10 +227,7 @@ const PAD = "px-5 sm:px-10 lg:px-[72px]";
 const H2 = "font-serif text-[clamp(34px,4.6vw,48px)] leading-[1.05] tracking-[-0.015em]";
 
 export function Landing() {
-  usePageMeta(
-    "Plannr",
-    "Describe your wedding, birthday or community event in one sentence. Plannr drafts a budget, timeline, vendor checklist and guest list, all kept in sync. You approve every change.",
-  );
+  usePageMeta("Plannr");
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -330,7 +327,7 @@ export function Landing() {
             </p>
             <form
               onSubmit={start}
-              className="flex max-w-[620px] flex-col gap-3 rounded-2xl bg-white p-3 text-ink shadow-[0_20px_40px_rgba(20,5,10,.25)] sm:flex-row sm:items-center sm:pl-5"
+              className="flex max-w-[620px] flex-col gap-3 rounded-2xl bg-surface p-3 text-ink shadow-[0_20px_40px_rgba(20,5,10,.25)] sm:flex-row sm:items-center sm:pl-5"
             >
               <label htmlFor="hero-prompt" className="sr-only">
                 Describe your event
@@ -397,7 +394,7 @@ export function Landing() {
                 ))}
               </div>
             </div>
-            <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-white p-[18px] text-ink shadow-[0_24px_50px_rgba(20,5,10,.35)] lg:absolute lg:bottom-[30px] lg:left-0 lg:mt-0 lg:w-[360px]">
+            <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-surface p-[18px] text-ink shadow-[0_24px_50px_rgba(20,5,10,.35)] lg:absolute lg:bottom-[30px] lg:left-0 lg:mt-0 lg:w-[360px]">
               <Pill tone="warn">Booking window closing</Pill>
               <span className="text-[15px] leading-[1.4] font-medium">
                 Photographers in Kochi book out 6 months ahead. Book by 14 June.
@@ -418,7 +415,7 @@ export function Landing() {
               <Link
                 key={o.type}
                 to={`/new?type=${o.type}`}
-                className={`group flex flex-col overflow-hidden rounded-2xl bg-white text-ink no-underline transition-shadow hover:shadow-[0_12px_32px_rgba(60,40,20,.10)] ${o.dashed ? "border border-dashed border-line-2" : "border border-line"}`}
+                className={`group flex flex-col overflow-hidden rounded-2xl bg-surface text-ink no-underline transition-shadow hover:shadow-[0_12px_32px_rgba(60,40,20,.10)] ${o.dashed ? "border border-dashed border-line-2" : "border border-line"}`}
               >
                 <div className="h-2" style={{ background: o.bar }} />
                 <div className="flex flex-1 flex-col gap-3 p-6">
@@ -500,7 +497,7 @@ export function Landing() {
                   aria-selected={sample === id}
                   aria-controls="sample-panel"
                   onClick={() => setSample(id)}
-                  className={`min-h-10 rounded-[9px] px-4 whitespace-nowrap ${sample === id ? "bg-white text-ink" : "text-body hover:text-ink"}`}
+                  className={`min-h-10 rounded-[9px] px-4 whitespace-nowrap ${sample === id ? "bg-surface text-ink" : "text-body hover:text-ink"}`}
                 >
                   {SAMPLES[id].tab}
                 </button>
@@ -513,13 +510,13 @@ export function Landing() {
             aria-labelledby={`tab-${sample}`}
             className="grid gap-4 lg:grid-cols-3"
           >
-            <div className="flex flex-col gap-3 rounded-[14px] bg-white p-[22px]">
+            <div className="flex flex-col gap-3 rounded-[14px] bg-surface p-[22px]">
               <span className="eyebrow text-muted">The prompt</span>
               <span className="font-serif text-[22px] leading-[1.35] italic">“{s.prompt}”</span>
               <span className="eyebrow mt-2 text-muted">Plannr asked</span>
               <span className="text-sm leading-normal text-body">{s.asked}</span>
             </div>
-            <div className="flex flex-col gap-2.5 rounded-[14px] bg-white p-[22px]">
+            <div className="flex flex-col gap-2.5 rounded-[14px] bg-surface p-[22px]">
               <span className="eyebrow text-muted">First 5 tasks</span>
               <ul className="m-0 flex list-none flex-col p-0 text-sm leading-[1.3]">
                 {s.tasks.map((t, i) => (
@@ -535,7 +532,7 @@ export function Landing() {
                 ))}
               </ul>
             </div>
-            <div className="flex flex-col gap-2.5 rounded-[14px] bg-white p-[22px]">
+            <div className="flex flex-col gap-2.5 rounded-[14px] bg-surface p-[22px]">
               <span className="eyebrow text-muted">Vendors it knew to add</span>
               <div className="flex flex-wrap gap-1.5 text-[13px] font-medium">
                 {s.vendors.map((v) => (
@@ -583,7 +580,7 @@ export function Landing() {
             <span className="eyebrow text-[12px] tracking-[0.1em] text-amber-ink">Pricing</span>
             <h2 className={H2}>Free to plan. Pro when it gets big.</h2>
           </div>
-          <div className="flex flex-col gap-4 rounded-[18px] border border-line bg-white p-7">
+          <div className="flex flex-col gap-4 rounded-[18px] border border-line bg-surface p-7">
             <div className="flex items-baseline justify-between font-serif text-[30px] leading-none">
               <h3>Free</h3>
               <span>₹0</span>
@@ -683,7 +680,7 @@ export function Landing() {
               <span>Contact</span>
             </div>
           </div>
-          <p className={`m-0 text-[13px] text-faint ${PAD}`}>© 2026 Plannr · Engineered by Arjun Krishnan</p>
+          <p className={`m-0 text-[13px] text-line-2 ${PAD}`}>© 2026 Plannr · Engineered by Arjun Krishnan</p>
         </div>
       </footer>
     </div>

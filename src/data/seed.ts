@@ -1,3 +1,4 @@
+import { addDays, dateRange, dayMonth, demoShift, longDate, monthName, shortDate, TODAY } from "../lib/dates";
 import type {
   CommunityEvent,
   EmptyEvent,
@@ -27,14 +28,14 @@ const wedding: PersonalEvent = {
   name: "Ananya & Rohan's wedding",
   role: "CO-PLANNER",
   hue: "marigold",
-  eyebrow: "Wedding · Kochi · 22–25 Apr 2027",
-  navMeta: "Wedding · Kochi · 22–25 Apr 2027",
-  listMeta: "Kochi · 4 functions · 22–25 Apr 2027 · 268 guests",
+  eyebrow: "Wedding · Kochi · {range:2027-04-22:2027-04-25}",
+  navMeta: "Wedding · Kochi · {range:2027-04-22:2027-04-25}",
+  listMeta: "Kochi · 4 functions · {range:2027-04-22:2027-04-25} · 268 guests",
   date: "2027-04-25",
   guests: 268,
   countdown: {
     label: "Countdown to the muhurtham",
-    line: "Sun 25 Apr 2027 · 10:42 am (tentative) · Kayal Heritage Centre, Maradu",
+    line: "{long:2027-04-25} · 10:42 am (tentative) · Kayal Heritage Centre, Maradu",
     theme: "maroon",
   },
   functions: [
@@ -163,7 +164,7 @@ const wedding: PersonalEvent = {
         name: "Venue",
         planned: 320000,
         spent: 200000,
-        status: "Balance due 5 Oct",
+        status: "Balance due {dm:2026-10-05}",
         tone: "due",
         items: [
           {
@@ -387,7 +388,7 @@ const wedding: PersonalEvent = {
         id: "jasmine",
         title: "Fresh jasmine & marigold strings for the mandapam",
         amount: 38000,
-        why: "April is peak jasmine season; local strings run ~₹420/kg vs imported orchids.",
+        why: "Jasmine is in season for the wedding; local strings run ~₹420/kg vs imported orchids.",
         category: "decor",
       },
       {
@@ -535,7 +536,7 @@ const wedding: PersonalEvent = {
       tone: "warn",
       label: "Booking window closing",
       text: "Photographers in Kochi book out 6 months ahead. You have 2 weeks left to book.",
-      why: "Why: 11 of 14 Ernakulam photographers you'd consider are already 60% booked for late April.",
+      why: "Why: 11 of 14 Ernakulam photographers you'd consider are already 60% booked for your dates.",
       primary: { label: "Compare 3 shortlisted", action: "compare-photographers" },
       secondary: { label: "Remind me Fri", action: "remind" },
       status: "open",
@@ -564,7 +565,7 @@ const wedding: PersonalEvent = {
   assistant: {
     intro: "",
     chips: [
-      "What's left to book in October?",
+      "What's left to book in {month:2026-10-15}?",
       "Summarise spend for Rohan's parents",
       "Why is readiness 38%?",
     ],
@@ -589,7 +590,7 @@ const wedding: PersonalEvent = {
           change: "move-haldi",
           status: "pending",
           rows: [
-            { title: "Haldi date", from: "Sat 24 Apr", to: "Fri 23 Apr, 5:00 pm" },
+            { title: "Haldi date", from: "{short:2027-04-24}", to: "{short:2027-04-23}, 5:00 pm" },
             {
               title: "2 tasks move a day earlier",
               detail: "Haldi caterer headcount · Collect turmeric & marigolds (Priya)",
@@ -621,14 +622,14 @@ const birthday: PersonalEvent = {
   name: "Aarav's 6th birthday",
   role: "OWNER",
   hue: "indigo",
-  eyebrow: "Aarav turns 6 · Space theme · Sat 17 Oct 2026",
-  navMeta: "Birthday · Home, Kakkanad · Sat 17 Oct",
-  listMeta: "Space theme · at home, Kakkanad · Sat 17 Oct · 30 kids, 20 adults",
+  eyebrow: "Aarav turns 6 · Space theme · {long:2026-10-17}",
+  navMeta: "Birthday · Home, Kakkanad · {short:2026-10-17}",
+  listMeta: "Space theme · at home, Kakkanad · {short:2026-10-17} · 30 kids, 20 adults",
   date: "2026-10-17",
   guests: 50,
   countdown: {
     label: "Countdown to the party",
-    line: "Sat 17 Oct 2026 · 4–7 pm · at home, Kakkanad",
+    line: "{long:2026-10-17} · 4–7 pm · at home, Kakkanad",
     theme: "indigo",
   },
   functions: [],
@@ -786,7 +787,7 @@ const birthday: PersonalEvent = {
     ],
     savings: [],
     dueSoon: [
-      { label: "Cake balance · Tue 13 Oct", amount: 4000 },
+      { label: "Cake balance · {short:2026-10-13}", amount: 4000 },
       { label: "Space show balance · on the day", amount: 5000 },
     ],
   },
@@ -851,7 +852,7 @@ const birthday: PersonalEvent = {
       id: "cake-order",
       tone: "warn",
       label: "Cake not ordered",
-      text: "Bake Street needs 10 days for a 2 kg shaped cake. Order by Wed 7 Oct to be safe.",
+      text: "Bake Street needs 10 days for a 2 kg shaped cake. Order by {short:2026-10-07} to be safe.",
       why: "Why: the rocket has a fondant topper that is made separately.",
       primary: { label: "Mark as ordered", action: "order-cake" },
       secondary: { label: "Remind me Fri", action: "remind" },
@@ -888,19 +889,19 @@ const birthday: PersonalEvent = {
 };
 
 const mela: CommunityEvent = {
-  id: "diwali-mela",
+  id: "green-valley-mela",
   kind: "community",
   layout: "community",
-  name: "Green Valley Society Diwali Mela",
+  name: "Green Valley Society Mela",
   role: "ORGANISER",
   hue: "leaf",
-  eyebrow: "Community event · Green Valley Society, Kakkanad · Sat 7 Nov 2026",
-  navMeta: "Community · Society grounds · Sat 7 Nov",
-  listMeta: "Stalls + cultural night · Sat 7 Nov · 600 attendees · 12 volunteers",
+  eyebrow: "Community event · Green Valley Society, Kakkanad · {long:2026-11-07}",
+  navMeta: "Community · Society grounds · {short:2026-11-07}",
+  listMeta: "Stalls + cultural night · {short:2026-11-07} · 600 attendees · 12 volunteers",
   date: "2026-11-07",
-  countdown: { label: "Mela day in", line: "Gates open 4 pm · Diwali is the next day" },
+  countdown: { label: "Mela day in", line: "Gates open 4 pm · stalls, rangoli and a cultural night" },
   segments: [
-    { id: "all", label: "Whole event", line: "Gates open 4 pm · Diwali is the next day" },
+    { id: "all", label: "Whole event", line: "Gates open 4 pm · stalls, rangoli and a cultural night" },
     { id: "stalls", label: "Stalls · 4–10 pm", line: "Stall setup from 2 pm · 18 of 30 booked" },
     {
       id: "rangoli",
@@ -1039,7 +1040,7 @@ const mela: CommunityEvent = {
       id: "police",
       tone: "warn",
       label: "Permit",
-      text: "Police permission for amplified sound takes about 3 weeks. File by Sat 17 Oct.",
+      text: "Police permission for amplified sound takes about 3 weeks. File by {short:2026-10-17}.",
       why: "Why: cultural night runs till 10 pm with a 2 kW sound system on open ground.",
       primary: { label: "Draft the application", action: "draft-permit" },
       status: "open",
@@ -1084,11 +1085,48 @@ const anniversary: EmptyEvent = {
   sharedBy: "Anil Menon",
 };
 
-export function seedEvents(): PlannrEvent[] {
-  return structuredClone([wedding, birthday, mela, anniversary]);
+const TOKEN = /\{(long|short|dm|month|range):(\d{4}-\d{2}-\d{2})(?::(\d{4}-\d{2}-\d{2}))?\}/g;
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Moves every date in the demo by `days`, and renders dates written into text from the moved dates. */
+export function freshen<T>(value: T, days: number): T {
+  if (typeof value === "string") {
+    if (ISO.test(value)) return addDays(value, days) as T;
+    return value.replace(TOKEN, (_, kind: string, a: string, b?: string) => {
+      const from = addDays(a, days);
+      if (kind === "range") return dateRange(from, addDays(b ?? a, days));
+      if (kind === "short") return shortDate(from);
+      if (kind === "dm") return dayMonth(from);
+      if (kind === "month") return monthName(from);
+      return longDate(from);
+    }) as T;
+  }
+  if (Array.isArray(value)) return value.map((v) => freshen(v, days)) as T;
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = freshen(v, days);
+    return out as T;
+  }
+  return value;
 }
 
-export const PAST_EVENTS: PastEvent[] = [
+/** The demo events, moved so the story starts today. */
+export function seedEvents(today = TODAY): PlannrEvent[] {
+  return freshen([wedding, birthday, mela, anniversary], demoShift(today));
+}
+
+export const SEED_IDS = [wedding.id, birthday.id, mela.id, anniversary.id];
+
+/** Past events keep their real dates: they're history, and festivals happen when they happen. */
+export function pastEvents(): PastEvent[] {
+  return structuredClone(PAST_EVENTS);
+}
+
+export function seedNotifications(today = TODAY): NotificationItem[] {
+  return freshen(NOTIFICATIONS, demoShift(today));
+}
+
+const PAST_EVENTS: PastEvent[] = [
   {
     id: "onam-26",
     name: "Onam sadhya for the family",
@@ -1135,7 +1173,7 @@ export const PAST_EVENTS: PastEvent[] = [
   },
 ];
 
-export const NOTIFICATIONS: NotificationItem[] = [
+const NOTIFICATIONS: NotificationItem[] = [
   {
     id: "n1",
     text: "Rohan added 18 guests from Dubai. 3 changes wait for your approval.",
@@ -1154,7 +1192,7 @@ export const NOTIFICATIONS: NotificationItem[] = [
     id: "n3",
     text: "Rekha submitted ₹6,000 for rangoli colours and prizes.",
     when: "Yesterday",
-    eventId: "diwali-mela",
+    eventId: "green-valley-mela",
     unread: true,
   },
   {
@@ -1166,7 +1204,7 @@ export const NOTIFICATIONS: NotificationItem[] = [
   },
   {
     id: "n5",
-    text: "The venue balance of ₹1,20,000 is due Mon 5 Oct.",
+    text: "The venue balance of ₹1,20,000 is due {short:2026-10-05}.",
     when: "Fri",
     eventId: "ananya-rohan",
     unread: true,
@@ -1175,7 +1213,7 @@ export const NOTIFICATIONS: NotificationItem[] = [
     id: "n6",
     text: "Arjun submitted the Lumen Events advance for approval.",
     when: "Thu",
-    eventId: "diwali-mela",
+    eventId: "green-valley-mela",
     unread: true,
   },
 ];

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { canDraft, PriorityPicker } from "../components/intake";
 import { Logo } from "../components/ui";
 import type { Kind, Profile } from "../data/types";
-import { longDate } from "../lib/dates";
+import { addDays, longDate, TODAY } from "../lib/dates";
 import { inr } from "../lib/format";
 import { KIND_LABEL } from "../lib/intake";
 import { TEMPLATES, type TemplateId, templateProfile } from "../lib/templates";
@@ -109,10 +109,10 @@ export function Guided() {
                   type="button"
                   onClick={() => go(i)}
                   aria-current={current ? "step" : undefined}
-                  className={`grid w-full grid-cols-[24px_minmax(0,1fr)] gap-2.5 rounded-[9px] px-2.5 py-2 text-left ${current ? "bg-white" : "hover:bg-white/60"}`}
+                  className={`grid w-full grid-cols-[24px_minmax(0,1fr)] gap-2.5 rounded-[9px] px-2.5 py-2 text-left ${current ? "bg-surface" : "hover:bg-surface/60"}`}
                 >
                   <span
-                    className={`flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] text-[11px] font-semibold ${done ? "border-ink bg-ink text-paper" : current ? "border-ink bg-white" : "border-line-2 bg-white"}`}
+                    className={`flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] text-[11px] font-semibold ${done ? "border-ink bg-ink text-paper" : current ? "border-ink bg-surface" : "border-line-2 bg-surface"}`}
                   >
                     {done ? "✓" : i + 1}
                   </span>
@@ -334,7 +334,7 @@ function StepBody({ step, p, set }: { step: number; p: Profile; set: (patch: Par
             id="date"
             type="date"
             className="field max-w-[260px]"
-            min="2026-09-28"
+            min={addDays(TODAY, 1)}
             value={p.date ?? ""}
             onChange={(e) =>
               set({

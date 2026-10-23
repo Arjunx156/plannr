@@ -49,7 +49,7 @@ export function PriorityPicker({
               type="button"
               aria-pressed={on}
               onClick={() => onToggle(o, "cuts")}
-              className={`inline-flex min-h-9 items-center rounded-full border px-[13px] text-sm font-medium ${on ? "border-gold bg-cream text-amber-ink" : "border-line bg-white hover:border-line-2"}`}
+              className={`inline-flex min-h-9 items-center rounded-full border px-[13px] text-sm font-medium ${on ? "border-gold bg-cream text-amber-ink" : "border-line bg-surface hover:border-line-2"}`}
             >
               {o}
             </button>

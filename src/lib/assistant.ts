@@ -1,5 +1,5 @@
 import type { CommunityEvent, Message, PersonalEvent, PlannrEvent, Preview } from "../data/types";
-import { dayLabel, TODAY } from "./dates";
+import { dayLabel, fridayOnOrBefore, fullDate, shortDate, TODAY } from "./dates";
 import { inr } from "./format";
 import { budgetTotals, communityReadiness, personalReadiness, settle } from "./metrics";
 
@@ -37,8 +37,8 @@ function personalReply(ev: PersonalEvent, text: string, context: AssistantContex
     const haldi = ev.functions.find((f) => f.id === "haldi");
     if (!haldi)
       return ai("This event doesn't have a haldi yet. Add it as a function first and I can move it.");
-    if (haldi.date === "2027-04-23")
-      return ai(`The haldi is already on ${dayLabel(haldi.date)} Apr at ${haldi.time ?? "5:00 pm"}.`);
+    if (fridayOnOrBefore(haldi.date) === haldi.date)
+      return ai(`The haldi is already on ${shortDate(haldi.date)} at ${haldi.time ?? "5:00 pm"}.`);
     const malayalam = has(text, /[ഀ-ൿ]/);
     return ai(
       malayalam
@@ -49,7 +49,7 @@ function personalReply(ev: PersonalEvent, text: string, context: AssistantContex
         translation: malayalam
           ? "Here's what would change. Nothing is applied until you confirm."
           : undefined,
-        preview: haldiPreview(),
+        preview: haldiPreview(haldi.date),
       },
     );
   }
@@ -162,11 +162,11 @@ function personalReply(ev: PersonalEvent, text: string, context: AssistantContex
 function communityReply(ev: CommunityEvent, text: string): Message {
   const t = text.toLowerCase();
   if (has(t, /permit|police|application|loudspeaker/)) {
+    const day = fullDate(ev.date);
     return ai(
       "Here's a draft for the Thrikkakara police station. Check the dates and sign it as cultural secretary.",
       {
-        source:
-          "To the Station House Officer, Thrikkakara. Green Valley Society, Kakkanad requests permission to use amplified sound (2 kW, four speakers) for its Diwali Mela on the society grounds on Saturday 7 November 2026, from 7 pm to 10 pm. Expected attendance is 600 residents and guests. Volume will be kept within permitted limits and the programme will end at 10 pm. Contact: Priya Menon, cultural secretary.",
+        source: `To the Station House Officer, Thrikkakara. Green Valley Society, Kakkanad requests permission to use amplified sound (2 kW, four speakers) for its ${ev.name.replace(/^Green Valley Society /, "")} on the society grounds on ${day}, from 7 pm to 10 pm. Expected attendance is 600 residents and guests. Volume will be kept within permitted limits and the programme will end at 10 pm. Contact: Priya Menon, cultural secretary.`,
       },
     );
   }
@@ -195,7 +195,8 @@ function communityReply(ev: CommunityEvent, text: string): Message {
   );
 }
 
-export function haldiPreview(): Preview {
+export function haldiPreview(from: string): Preview {
+  const to = fridayOnOrBefore(from);
   return {
     id: msgId(),
     title: "Preview · 4 changes",
@@ -203,7 +204,7 @@ export function haldiPreview(): Preview {
     change: "move-haldi",
     status: "pending",
     rows: [
-      { title: "Haldi date", from: "Sat 24 Apr", to: "Fri 23 Apr, 5:00 pm" },
+      { title: "Haldi date", from: shortDate(from), to: `${shortDate(to)}, 5:00 pm` },
       {
         title: "2 tasks move a day earlier",
         detail: "Haldi caterer headcount · Collect turmeric & marigolds (Priya)",

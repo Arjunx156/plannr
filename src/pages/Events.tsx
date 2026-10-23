@@ -1,18 +1,11 @@
 import { Link, Navigate, useNavigate } from "react-router";
-import { Bar, Logo, Menu, MenuDivider, MenuItem, Toran, usePageMeta } from "../components/ui";
-import { NOTIFICATIONS, PAST_EVENTS } from "../data/seed";
+import { Bar, HUE_COLOR, Logo, Menu, MenuDivider, MenuItem, Toran, usePageMeta } from "../components/ui";
+import { pastEvents, seedNotifications } from "../data/seed";
 import type { PlannrEvent } from "../data/types";
 import { daysUntil, greeting, plainDate, TODAY } from "../lib/dates";
 import { KIND_LABEL } from "../lib/intake";
 import { communityReadiness, personalReadiness } from "../lib/metrics";
 import { toast, useStore } from "../store/store";
-
-const HUE_BAR: Record<PlannrEvent["hue"], string> = {
-  marigold: "var(--color-marigold)",
-  indigo: "var(--color-indigo)",
-  leaf: "var(--color-leaf)",
-  maroon: "var(--color-maroon)",
-};
 
 function readiness(ev: PlannrEvent): number | undefined {
   if (ev.layout === "personal") return personalReadiness(ev, TODAY).overall;
@@ -21,13 +14,14 @@ function readiness(ev: PlannrEvent): number | undefined {
 }
 
 export function Events() {
-  usePageMeta("My events");
+  usePageMeta("My events", { private: true });
   const { state, dispatch } = useStore();
   const navigate = useNavigate();
   if (!state.session.signedIn) return <Navigate to="/signin?next=/events" replace />;
   const live = state.events.filter((e) => !e.archived).sort((a, b) => a.date.localeCompare(b.date));
   const archived = state.events.filter((e) => e.archived);
-  const unread = state.notificationsRead ? 0 : NOTIFICATIONS.filter((n) => n.unread).length;
+  const notifications = seedNotifications();
+  const unread = state.notificationsRead ? 0 : notifications.filter((n) => n.unread).length;
 
   return (
     <div className="min-h-dvh bg-paper">
@@ -53,7 +47,7 @@ export function Events() {
             )}
           >
             {(close) =>
-              NOTIFICATIONS.map((n) => (
+              notifications.map((n) => (
                 <MenuItem
                   key={n.id}
                   onSelect={() => {
@@ -137,9 +131,9 @@ export function Events() {
               <Link
                 key={ev.id}
                 to={`/events/${ev.id}`}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-line bg-white text-ink no-underline transition-shadow hover:shadow-[0_12px_32px_rgba(60,40,20,.10)]"
+                className="group flex flex-col overflow-hidden rounded-2xl border border-line bg-surface text-ink no-underline transition-shadow hover:shadow-[0_12px_32px_rgba(60,40,20,.10)]"
               >
-                <div className="h-2" style={{ background: HUE_BAR[ev.hue] }} />
+                <div className="h-2" style={{ background: HUE_COLOR[ev.hue] }} />
                 <div className="flex flex-1 flex-col gap-3 p-5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="eyebrow text-muted">{KIND_LABEL[ev.kind]}</span>
@@ -179,7 +173,7 @@ export function Events() {
 
         <section aria-label="Past events" className="flex flex-col gap-3">
           <h2 className="font-serif text-[26px]">Past events</h2>
-          <ul className="m-0 flex list-none flex-col rounded-2xl border border-line bg-white p-0">
+          <ul className="m-0 flex list-none flex-col rounded-2xl border border-line bg-surface p-0">
             {[
               ...archived.map((e) => ({
                 id: e.id,
@@ -188,7 +182,7 @@ export function Events() {
                 summary: "Archived",
                 live: true,
               })),
-              ...PAST_EVENTS.map((p) => ({ ...p, live: false })),
+              ...pastEvents().map((p) => ({ ...p, live: false })),
             ].map((p, i) => (
               <li
                 key={p.id}

@@ -1,0 +1,3 @@
+[test]
+# Pin the clock to the demo story's day so countdowns in tests are deterministic.
+preload = ["./tests/setup.ts"]
