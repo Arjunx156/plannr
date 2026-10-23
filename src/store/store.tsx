@@ -276,8 +276,15 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, draft: { ...state.draft, ...action.patch } };
     case "draftReset":
       return { ...state, draft: freshDraft(action.forEvent) };
-    case "readNotifications":
-      return { ...state, notificationsRead: true, inboxSeen: new Date().toISOString() };
+    case "readNotifications": {
+      // The server's clock, not this device's: a phone set to the wrong time still clears the inbox.
+      const newest = state.activity[0]?.at;
+      return {
+        ...state,
+        notificationsRead: true,
+        inboxSeen: newest && newest > state.inboxSeen ? newest : state.inboxSeen,
+      };
+    }
     case "setActivity":
       return { ...state, activity: action.activity };
     case "toast":

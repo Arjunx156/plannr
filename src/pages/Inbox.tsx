@@ -18,11 +18,15 @@ export function Inbox() {
   usePageMeta("Inbox", { private: true });
   const { state, dispatch } = useStore();
   const items = useInbox();
-  // What was unread when the page opened stays marked for this visit.
-  const [fresh] = useState(() => new Set(items.filter((i) => i.unread).map((i) => i.id)));
+  // What was unread when the page opened stays marked "New" for this visit, including
+  // changes that arrive while it's open; the inbox counts them as read straight away.
+  const [seenAtOpen] = useState(state.inboxSeen);
+  const [demoUnread] = useState(() => new Set(items.filter((i) => i.unread).map((i) => i.id)));
+  const isNew = (i: InboxItem) => (i.at ? i.at > seenAtOpen : demoUnread.has(i.id));
   useEffect(() => {
+    void state.activity;
     dispatch({ type: "readNotifications" });
-  }, [dispatch]);
+  }, [dispatch, state.activity]);
   const shared = state.events.find((e) => !e.archived && state.remote[e.id]?.role === "owner");
 
   let last = "";
@@ -68,7 +72,7 @@ export function Inbox() {
                         {item.at ? timeAgo(item.at) : item.when}
                       </span>
                     </span>
-                    {fresh.has(item.id) && (
+                    {isNew(item) && (
                       <span className="mt-1 rounded-full bg-maroon px-2 py-px text-[10px] font-semibold text-white">
                         New
                       </span>
