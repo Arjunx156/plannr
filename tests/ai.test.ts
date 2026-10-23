@@ -1,0 +1,208 @@
+import { describe, expect, test } from "bun:test";
+import { aiConfig, handleAi, rateLimiter } from "../server/ai.ts";
+import { assistantPrompt, assistantRequest, sanitizeIntake, sanitizePlan } from "../server/prompts.ts";
+import { seedEvents } from "../src/data/seed";
+import type { PersonalEvent } from "../src/data/types";
+import { eventFacts, mergeAiProfile } from "../src/lib/ai";
+import { emptyProfile, parseDescription } from "../src/lib/intake";
+
+const TODAY = "2026-09-27";
+const config = { apiKey: "test-key", model: "test-model" };
+
+function gemini(payload: unknown, status = 200) {
+  const calls: { url: string; body: Record<string, unknown>; headers: Record<string, string> }[] = [];
+  const fetchImpl = async (url: string, init: RequestInit) => {
+    calls.push({
+      url,
+      body: JSON.parse(String(init.body)),
+      headers: init.headers as Record<string, string>,
+    });
+    const body =
+      status === 200
+        ? { candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }] }
+        : { error: { message: "nope" } };
+    return new Response(JSON.stringify(body), { status });
+  };
+  return { calls, fetchImpl };
+}
+
+describe("ai config", () => {
+  test("reads the key from the server environment only", () => {
+    expect(aiConfig({}).apiKey).toBeUndefined();
+    expect(aiConfig({ GEMINI_API_KEY: "  k  " }).apiKey).toBe("k");
+    expect(aiConfig({ GEMINI_MODEL: "m" }).model).toBe("m");
+  });
+
+  test("status reports whether AI is on without leaking the key", async () => {
+    const out = await handleAi("status", {}, config);
+    expect(out).toEqual({ status: 200, body: { enabled: true, model: "test-model" } });
+    expect(JSON.stringify(out)).not.toContain("test-key");
+  });
+
+  test("refuses AI routes when no key is configured", async () => {
+    const out = await handleAi("intake", { text: "hi" }, { model: "m" });
+    expect(out.status).toBe(503);
+  });
+});
+
+describe("intake route", () => {
+  test("sends the key as a header and a JSON schema, and sanitizes the answer", async () => {
+    const { calls, fetchImpl } = gemini({
+      kind: "wedding",
+      names: "Meera and Arjun",
+      city: "Palakkad",
+      guests: "300",
+      budget: 2500000,
+      date: "2027-01-20",
+      functions: ["Haldi", "Ceremony", "Disco"],
+      reply: "Lovely.",
+    });
+    const out = await handleAi(
+      "intake",
+      { text: "Meera and Arjun's wedding in Palakkad", profile: {}, today: TODAY },
+      config,
+      fetchImpl,
+    );
+    expect(out.status).toBe(200);
+    expect(out.body).toMatchObject({
+      kind: "wedding",
+      names: "Meera & Arjun",
+      city: "Palakkad",
+      guests: 300,
+      budget: 2500000,
+      date: "2027-01-20",
+      functions: ["Haldi", "Ceremony"],
+    });
+    expect(calls[0]?.url).toContain("/models/test-model:generateContent");
+    expect(calls[0]?.url).not.toContain("test-key");
+    expect(calls[0]?.headers["x-goog-api-key"]).toBe("test-key");
+    const gen = calls[0]?.body.generationConfig as Record<string, unknown>;
+    expect(gen.responseMimeType).toBe("application/json");
+    expect(gen.responseJsonSchema).toBeDefined();
+  });
+
+  test("rejects an empty message before calling the model", async () => {
+    const { calls, fetchImpl } = gemini({});
+    const out = await handleAi("intake", { text: "  " }, config, fetchImpl);
+    expect(out.status).toBe(400);
+    expect(calls.length).toBe(0);
+  });
+
+  test("turns upstream failures into a clean error", async () => {
+    const { fetchImpl } = gemini({}, 500);
+    const out = await handleAi("intake", { text: "hello" }, config, fetchImpl);
+    expect(out.status).toBe(502);
+    const busy = await handleAi("intake", { text: "hello" }, config, gemini({}, 429).fetchImpl);
+    expect(busy.status).toBe(429);
+  });
+
+  test("drops values the model shouldn't have produced", () => {
+    const s = sanitizeIntake(
+      { kind: "gala", guests: -4, budget: 12, date: "2025-02-30", needs: ["Vegetarian", "Vegetarian"] },
+      TODAY,
+    );
+    expect(s.kind).toBeUndefined();
+    expect(s.guests).toBeUndefined();
+    expect(s.budget).toBeUndefined();
+    expect(s.date).toBeUndefined();
+    expect(s.needs).toEqual(["Vegetarian"]);
+    expect(sanitizeIntake({ date: "2026-01-01" }, TODAY).date).toBeUndefined();
+  });
+});
+
+describe("merging Gemini into the profile", () => {
+  test("fills gaps but never overrides what the parser read", () => {
+    const local = parseDescription("Wedding in Kochi, 250 guests", emptyProfile());
+    const merged = mergeAiProfile(local, {
+      city: "Ernakulam",
+      guests: 260,
+      budget: 1800000,
+      names: "Ananya & Rohan",
+      date: "2027-04-25",
+      dateText: "Late Apr 2027",
+      functions: ["Haldi"],
+      needs: ["2 wheelchair users"],
+    });
+    expect(merged.city).toBe("Kochi");
+    expect(merged.guests).toBe(250);
+    expect(merged.budget).toBe(1800000);
+    expect(merged.names).toBe("Ananya & Rohan");
+    expect(merged.date).toBe("2027-04-25");
+    expect(merged.functions).toEqual(["Haldi", "Ceremony"]);
+    expect(merged.needs).toEqual(["2 wheelchair users"]);
+  });
+
+  test("is a no-op without an AI answer", () => {
+    const p = parseDescription("Birthday in Thrissur", emptyProfile());
+    expect(mergeAiProfile(p, undefined)).toBe(p);
+  });
+});
+
+describe("assistant route", () => {
+  const wedding = seedEvents()[0] as PersonalEvent;
+
+  test("grounds the prompt in computed facts and keeps history in turn order", () => {
+    const req = assistantRequest({
+      text: "How are we doing?",
+      event: wedding,
+      facts: eventFacts(wedding),
+      history: [
+        { role: "ai", text: "Welcome" },
+        { role: "user", text: "Hi" },
+        { role: "ai", text: "Hello" },
+      ],
+      today: TODAY,
+      lang: "ML",
+    });
+    const { system, contents } = assistantPrompt(req);
+    expect(system).toContain("Malayalam");
+    expect(system).toContain('"overall":"');
+    expect(contents[0]?.role).toBe("user");
+    expect(contents.at(-1)?.parts[0]?.text).toBe("How are we doing?");
+  });
+
+  test("facts carry the live readiness and budget numbers", () => {
+    const facts = eventFacts(wedding) as { budget: { total: number }; readiness: { overall: string } };
+    expect(facts.budget.total).toBe(wedding.budget.total);
+    expect(facts.readiness.overall).toMatch(/^\d+%$/);
+  });
+
+  test("requires an event", async () => {
+    const out = await handleAi("assistant", { text: "hi" }, config, gemini({}).fetchImpl);
+    expect(out.status).toBe(400);
+  });
+});
+
+describe("plan notes", () => {
+  test("keeps only complete tips and caps the lists", () => {
+    const s = sanitizePlan({
+      summary: "A good plan.",
+      tips: [{ title: "Book early", detail: "Studios fill up." }, { title: "No detail" }],
+      watchouts: ["a", "b", "c", "d"],
+    });
+    expect(s.tips).toEqual([{ title: "Book early", detail: "Studios fill up." }]);
+    expect(s.watchouts.length).toBe(3);
+    expect(s.ideas).toEqual([]);
+  });
+});
+
+describe("rate limiter", () => {
+  test("allows a burst then blocks until the window resets", () => {
+    const allow = rateLimiter(2, 1000);
+    expect(allow("ip", 0)).toBe(true);
+    expect(allow("ip", 1)).toBe(true);
+    expect(allow("ip", 2)).toBe(false);
+    expect(allow("other", 2)).toBe(true);
+    expect(allow("ip", 1001)).toBe(true);
+  });
+});
+
+describe("needs from Gemini", () => {
+  test("skip what the parser already covers", () => {
+    const local = parseDescription("Grandmother uses a wheelchair, all vegetarian", emptyProfile());
+    const merged = mergeAiProfile(local, {
+      needs: ["Grandmother uses a wheelchair", "All vegetarian", "Elderly guests"],
+    });
+    expect(merged.needs).toEqual(["Wheelchair access", "Vegetarian", "Elderly guests"]);
+  });
+});

@@ -4,6 +4,7 @@ import { canDraft, PriorityPicker } from "../components/intake";
 import { Logo, Toran, usePageMeta } from "../components/ui";
 import { HoldToSpeak, LangSelect } from "../components/voice";
 import type { Kind, Profile } from "../data/types";
+import { extractWithAi, mergeAiProfile } from "../lib/ai";
 import {
   detectDate,
   detectKind,
@@ -124,16 +125,17 @@ export function Intake() {
   usePageMeta(mode === "guided" ? "Guided plan" : "Describe your event");
   const { state, dispatch } = useStore();
   const location = useLocation();
-  const navigate = useNavigate();
   const draft = state.draft;
   const booted = useRef(false);
+  // The landing page hands its sentence over in router state; keep it for the chat to send once.
+  const [autoSend] = useState(() => (location.state as { prompt?: string } | null)?.prompt);
 
   useEffect(() => {
     if (booted.current) return;
     booted.current = true;
     const type = params.get("type") as Kind | null;
     const eventId = params.get("event");
-    const prompt = (location.state as { prompt?: string } | null)?.prompt;
+    const prompt = autoSend;
     if (eventId) {
       const ev = state.events.find((e) => e.id === eventId);
       dispatch({ type: "draftReset", forEvent: eventId });
@@ -150,9 +152,9 @@ export function Intake() {
     } else if (prompt || params.get("fresh")) {
       dispatch({ type: "draftReset" });
     }
-    if (prompt)
-      navigate(`${location.pathname}${location.search}`, { replace: true, state: { autoSend: prompt } });
-  }, [dispatch, location, navigate, params, state.events]);
+    // Drop it from history so a reload doesn't send it again.
+    if (prompt) window.history.replaceState({ ...window.history.state, usr: null }, "");
+  }, [autoSend, dispatch, params, state.events]);
 
   const setMode = (m: "chat" | "guided") => {
     const next = new URLSearchParams(params);
@@ -205,15 +207,18 @@ export function Intake() {
           )}
         </span>
       </header>
-      {mode === "chat" ? <Chat draft={draft} onEdit={() => setMode("guided")} /> : <Guided />}
+      {mode === "chat" ? (
+        <Chat draft={draft} autoSend={autoSend} onEdit={() => setMode("guided")} />
+      ) : (
+        <Guided />
+      )}
     </div>
   );
 }
 
-function Chat({ draft, onEdit }: { draft: Draft; onEdit: () => void }) {
+function Chat({ draft, autoSend, onEdit }: { draft: Draft; autoSend?: string; onEdit: () => void }) {
   const { dispatch } = useStore();
   const navigate = useNavigate();
-  const location = useLocation();
   const [text, setText] = useState("");
   const [thinking, setThinking] = useState(false);
   const [lang, setLang] = useState<SpeechCode>("EN");
@@ -254,34 +259,43 @@ function Chat({ draft, onEdit }: { draft: Draft; onEdit: () => void }) {
     }, 650);
   };
 
-  const send = (raw: string) => {
+  const send = async (raw: string) => {
     const message = raw.trim();
     if (!message || thinking) return;
     const current = draftRef.current;
     const field = pendingField(current);
     const isFirst = !current.chat.some((t) => t.role === "user");
-    const next = readAnswer(message, current.profile, field);
+    // The on-device parse lands instantly; Gemini fills what it missed a moment later.
+    const local = readAnswer(message, current.profile, field);
     const asked =
       field && ["venue", "extras", "priorities"].includes(field)
         ? [...new Set([...current.asked, field])]
         : current.asked;
     const userTurn: ChatTurn = { id: turnId(), role: "user", text: message };
-    dispatch({ type: "draft", patch: { profile: next, asked, chat: [...current.chat, userTurn] } });
+    dispatch({ type: "draft", patch: { profile: local, asked, chat: [...current.chat, userTurn] } });
     setText("");
+    setThinking(true);
+    const started = Date.now();
+    const ai = await extractWithAi(message, current.profile, field);
+    const next = mergeAiProfile(local, ai);
     const q = questionAfter(next, asked, field);
-    let lead = isFirst ? opener(next) : field === "extras" ? acknowledge(current.profile, next) : "";
+    const aiLead = (isFirst || field === "extras") && ai?.reply;
+    let lead =
+      aiLead || (isFirst ? opener(next) : field === "extras" ? acknowledge(current.profile, next) : "");
     if (field === "date" && !next.date)
       lead = "I couldn't place that date. A month is enough, like “December” or “in 3 weeks”.";
     if (!q) lead = lead ? `${lead} ${DONE}` : DONE;
     else if (q.field === "priorities" && lead) lead = `${lead} Last one:`;
-    respond({ id: turnId(), role: "ai", text: lead, question: q ?? undefined }, {});
+    await new Promise((r) => window.setTimeout(r, Math.max(0, 650 - (Date.now() - started))));
+    const aiTurn: ChatTurn = { id: turnId(), role: "ai", text: lead, question: q ?? undefined };
+    dispatch({ type: "draft", patch: { profile: next, chat: [...draftRef.current.chat, aiTurn] } });
+    setThinking(false);
   };
 
   useEffect(() => {
-    const auto = (location.state as { autoSend?: string } | null)?.autoSend;
-    if (auto && !sentAuto.current && draft.chat.length === 1 && draft.chat[0]?.role === "ai") {
+    if (autoSend && !sentAuto.current && draft.chat.length === 1 && draft.chat[0]?.role === "ai") {
       sentAuto.current = true;
-      send(auto);
+      void send(autoSend);
     }
   });
 

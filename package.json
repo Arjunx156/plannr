@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "start": "bun server/serve.ts",
     "lint": "biome check .",
     "test": "bun test"
   },
