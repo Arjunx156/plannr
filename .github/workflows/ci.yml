@@ -12,10 +12,10 @@ concurrency:
 jobs:
   checks:
     name: Lint, types, unit tests, build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
@@ -27,10 +27,11 @@ jobs:
 
   journeys:
     name: Browser journeys and accessibility
-    runs-on: ubuntu-latest
+    # Playwright 1.56 supports Ubuntu up to 24.04; ubuntu-latest has moved past it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
@@ -39,7 +40,7 @@ jobs:
       - run: bun x playwright test
         env:
           CI: "true"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
