@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { anonymous, emailOTP } from "better-auth/plugins";
@@ -31,6 +32,12 @@ export interface AuthEnv {
 }
 
 const DEV_SECRET = "plannr-development-secret-not-for-production-use";
+
+/**
+ * Better Auth answers "sent" even when an email fails, so nobody can probe which addresses
+ * exist. The API wraps each auth request in this store to tell the person their code didn't go.
+ */
+export const mailFailure = new AsyncLocalStorage<{ message?: string }>();
 
 /** Codes sent in development, so tests can sign in by email without a mail server. */
 export const devOutbox = new Map<string, string>();
@@ -74,8 +81,16 @@ async function sendCode(env: AuthEnv, email: string, otp: string): Promise<void>
         text: `Your Plannr sign-in code is ${otp}. It works for 5 minutes. If you didn't ask for it, ignore this email.`,
       }),
     });
-    if (!res.ok) throw new Error(`Email failed: ${res.status}`);
-    return;
+    if (res.ok) return;
+    console.error(`[auth] Resend refused a sign-in code: ${res.status} ${(await res.text()).slice(0, 300)}`);
+    // Until the sender's domain is verified, Resend only delivers to the account's own address.
+    const message =
+      res.status === 403 || res.status === 422
+        ? "We can't email a code to that address yet. Continue as a guest for now and add your email later."
+        : "The code didn't send. Try again in a minute.";
+    const box = mailFailure.getStore();
+    if (box) box.message = message;
+    throw new Error(message);
   }
   if (isProduction(env)) throw new Error("Email sign-in isn't set up on this server yet");
   devOutbox.set(email.toLowerCase(), otp);

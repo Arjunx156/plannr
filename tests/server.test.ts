@@ -293,6 +293,41 @@ describe("planning together", () => {
   });
 });
 
+describe("email codes", () => {
+  test("an address the mail service won't deliver to gets a clear message", async () => {
+    const mailApp = createApp({
+      db: await createLocalDb(),
+      env: { RESEND_API_KEY: "test", EMAIL_FROM: "Plannr <codes@example.com>" },
+    });
+    const realFetch = globalThis.fetch;
+    const sent: string[] = [];
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).startsWith("https://api.resend.com")) {
+        sent.push(String(init?.body));
+        return new Response(
+          JSON.stringify({ message: "You can only send testing emails to your own address" }),
+          {
+            status: 403,
+          },
+        );
+      }
+      return realFetch(url, init);
+    }) as typeof fetch;
+    try {
+      const res = await mailApp.request("/api/auth/email-otp/send-verification-otp", {
+        method: "POST",
+        headers: { origin: ORIGIN, "content-type": "application/json" },
+        body: JSON.stringify({ email: "someone@example.com", type: "sign-in" }),
+      });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toContain("Continue as a guest");
+      expect(sent).toHaveLength(1);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});
+
 describe("upgrading a guest", () => {
   test("signing in by email code keeps the guest's plans", async () => {
     const priya = new Client();

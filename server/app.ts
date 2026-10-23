@@ -9,6 +9,7 @@ import {
   createAuth,
   devOutbox,
   isProduction,
+  mailFailure,
   signInMethods,
   trustedOrigins,
 } from "./auth";
@@ -123,7 +124,11 @@ export function createApp(deps: { db: Db; env: AppEnv; auth?: Auth; ai?: () => A
     app.get("/dev/outbox/:email", (c) =>
       c.json({ code: devOutbox.get(c.req.param("email").toLowerCase()) ?? null }),
     );
-  app.on(["GET", "POST"], "/auth/*", (c) => auth.handler(c.req.raw));
+  app.on(["GET", "POST"], "/auth/*", async (c) => {
+    const failure: { message?: string } = {};
+    const res = await mailFailure.run(failure, () => auth.handler(c.req.raw));
+    return failure.message ? c.json({ error: failure.message }, 400) : res;
+  });
 
   // Invite previews are public: someone opening the link may not have an account yet.
   app.get("/invites/:token", async (c) => c.json(await previewInvite(db, c.req.param("token"))));
