@@ -110,3 +110,48 @@ test.describe("shared pages in the family's language", () => {
     await expect(page.getByLabel("பாஸைக் கண்டுபிடி")).toBeVisible();
   });
 });
+
+test.describe("passes and the gate", () => {
+  test("passes print with a QR code each, and the gate checks them in by name", async ({ page }) => {
+    await signInDemo(page);
+    await page.goto("/events/green-valley-mela/stalls");
+    await page.getByRole("link", { name: "Print passes" }).click();
+    await expect(page).toHaveURL(/\/events\/green-valley-mela\/passes$/);
+    const first = page.getByRole("listitem").first();
+    await expect(first.getByRole("img", { name: /^Pass for / })).toBeVisible();
+    const name = (await first.locator(".font-serif").textContent()) ?? "";
+    await expectAccessible(page);
+
+    await page.goto("/events/green-valley-mela/day");
+    const gate = page.getByRole("region", { name: "Gate" });
+    await gate.getByLabel("Find a pass").fill(name);
+    await gate.getByRole("button", { name: `One more in for ${name}` }).click();
+    await expect(gate.getByText(/^1 of \d+ in$/)).toBeVisible();
+  });
+});
+
+test.describe("vendor and resident pages in the family's language", () => {
+  test("the call sheet and fund report switch language", async ({ page }) => {
+    await signInDemo(page);
+    await page.goto("/preview/vendor/ananya-rohan/catering");
+    await page.getByRole("button", { name: "മലയാളം" }).click();
+    await expect(page.getByRole("heading", { name: "എപ്പോൾ, എവിടെ" })).toBeVisible();
+    await page.goto("/preview/fund/green-valley-mela");
+    await page.getByRole("button", { name: "தமிழ்" }).click();
+    await expect(page.getByRole("heading", { name: "பணம் எங்கிருந்து வருகிறது" })).toBeVisible();
+    await expectAccessible(page);
+  });
+});
+
+test.describe("on a phone", () => {
+  test("the section you're on stays in view in the tab bar @phone", async ({ page }) => {
+    await signInDemo(page);
+    await page.goto("/events/green-valley-mela/stalls");
+    const tab = page
+      .getByRole("navigation", { name: "Event sections" })
+      .getByRole("link", { name: "Stalls & passes" });
+    await expect(tab).toBeInViewport();
+    const box = await tab.boundingBox();
+    expect(box?.height ?? 0).toBeLessThan(60);
+  });
+});

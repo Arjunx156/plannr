@@ -1114,12 +1114,19 @@ function Passes({ ev, editable }: { ev: CommunityEvent; editable: boolean }) {
     <Section
       title="Passes"
       aside={
-        <ShareLink
-          ev={ev}
-          kind="gate"
-          label="Send the gate link"
-          message={`Gate check-in for ${ev.name}. Find the flat or name and tap +1 as people come in:`}
-        />
+        <span className="flex flex-wrap items-center gap-2">
+          {passes.length > 0 && (
+            <Link to={`/events/${ev.id}/passes`} className="btn btn-ghost btn-sm">
+              Print passes
+            </Link>
+          )}
+          <ShareLink
+            ev={ev}
+            kind="gate"
+            label="Send the gate link"
+            message={`Gate check-in for ${ev.name}. Scan each pass, or find the flat or name and tap +1:`}
+          />
+        </span>
       }
     >
       {passes.length > 0 && (

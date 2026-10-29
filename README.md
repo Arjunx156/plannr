@@ -25,9 +25,18 @@ history all work locally.
 | `bun run size` | Fails if the built JavaScript grows past its budget (run after a build) |
 | `bun run vercel-build` | The production build: migrations, app, pre-rendered public pages, API bundle |
 | `bun run brand` | Regenerates the favicon PNGs and the share image in `public/` |
+| `bun scripts/restore-backup.ts --latest --out backup.json` | Opens the newest nightly backup (needs `BACKUP_KEY` and `BLOB_READ_WRITE_TOKEN`); `--into <postgres-url>` loads it into a database |
 
 CI (`.github/workflows/ci.yml`) runs lint, types, tests, the build, the size budget, pre-rendering and the
-browser journeys on every push to `main`.
+browser journeys on every push to `main`. Every Monday `.github/workflows/dependencies.yml` posts outdated
+packages and the security audit to one issue ("Weekly dependency report"); updates are made on `main`.
+
+## Backups
+
+Each night at 8:00 IST the daily job sends the morning reminders, then exports accounts, plans, members,
+history, links and templates, encrypts them with AES-256-GCM under `BACKUP_KEY` and stores them in the Blob
+store under `backups/`, keeping 14 days. To restore, run the restore script above with the key from Vercel's
+environment variables; loading skips rows that already exist, so it can fill a fresh Neon branch.
 
 ## What's in it
 
@@ -61,6 +70,7 @@ browser journeys on every push to `main`.
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Server | Morning reminders by web push |
 | `CRON_SECRET` | Server | Authenticates the daily reminder job (`/api/cron/daily`, 8:00 IST) |
 | `ADMIN_EMAILS` | Server | Comma-separated accounts that can open `/admin` |
+| `BACKUP_KEY` | Server | 32-byte base64 key that encrypts the nightly backups. Keep a copy: without it no backup can be opened |
 | `SITE_URL` | Build | Public origin for canonical links and the sitemap; on Vercel the production domain is used |
 
 ## How AI is wired
@@ -73,7 +83,7 @@ JSON response schema and sanitizes the answer (`server/prompts.ts`). Each person
 | --- | --- |
 | `intake` | Reads a description into the event profile; the on-device parser runs first and Gemini fills gaps |
 | `plan` | Adds tips, watch-outs and ideas to a first draft |
-| `assistant` | Answers from the live plan with precomputed numbers, and proposes changes in a small vocabulary that the app turns into a preview (`src/shared/proposals.ts`) |
+| `assistant` | Answers from the live plan with precomputed numbers, and proposes changes in a small vocabulary that the app turns into a preview (`src/shared/proposals.ts`). `/api/ai/assistant/stream` sends the answer word by word as server-sent events |
 | `write` | Drafts enquiries, thank-yous, reminders, permit letters and translations in English, Malayalam, Hindi or Tamil |
 | `read` | Reads a photo or PDF of a bill, quote or contract into amounts, instalments and terms |
 

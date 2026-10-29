@@ -50,7 +50,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               aria-keyshortcuts="Control+K Meta+K"
               aria-label="Search"
             >
-              <span aria-hidden="true">⌕</span>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <circle cx="8.5" cy="8.5" r="5.5" />
+                <path d="m13 13 4.5 4.5" />
+              </svg>
               <span className="hidden sm:inline">Search</span>
               <kbd className="hidden rounded border border-line bg-sand px-1.5 font-mono text-[10px] text-muted sm:inline">
                 ⌘K

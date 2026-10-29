@@ -1,6 +1,7 @@
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { QrCode } from "../../components/qr";
+import { detectorClass, Scanner } from "../../components/scanner";
 import { Logo, Pill, Toran } from "../../components/ui";
 import { dateRange, dueLabel, longDate } from "../../lib/dates";
 import { inr, timeAgo } from "../../lib/format";
@@ -20,6 +21,7 @@ import type {
   StallsView,
   VendorView,
 } from "../../shared/public";
+import { readPassCode } from "../../shared/public";
 
 const ALL_LANGS: GuestLang[] = ["en", "ml", "hi", "ta"];
 
@@ -584,14 +586,19 @@ export function HelperPage({ view, act, preview }: { view: HelperView; act?: Act
 
 export function VendorPage({ view, preview }: { view: VendorView; preview?: ReactNode }) {
   const due = view.payments.filter((p) => !p.paid);
+  const { t, shell } = useLinkLang(view.event);
   return (
-    <PublicShell event={view.event} eyebrow={`Call sheet · ${view.vendor.category}`} preview={preview}>
+    <PublicShell
+      event={view.event}
+      eyebrow={fill(t.callSheet, { category: view.vendor.category })}
+      preview={preview}
+      {...shell}
+    >
       <p className="m-0 text-[17px]">
-        {view.vendor.name ? `${view.vendor.name}, here` : "Here"}'s everything for the day: when to arrive,
-        where, and what's ready for you.
+        {view.vendor.name ? fill(t.vendorHello, { name: view.vendor.name }) : t.vendorHelloNoName}
       </p>
-      <Card label="Arrival">
-        <h2 className="font-serif text-[22px]">When and where</h2>
+      <Card label={t.whenWhere}>
+        <h2 className="font-serif text-[22px]">{t.whenWhere}</h2>
         {view.arrivals.length ? (
           <ul className="m-0 flex list-none flex-col p-0">
             {view.arrivals.map((a) => (
@@ -599,13 +606,11 @@ export function VendorPage({ view, preview }: { view: VendorView; preview?: Reac
                 key={`${a.label}-${a.time}`}
                 className="flex flex-col gap-0.5 border-t border-sand-2 py-3 first:border-0"
               >
-                <span className="font-semibold">
-                  {a.label} · arrive {a.time}
-                </span>
+                <span className="font-semibold">{fill(t.arriveAt, { label: a.label, time: a.time })}</span>
                 <span className="text-sm text-body">{longDate(a.date)}</span>
                 {a.place && (
                   <a href={mapLink(a.place)} target="_blank" rel="noreferrer" className="link text-sm">
-                    {a.place} · Map
+                    {a.place} · {t.map}
                   </a>
                 )}
                 {a.note && <span className="text-sm text-body">{a.note}</span>}
@@ -613,18 +618,18 @@ export function VendorPage({ view, preview }: { view: VendorView; preview?: Reac
             ))}
           </ul>
         ) : (
-          <p className="m-0 text-sm text-muted">The family will add your arrival time soon.</p>
+          <p className="m-0 text-sm text-muted">{t.noArrival}</p>
         )}
       </Card>
       {view.vendor.needs && (
-        <Card label="What's arranged">
-          <h2 className="font-serif text-[22px]">Arranged for you</h2>
+        <Card label={t.arranged}>
+          <h2 className="font-serif text-[22px]">{t.arranged}</h2>
           <p className="m-0 text-body">{view.vendor.needs}</p>
         </Card>
       )}
       {view.runsheet.length > 0 && (
-        <Card label="Your part of the day">
-          <h2 className="font-serif text-[22px]">Your part of the day</h2>
+        <Card label={t.yourPart}>
+          <h2 className="font-serif text-[22px]">{t.yourPart}</h2>
           <ul className="m-0 flex list-none flex-col p-0">
             {view.runsheet.map((r) => (
               <li
@@ -641,8 +646,8 @@ export function VendorPage({ view, preview }: { view: VendorView; preview?: Reac
         </Card>
       )}
       {view.payments.length > 0 && (
-        <Card label="Payments">
-          <h2 className="font-serif text-[22px]">Payments</h2>
+        <Card label={t.payments}>
+          <h2 className="font-serif text-[22px]">{t.payments}</h2>
           <ul className="m-0 flex list-none flex-col p-0">
             {view.payments.map((p) => (
               <li
@@ -655,15 +660,14 @@ export function VendorPage({ view, preview }: { view: VendorView; preview?: Reac
                 </span>
                 <span className="flex items-center gap-2">
                   <span className="tabular">{inr(p.amount)}</span>
-                  <Pill tone={p.paid ? "ok" : "due"}>{p.paid ? "paid" : "due"}</Pill>
+                  <Pill tone={p.paid ? "ok" : "due"}>{p.paid ? t.paid : t.due}</Pill>
                 </span>
               </li>
             ))}
           </ul>
           {due.length > 0 && (
             <span className="text-xs text-muted">
-              {inr(due.reduce((s, p) => s + p.amount, 0))} still to be paid. The family marks payments here as
-              they go.
+              {fill(t.stillToPay, { amount: inr(due.reduce((s, p) => s + p.amount, 0)) })}
             </span>
           )}
         </Card>
@@ -777,16 +781,21 @@ export function FundPage({ view, preview }: { view: FundView; preview?: ReactNod
     for (const s of view.sponsors) out.set(s.tier, [...(out.get(s.tier) ?? []), s.name]);
     return [...out.entries()];
   }, [view.sponsors]);
+  const { t, shell } = useLinkLang(view.event);
   return (
-    <PublicShell event={view.event} eyebrow="Fund report for residents" preview={preview}>
+    <PublicShell event={view.event} eyebrow={t.fundReport} preview={preview} {...shell}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[
-          ["Collected", inr(view.received), `${pct(view.received, view.expected)} of ${inr(view.expected)}`],
-          ["Spent", inr(view.spent), `of a ${inr(view.budget)} budget`],
           [
-            "Awaiting approval",
+            t.collected,
+            inr(view.received),
+            fill(t.collectedOf, { pct: pct(view.received, view.expected), expected: inr(view.expected) }),
+          ],
+          [t.spent, inr(view.spent), fill(t.ofBudget, { budget: inr(view.budget) })],
+          [
+            t.awaiting,
             inr(view.pending.amount),
-            `${view.pending.count} ${view.pending.count === 1 ? "expense" : "expenses"}`,
+            view.pending.count === 1 ? t.expenseOne : fill(t.expenseMany, { n: view.pending.count }),
           ],
         ].map(([label, value, sub]) => (
           <div key={label} className="flex flex-col gap-1 rounded-2xl border border-line bg-surface p-4">
@@ -796,8 +805,8 @@ export function FundPage({ view, preview }: { view: FundView; preview?: ReactNod
           </div>
         ))}
       </div>
-      <Card label="Where the money comes from">
-        <h2 className="font-serif text-[22px]">Where the money comes from</h2>
+      <Card label={t.moneyFrom}>
+        <h2 className="font-serif text-[22px]">{t.moneyFrom}</h2>
         <ul className="m-0 flex list-none flex-col p-0">
           {view.sources.map((s) => (
             <li
@@ -812,8 +821,8 @@ export function FundPage({ view, preview }: { view: FundView; preview?: ReactNod
           ))}
         </ul>
       </Card>
-      <Card label="Approved spending">
-        <h2 className="font-serif text-[22px]">Approved spending</h2>
+      <Card label={t.approvedSpending}>
+        <h2 className="font-serif text-[22px]">{t.approvedSpending}</h2>
         {view.expenses.length ? (
           <ul className="m-0 flex list-none flex-col p-0">
             {view.expenses.map((e) => (
@@ -827,12 +836,12 @@ export function FundPage({ view, preview }: { view: FundView; preview?: ReactNod
             ))}
           </ul>
         ) : (
-          <p className="m-0 text-sm text-muted">No expenses approved through Plannr yet.</p>
+          <p className="m-0 text-sm text-muted">{t.noExpenses}</p>
         )}
       </Card>
       {tiers.length > 0 && (
-        <Card label="Thank you to our sponsors">
-          <h2 className="font-serif text-[22px]">Thank you to our sponsors</h2>
+        <Card label={t.thanksSponsors}>
+          <h2 className="font-serif text-[22px]">{t.thanksSponsors}</h2>
           {tiers.map(([tier, names]) => (
             <p key={tier} className="m-0 text-sm">
               <span className="eyebrow mr-2 text-muted">{tier}</span>
@@ -1064,7 +1073,14 @@ export function GatePage({ view, act, preview }: { view: GateView; act?: Act; pr
   const { t, shell } = useLinkLang(view.event);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState("");
-  const shown = view.passes.filter((p) => p.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40);
+  const [scanning, setScanning] = useState(false);
+  const [found, setFound] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const shown = (
+    found
+      ? view.passes.filter((p) => p.id === found)
+      : view.passes.filter((p) => p.name.toLowerCase().includes(q.trim().toLowerCase()))
+  ).slice(0, 40);
   const set = async (id: string, count: number) => {
     if (!act) return;
     setBusy(id);
@@ -1073,6 +1089,19 @@ export function GatePage({ view, act, preview }: { view: GateView; act?: Act; pr
     } finally {
       setBusy("");
     }
+  };
+  const scanned = (text: string) => {
+    setScanning(false);
+    const pass = view.passes.find((p) => p.id === readPassCode(text));
+    if (!pass) {
+      setNote(t.notPass);
+      return;
+    }
+    setFound(pass.id);
+    setQ("");
+    const n = pass.checkedIn || pass.count;
+    setNote(fill(t.welcomeIn, { name: pass.name, n }));
+    if (!pass.checkedIn) void set(pass.id, pass.count);
   };
   return (
     <PublicShell
@@ -1089,13 +1118,32 @@ export function GatePage({ view, act, preview }: { view: GateView; act?: Act; pr
       <label htmlFor="gate-q" className="label">
         {t.findPass}
       </label>
-      <input
-        id="gate-q"
-        className="field text-lg"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={t.flatOrName}
-      />
+      <div className="flex gap-2">
+        <input
+          id="gate-q"
+          className="field flex-1 text-lg"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setFound(null);
+            setNote("");
+          }}
+          placeholder={t.flatOrName}
+        />
+        {act && detectorClass() && (
+          <button type="button" className="btn btn-secondary" onClick={() => setScanning(true)}>
+            {t.scanPass}
+          </button>
+        )}
+      </div>
+      {note && (
+        <p role="status" className="m-0 text-[15px] font-medium text-leaf-ink">
+          {note}
+        </p>
+      )}
+      {scanning && (
+        <Scanner title={t.scanPass} hint={t.cameraHint} onCode={scanned} onClose={() => setScanning(false)} />
+      )}
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {shown.map((p) => (
           <li

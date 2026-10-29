@@ -209,8 +209,8 @@ function Compare({
           <thead>
             <tr className="text-left text-xs text-muted">
               <th className="py-2 font-medium">Vendor</th>
-              <th className="py-2 text-right font-medium">Quote</th>
-              <th className="py-2 text-right font-medium">{guests ? `For ${guests}` : "Total"}</th>
+              <th className="py-2 pl-3 text-right font-medium">Quote</th>
+              <th className="py-2 pl-4 text-right font-medium">{guests ? `For ${guests}` : "Total"}</th>
               <th className="py-2 pl-4 font-medium">Includes</th>
               <th className="py-2 font-medium">Terms</th>
               <th className="py-2" />
@@ -233,12 +233,12 @@ function Compare({
                     </button>
                     {pkg && pkg !== firm && <span className="block text-xs text-muted">{pkg}</span>}
                   </td>
-                  <td className="py-2.5 text-right tabular">
+                  <td className="py-2.5 pl-3 text-right tabular whitespace-nowrap">
                     {inr(b.q.amount)}
                     {b.q.perGuest ? <span className="block text-xs text-muted">a plate</span> : null}
                   </td>
                   <td
-                    className={`py-2.5 text-right tabular font-semibold ${b.total === cheapest ? "text-leaf-ink" : ""}`}
+                    className={`py-2.5 pl-4 text-right tabular font-semibold whitespace-nowrap ${b.total === cheapest ? "text-leaf-ink" : ""}`}
                   >
                     {inr(b.total)}
                     {b.total !== cheapest && (

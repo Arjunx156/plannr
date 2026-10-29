@@ -173,6 +173,16 @@ export function entryCode(householdId: string): string {
   return `plannr:h:${householdId}`;
 }
 
+/** The text in a printed pass's QR. */
+export function passCode(passId: string): string {
+  return `plannr:p:${passId}`;
+}
+
+/** The pass id from a scanned pass QR, if it is one. */
+export function readPassCode(text: string): string | undefined {
+  return text.match(/^plannr:p:([\w-]{1,80})$/)?.[1];
+}
+
 /** The household id from a scanned entry QR, if it is one. */
 export function readEntryCode(text: string): string | undefined {
   return text.match(/^plannr:h:([\w-]{1,80})$/)?.[1];

@@ -1,5 +1,5 @@
-import { type FormEvent, lazy, Suspense, useState } from "react";
-import { Link, Navigate, NavLink, useParams, useSearchParams } from "react-router";
+import { type FormEvent, lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Link, Navigate, NavLink, useLocation, useParams, useSearchParams } from "react-router";
 import { AssistantPanel } from "../components/assistant";
 import { AppShell } from "../components/shell";
 import { TaskRow, TaskSheet, useEditable, useTaskToggle } from "../components/tasks";
@@ -73,7 +73,7 @@ export function EventPage() {
       {ev.layout === "empty" ? (
         <EmptyPlan ev={ev} />
       ) : tab === "" ? (
-        <div className="mx-auto grid max-w-[1440px] gap-6 px-4 py-6 sm:px-8 xl:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="mx-auto grid max-w-[1440px] gap-6 px-4 pt-6 pb-24 sm:px-8 xl:grid-cols-[minmax(0,1fr)_400px] xl:pb-6">
           <main className="flex min-w-0 flex-col gap-6">
             <Hero ev={ev} />
             {ev.layout === "personal" ? (
@@ -82,9 +82,24 @@ export function EventPage() {
               <Community ev={ev} onOpenTask={setTask} />
             )}
           </main>
-          <aside className="xl:sticky xl:top-4 xl:self-start">
+          <aside id="assistant" className="scroll-mt-4 xl:sticky xl:top-4 xl:self-start">
             <AssistantPanel ev={ev} />
           </aside>
+          {/* On narrower screens the assistant sits below the overview: one tap brings it up. */}
+          <button
+            type="button"
+            className="btn btn-primary fixed right-4 z-30 shadow-[0_8px_24px_rgba(20,10,5,.25)] xl:hidden"
+            style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}
+            onClick={() => {
+              document.getElementById("assistant")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              window.setTimeout(
+                () => document.getElementById(`ask-${ev.id}`)?.focus({ preventScroll: true }),
+                400,
+              );
+            }}
+          >
+            ◆ Ask Plannr
+          </button>
         </div>
       ) : (
         <Suspense fallback={<Loading />}>
@@ -112,7 +127,16 @@ function EventBar({ ev }: { ev: PlannrEvent }) {
   const editable = useEditable(ev);
   const remote = state.remote[ev.id];
   const tab = ({ isActive }: { isActive: boolean }) =>
-    `-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold no-underline ${isActive ? "border-ink text-ink" : "border-transparent text-body hover:text-ink"}`;
+    `-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold no-underline ${isActive ? "border-ink text-ink" : "border-transparent text-body hover:text-ink"}`;
+  // On a phone the sections scroll sideways: keep the one you're on in view.
+  const tabsRef = useRef<HTMLElement>(null);
+  const { pathname } = useLocation();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-centre whenever the section changes
+  useEffect(() => {
+    const active = tabsRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    const bar = tabsRef.current;
+    if (active && bar) bar.scrollLeft = active.offsetLeft - (bar.clientWidth - active.offsetWidth) / 2;
+  }, [pathname]);
   return (
     <div className="border-b border-line bg-surface">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-1 px-4 pt-3 sm:px-8">
@@ -129,7 +153,7 @@ function EventBar({ ev }: { ev: PlannrEvent }) {
           </span>
         </div>
         {ev.layout !== "empty" && (
-          <nav aria-label="Event sections" className="flex gap-1 overflow-x-auto">
+          <nav aria-label="Event sections" ref={tabsRef} className="flex gap-1 overflow-x-auto">
             {tabsFor(ev).map((t) => (
               <NavLink key={t.id} to={`/events/${ev.id}${t.id ? `/${t.id}` : ""}`} end className={tab}>
                 {t.label}

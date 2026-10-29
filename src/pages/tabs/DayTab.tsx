@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { detectorClass, Scanner } from "../../components/scanner";
 import { useEditable } from "../../components/tasks";
 import { Field, Modal, Pill } from "../../components/ui";
 import type { FunctionDay, PlannrEvent, RunItem } from "../../data/types";
@@ -7,7 +8,7 @@ import { longDate, TODAY } from "../../lib/dates";
 import { plural } from "../../lib/format";
 import { shrinkImage } from "../../lib/images";
 import { checkInCount, clock, comingCount, functionOn, nowAndNext, runsheetFor } from "../../shared/derive";
-import { readEntryCode } from "../../shared/public";
+import { readEntryCode, readPassCode } from "../../shared/public";
 import { functionsOf, list } from "../../shared/records";
 import { toast, useStore } from "../../store/store";
 import { newId, Section, ShareLink, TabPage } from "./common";
@@ -69,6 +70,7 @@ export function DayTab({ ev }: { ev: PlannrEvent }) {
       <RunSheet ev={ev} fn={fn} live={live} editable={editable} />
       <div className="grid gap-6 lg:grid-cols-2">
         <CheckIn ev={ev} fn={fn} editable={editable} />
+        <PassCheckIn ev={ev} editable={editable} />
         <Checklist ev={ev} fn={fn} editable={editable} />
       </div>
       <Arrivals ev={ev} fn={fn} />
@@ -336,15 +338,6 @@ function RunItemForm({
 
 // ---------------------------------------------------------------- check-in
 
-interface Detector {
-  detect(source: HTMLVideoElement): Promise<{ rawValue: string }[]>;
-}
-type DetectorClass = new (opts: { formats: string[] }) => Detector;
-
-function detectorClass(): DetectorClass | undefined {
-  return (globalThis as unknown as { BarcodeDetector?: DetectorClass }).BarcodeDetector;
-}
-
 function CheckIn({ ev, fn, editable }: { ev: PlannrEvent; fn: FunctionDay; editable: boolean }) {
   const { dispatch } = useStore();
   const [q, setQ] = useState("");
@@ -471,55 +464,111 @@ function CheckIn({ ev, fn, editable }: { ev: PlannrEvent; fn: FunctionDay; edita
   );
 }
 
-function Scanner({ onCode, onClose }: { onCode: (text: string) => void; onClose: () => void }) {
-  const video = useRef<HTMLVideoElement>(null);
-  const [error, setError] = useState("");
-  // The camera starts once; a fresh callback each render mustn't restart it.
-  const found = useRef(onCode);
-  found.current = onCode;
-  useEffect(() => {
-    const Detector = detectorClass();
-    if (!Detector) return;
-    let stream: MediaStream | undefined;
-    let timer = 0;
-    let stopped = false;
-    const detector = new Detector({ formats: ["qr_code"] });
-    navigator.mediaDevices
-      ?.getUserMedia({ video: { facingMode: "environment" } })
-      .then(async (s) => {
-        stream = s;
-        if (stopped || !video.current) return;
-        video.current.srcObject = s;
-        await video.current.play();
-        const tick = async () => {
-          if (stopped || !video.current) return;
-          const codes = await detector.detect(video.current).catch(() => []);
-          const text = codes[0]?.rawValue;
-          if (text) found.current(text);
-          else timer = window.setTimeout(tick, 250);
-        };
-        tick();
-      })
-      .catch(() => setError("Plannr needs the camera to scan. Allow it in the browser, or search by name."));
-    return () => {
-      stopped = true;
-      window.clearTimeout(timer);
-      for (const t of stream?.getTracks() ?? []) t.stop();
-    };
-  }, []);
+/** Community passes at the gate: scan the printed QR, or find the flat or name. */
+function PassCheckIn({ ev, editable }: { ev: PlannrEvent; editable: boolean }) {
+  const { dispatch } = useStore();
+  const [q, setQ] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [found, setFound] = useState<string | null>(null);
+  const passes = list(ev, "passes");
+  if (!passes.length) return null;
+  const inside = passes.reduce((s, p) => s + (p.checkedIn ?? 0), 0);
+  const issued = passes.reduce((s, p) => s + p.count, 0);
+  const term = q.trim().toLowerCase();
+  const shown = (
+    found
+      ? passes.filter((p) => p.id === found)
+      : passes.filter((p) => !term || p.name.toLowerCase().includes(term))
+  ).slice(0, 12);
+  const set = (id: string, count: number) =>
+    dispatch({ type: "checkIn", eventId: ev.id, coll: "passes", id, fnId: "day", count });
+  const scanned = (text: string) => {
+    setScanning(false);
+    const pass = passes.find((p) => p.id === readPassCode(text));
+    if (!pass) {
+      dispatch(toast("That code isn't a pass for this event."));
+      return;
+    }
+    setFound(pass.id);
+    setQ("");
+    if (!pass.checkedIn) set(pass.id, pass.count);
+    dispatch(toast(`Welcome, ${pass.name}: ${pass.checkedIn || pass.count} in.`));
+  };
   return (
-    <Modal open onClose={onClose} title="Scan an entry code" width={420}>
-      {error ? (
-        <p className="m-0 text-sm text-rust-ink">{error}</p>
-      ) : (
-        <video
-          ref={video}
-          className="aspect-square w-full rounded-xl bg-ink object-cover"
-          playsInline
-          muted
+    <Section
+      title="Gate"
+      aside={
+        <span className="font-serif text-[24px] tabular">
+          {inside} <span className="text-base text-muted">/ {issued}</span>
+        </span>
+      }
+    >
+      <div className="flex gap-2">
+        <label htmlFor="gate-pass-q" className="sr-only">
+          Find a pass
+        </label>
+        <input
+          id="gate-pass-q"
+          className="field flex-1"
+          placeholder="Flat number or name"
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setFound(null);
+          }}
         />
-      )}
-    </Modal>
+        {editable && detectorClass() && (
+          <button type="button" className="btn btn-secondary" onClick={() => setScanning(true)}>
+            Scan
+          </button>
+        )}
+      </div>
+      <ul className="m-0 flex list-none flex-col p-0">
+        {shown.map((p) => {
+          const n = p.checkedIn ?? 0;
+          return (
+            <li
+              key={p.id}
+              className="flex items-center justify-between gap-2 border-t border-sand-2 py-2 text-sm first:border-0"
+            >
+              <span className="flex min-w-0 flex-col">
+                <span className="font-medium">{p.name}</span>
+                <span className="text-xs text-muted">
+                  {n} of {p.count} in
+                </span>
+              </span>
+              {editable && (
+                <span className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    aria-label={`One less for ${p.name}`}
+                    disabled={n <= 0}
+                    onClick={() => set(p.id, n - 1)}
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    aria-label={`One more in for ${p.name}`}
+                    disabled={n >= p.count + 2}
+                    onClick={() => set(p.id, n + 1)}
+                  >
+                    +
+                  </button>
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <span className="text-xs text-muted">
+        Print the passes from Stalls & passes; each has a QR code.
+        {detectorClass() ? "" : " Scanning works in Chrome on Android; elsewhere, search by flat or name."}
+      </span>
+      {scanning && <Scanner title="Scan a pass" onCode={scanned} onClose={() => setScanning(false)} />}
+    </Section>
   );
 }
 

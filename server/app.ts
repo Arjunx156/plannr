@@ -325,6 +325,12 @@ export function createApp(deps: {
   });
   app.get("/push/key", (c) => c.json({ key: push ? (env.VAPID_PUBLIC_KEY ?? null) : null }));
 
+  // Who is signed in, if anyone: a plain answer either way, so signed-out visitors see no errors.
+  app.get("/me", async (c) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers }).catch(() => null);
+    return c.json({ user: session?.user ?? null }, 200, { "cache-control": "no-store" });
+  });
+
   // ------------------------------------------------------------ signed in from here on
   const origins = trustedOrigins(env);
   app.use("*", async (c, next) => {
@@ -336,11 +342,6 @@ export function createApp(deps: {
     if (!session) return c.json({ error: "Sign in to continue" }, 401);
     c.set("userId", session.user.id);
     await next();
-  });
-
-  app.get("/me", async (c) => {
-    const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    return c.json({ user: session?.user ?? null });
   });
 
   app.post("/invites/:token/accept", async (c) =>

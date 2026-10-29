@@ -1,4 +1,5 @@
 import { seedEvents } from "../src/data/seed";
+import type { PlannrEvent } from "../src/data/types";
 import {
   expect,
   expectAccessible,
@@ -386,5 +387,37 @@ test.describe("accessibility and layout", () => {
       body: await page.screenshot({ fullPage: true }),
       contentType: "image/png",
     });
+  });
+});
+
+test.describe("year after year", () => {
+  test("an event is saved as a template and next year's starts from it", async ({ page }) => {
+    await signInGuest(page, "Meera");
+    const ev = {
+      ...(seedEvents().find((e) => e.id === "green-valley-mela") as PlannrEvent),
+      id: `mela-${Date.now()}`,
+    };
+    const made = await page.request.post("/api/events", { data: { event: ev } });
+    expect(made.status()).toBe(201);
+    await page.goto(`/events/${ev.id}/settings`);
+    await page.getByRole("button", { name: "Save as a template" }).click();
+    await expect(page.getByText(/Saved\. Start your next event from it/)).toBeVisible();
+
+    await page.goto("/events");
+    await page.getByRole("button", { name: "From a template" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Use" }).first().click();
+    await dialog.getByLabel("Name").fill("Green Valley Mela 2027");
+    await dialog.getByRole("button", { name: "Create the event" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Green Valley Mela 2027" })).toBeVisible();
+    // Last year's answers and money are cleared; its shape and costs carry over.
+    await page.goto(page.url().replace(/\/?$/, "/funds"));
+    await expect(page.getByText("No claims yet.")).toBeVisible();
+  });
+
+  test("the admin page is hidden from ordinary accounts", async ({ page }) => {
+    await signInGuest(page, "Ravi");
+    await page.goto("/admin");
+    await expect(page.getByRole("heading", { name: "Not found" })).toBeVisible();
   });
 });

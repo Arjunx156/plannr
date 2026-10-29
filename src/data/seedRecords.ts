@@ -327,6 +327,25 @@ export const weddingRecords: PlanRecords = {
   ],
   runsheet: [
     {
+      id: "rm1",
+      fnId: "mehendi",
+      time: "17:00",
+      title: "Mehendi artists arrive; seating on the verandah",
+      owner: "Priya",
+    },
+    { id: "rm2", fnId: "mehendi", time: "18:00", title: "Bride's mehendi begins", owner: "Priya" },
+    { id: "rm3", fnId: "mehendi", time: "19:30", title: "Songs and dance by the cousins", owner: "Meera" },
+    { id: "rm4", fnId: "mehendi", time: "20:30", title: "Dinner", owner: "Priya" },
+    {
+      id: "rh1",
+      fnId: "haldi",
+      time: "09:30",
+      title: "Turmeric paste, marigolds and the low stools ready",
+      owner: "Priya",
+    },
+    { id: "rh2", fnId: "haldi", time: "10:00", title: "Haldi for the bride", owner: "Lakshmi aunty" },
+    { id: "rh3", fnId: "haldi", time: "11:30", title: "Bath and change; lunch for family", owner: "Suresh" },
+    {
       id: "r1",
       fnId: "ceremony",
       time: "06:30",

@@ -884,3 +884,11 @@ describe("backups", () => {
     }
   });
 });
+
+describe("signed out", () => {
+  test("asking who is signed in is a plain answer, not an error", async () => {
+    const res = await new Client().call("/api/me");
+    expect(res.status).toBe(200);
+    expect(res.json.user).toBeNull();
+  });
+});

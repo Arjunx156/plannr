@@ -29,6 +29,7 @@ const Today = lazy(() => import("./pages/Today").then((m) => ({ default: m.Today
 const Inbox = lazy(() => import("./pages/Inbox").then((m) => ({ default: m.Inbox })));
 const Account = lazy(() => import("./pages/Account").then((m) => ({ default: m.Account })));
 const Admin = lazy(() => import("./pages/Admin").then((m) => ({ default: m.Admin })));
+const PassSheet = lazy(() => import("./pages/PassSheet").then((m) => ({ default: m.PassSheet })));
 // Public pages are pre-rendered at build time, so they load with the app rather than lazily:
 // the HTML a visitor first sees is swapped for the same page with nothing in between.
 // The component gallery exists in development and in the build the journey tests run against.
@@ -72,6 +73,7 @@ export function App() {
           <Route path="/gate/:token" element={<PublicPage kind="gate" />} />
           <Route path="/preview/:kind/:eventId/:target?" element={<PreviewPage />} />
           <Route path="/events" element={<Private>{<Events />}</Private>} />
+          <Route path="/events/:id/passes" element={<Private>{<PassSheet />}</Private>} />
           <Route path="/events/:id/:tab?" element={<Private>{<EventPage />}</Private>} />
           <Route path="/today" element={<Private>{<Today />}</Private>} />
           <Route path="/account" element={<Private>{<Account />}</Private>} />

@@ -1057,7 +1057,7 @@ export function seedEvents(today = TODAY): PlannrEvent[] {
 
 export const SEED_IDS = [wedding.id, birthday.id, mela.id, anniversary.id];
 /** Bump when the sample events change, so returning demo visitors see the new ones. */
-export const SEED_REVISION = 3;
+export const SEED_REVISION = 4;
 
 /** Past events keep their real dates: they're history, and festivals happen when they happen. */
 export function pastEvents(): PastEvent[] {
