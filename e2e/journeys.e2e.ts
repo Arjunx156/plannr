@@ -57,7 +57,7 @@ test.describe("planning a new event", () => {
   test("signing in with an email code works and keeps the plans", async ({ page }) => {
     await signInGuest(page, "Lakshmi");
     await page.getByRole("button", { name: "Account" }).click();
-    await page.getByRole("menuitem", { name: "Add an email to keep your plans" }).click();
+    await page.getByRole("menuitem", { name: "Keep your plans on every device" }).click();
     await expect(page.getByRole("heading", { name: "Keep your plans safe" })).toBeVisible();
     const email = `lakshmi-${Date.now()}@example.com`;
     await page.getByLabel("Email").fill(email);

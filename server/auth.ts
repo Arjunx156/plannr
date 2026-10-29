@@ -12,8 +12,8 @@ import { moveOwnership } from "./plans";
  * Sign-in for Plannr. Three ways in, each switched on by configuration:
  * - guest: always on; the plan is saved on the server and the guest can add Google or an
  *   email later without losing anything,
- * - email code: when RESEND_API_KEY and EMAIL_FROM are set (or in development, where the
- *   code is printed to the server log),
+ * - email code: when RESEND_API_KEY is set and EMAIL_FROM is on a verified domain (or in
+ *   development, where the code is printed to the server log),
  * - Google: when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set.
  */
 
@@ -47,10 +47,19 @@ export function isProduction(env: AuthEnv): boolean {
   return env.PLANNR_ENV === "production" || !!env.VERCEL_URL;
 }
 
+/**
+ * Email codes are offered only when they can reach anyone. Resend's shared test sender
+ * (onboarding@resend.dev) delivers to the account owner alone, so it doesn't count; a sender
+ * on the family's own verified domain does.
+ */
+export function canEmailEveryone(env: AuthEnv): boolean {
+  return !!(env.RESEND_API_KEY && env.EMAIL_FROM) && !/@resend\.dev\b/i.test(env.EMAIL_FROM ?? "");
+}
+
 export function signInMethods(env: AuthEnv): SignInMethods {
   return {
     guest: true,
-    email: !!(env.RESEND_API_KEY && env.EMAIL_FROM) || !isProduction(env),
+    email: canEmailEveryone(env) || !isProduction(env),
     google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
   };
 }
@@ -70,7 +79,7 @@ export function trustedOrigins(env: AuthEnv): string[] {
 }
 
 async function sendCode(env: AuthEnv, email: string, otp: string): Promise<void> {
-  if (env.RESEND_API_KEY && env.EMAIL_FROM) {
+  if (canEmailEveryone(env)) {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },

@@ -12,6 +12,7 @@ import { Link, NavLink, useNavigate, useParams } from "react-router";
 import { seedNotifications } from "../data/seed";
 import type { PlannrEvent } from "../data/types";
 import { api } from "../lib/api";
+import type { SignInMethods } from "../shared/types";
 import { useAccount } from "../store/account";
 import { useStore } from "../store/store";
 import { Logo, Menu, MenuDivider, MenuItem, Modal, Toran } from "./ui";
@@ -204,7 +205,7 @@ function AccountMenu() {
                       navigate("/signup");
                     }}
                   >
-                    Add an email to keep your plans
+                    Keep your plans on every device
                   </MenuItem>
                 )}
                 <MenuItem
@@ -233,11 +234,11 @@ function AccountMenu() {
       <Modal open={confirm} onClose={() => setConfirm(false)} title="Sign out of the guest account?">
         <p className="m-0 text-sm leading-normal text-body">
           Guest plans are tied to this browser. Once you sign out you can't open them again, and nobody can
-          recover them. Add an email first and they stay yours on every device.
+          recover them. {saveHint(state.account.methods)} first and they stay yours on every device.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link to="/signup" className="btn btn-primary" onClick={() => setConfirm(false)}>
-            Add an email
+            Keep my plans
           </Link>
           <button type="button" className="btn btn-danger" onClick={leave}>
             Sign out anyway
@@ -246,6 +247,13 @@ function AccountMenu() {
       </Modal>
     </>
   );
+}
+
+/** How a guest keeps their plans, in the words of whichever sign-in this server offers. */
+export function saveHint(methods: SignInMethods | undefined): string {
+  if (methods?.google && methods.email) return "Sign in with Google or an email code";
+  if (methods?.email) return "Add your email";
+  return "Sign in with Google";
 }
 
 // ---------------------------------------------------------------- inbox data

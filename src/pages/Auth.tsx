@@ -1,5 +1,6 @@
 import { type ClipboardEvent, type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { saveHint } from "../components/shell";
 import { Kolam, Logo, Spinner, Toran, usePageMeta } from "../components/ui";
 import { ApiError, api } from "../lib/api";
 import { longDate } from "../lib/dates";
@@ -179,7 +180,7 @@ export function Auth({ mode }: { mode: "signup" | "signin" }) {
         <div className="relative flex flex-col gap-[18px]">
           <h1 className="font-serif text-[clamp(32px,4vw,44px)] leading-[1.08] tracking-[-0.015em] text-white">
             {upgrading
-              ? "Add an email and your plans follow you to every device."
+              ? "Sign in and your plans follow you to every device."
               : signup
                 ? "Save your plan so the whole family can work on it."
                 : "Welcome back. Your events are where you left them."}
@@ -351,8 +352,8 @@ export function Auth({ mode }: { mode: "signup" | "signin" }) {
                       {busy === "guest" ? "Setting things up…" : "Continue as a guest"}
                     </button>
                     <span className="text-[13px] leading-[1.4] text-muted">
-                      No email needed. Your plans are saved online for this browser; add an email any time to
-                      use them on your phone too.
+                      Nothing to sign up for. Your plans are saved online for this browser.{" "}
+                      {saveHint(methods)} any time to use them on your phone too.
                     </span>
                   </div>
                 </>

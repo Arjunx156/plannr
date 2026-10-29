@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { type App, createApp } from "../server/app";
+import { signInMethods } from "../server/auth";
 import { createLocalDb } from "../server/db/local";
 import { seedEvents } from "../src/data/seed";
 import type { PersonalEvent } from "../src/data/types";
@@ -294,10 +295,19 @@ describe("planning together", () => {
 });
 
 describe("email codes", () => {
+  test("are only offered when they can reach anyone", () => {
+    const live = { VERCEL_URL: "plannr.vercel.app", BETTER_AUTH_SECRET: "x", RESEND_API_KEY: "re_x" };
+    expect(signInMethods({ ...live, EMAIL_FROM: "Plannr <onboarding@resend.dev>" }).email).toBe(false);
+    expect(signInMethods({ ...live, EMAIL_FROM: "Plannr <codes@plannr.in>" }).email).toBe(true);
+    expect(signInMethods({ ...live }).email).toBe(false);
+    // Development keeps codes on, printed to the server log.
+    expect(signInMethods({}).email).toBe(true);
+  });
+
   test("an address the mail service won't deliver to gets a clear message", async () => {
     const mailApp = createApp({
       db: await createLocalDb(),
-      env: { RESEND_API_KEY: "test", EMAIL_FROM: "Plannr <codes@example.com>" },
+      env: { RESEND_API_KEY: "test", EMAIL_FROM: "Plannr <codes@plannr.example>" },
     });
     const realFetch = globalThis.fetch;
     const sent: string[] = [];
