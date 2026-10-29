@@ -1,0 +1,82 @@
+name: Dependencies
+
+# Weekly: which packages are out of date and whether any have known security problems.
+# The result goes into one issue that stays up to date, so updates are made on main by
+# choice rather than arriving as branches and pull requests.
+on:
+  schedule:
+    - cron: "17 3 * * 1" # Mondays, 08:47 in India
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - name: Check
+        id: check
+        run: |
+          set +e
+          bun outdated > outdated.txt 2>&1
+          bun audit > audit.txt 2>&1
+          audit_status=$?
+          set -e
+          {
+            echo "Updated $(date -u +%Y-%m-%d) by the weekly dependency check."
+            echo
+            echo "## Security audit"
+            echo
+            echo '```'
+            grep -v '^\[' audit.txt
+            echo '```'
+            echo
+            echo "## Out of date"
+            echo
+            echo '```'
+            grep -v '^\[\|^bun outdated' outdated.txt
+            echo '```'
+            echo
+            echo "Patch and minor updates: \`bun update\`, run the checks, push to main. Major versions need a read of their changelog first."
+          } > report.md
+          echo "vulnerable=$([ $audit_status -ne 0 ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+      - name: Update the issue
+        uses: actions/github-script@v7
+        env:
+          VULNERABLE: ${{ steps.check.outputs.vulnerable }}
+        with:
+          script: |
+            const fs = require("fs");
+            const title = "Weekly dependency report";
+            const body = fs.readFileSync("report.md", "utf8");
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              per_page: 100,
+            });
+            const existing = open.find((i) => i.title === title && !i.pull_request);
+            const labels = process.env.VULNERABLE === "yes" ? ["security"] : [];
+            if (existing)
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            else
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels,
+              });

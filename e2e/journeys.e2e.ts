@@ -155,6 +155,32 @@ test.describe("running an event", () => {
     await expect(assistant.getByText("From the Sree Annapoorna quote.")).toBeVisible();
   });
 
+  test("the answer streams in as it's written, and proposed changes wait for approval", async ({ page }) => {
+    await mockAi(page, {});
+    const events = [
+      `event: text\ndata: ${JSON.stringify({ text: "I've proposed " })}\n\n`,
+      `event: text\ndata: ${JSON.stringify({ text: "I've proposed adding the task." })}\n\n`,
+      `event: done\ndata: ${JSON.stringify({
+        text: "I've proposed adding the task.",
+        actions: [{ kind: "addTask", title: "Call the florist about jasmine" }],
+      })}\n\n`,
+    ].join("");
+    await page.route("**/api/ai/assistant/stream", (r) =>
+      r.fulfill({ status: 200, headers: { "content-type": "text/event-stream" }, body: events }),
+    );
+    await signInDemo(page);
+    await page.goto("/events/ananya-rohan");
+    const assistant = page.getByRole("region", { name: "Plannr assistant" });
+    await assistant.getByLabel("Ask about this event").fill("Add a task to call the florist");
+    await assistant.getByRole("button", { name: "Send" }).click();
+    await expect(assistant.getByText("I've proposed adding the task.")).toBeVisible();
+    await expect(assistant.getByText(/Call the florist about jasmine/)).toBeVisible();
+    await assistant.getByRole("button", { name: "Apply all" }).click();
+    await expect(assistant.getByText("✓ Applied")).toBeVisible();
+    await page.goto("/events/ananya-rohan/tasks");
+    await expect(page.getByText("Call the florist about jasmine")).toBeVisible();
+  });
+
   test("the overview flags an overrun from the plan's own numbers, and accepting it updates the budget", async ({
     page,
   }) => {

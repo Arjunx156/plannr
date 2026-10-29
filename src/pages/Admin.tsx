@@ -6,7 +6,7 @@ import { Section } from "./tabs/common";
 
 interface Summary {
   days: { day: string; name: string; count: number }[];
-  ai: { day: string; calls: number; people: number }[];
+  ai: { day: string; calls: number; tokens: number; people: number }[];
   errors: {
     id: string;
     at: string;
@@ -77,6 +77,7 @@ export function Admin() {
                     </th>
                   ))}
                   <th className="py-2 text-right font-medium">AI calls</th>
+                  <th className="py-2 text-right font-medium">AI tokens</th>
                 </tr>
               </thead>
               <tbody>

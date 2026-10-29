@@ -1,11 +1,21 @@
 import { and, eq, sql } from "drizzle-orm";
 import { type Context, Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import type { PlannrEvent } from "../src/data/types";
 import { EVENT_ACTION_TYPES, type EventAction } from "../src/shared/engine";
 import { deleteAccount, exportAccount } from "./account";
 import { adminSummary, count, isAdmin, METRIC_NAMES, pruneErrors, recordError } from "./admin";
-import { type AiConfig, aiConfig, handleAi, MAX_BODY, MAX_READ_BODY, ROUTE_COST, rateLimiter } from "./ai";
+import {
+  type AiConfig,
+  aiConfig,
+  handleAi,
+  MAX_BODY,
+  MAX_READ_BODY,
+  ROUTE_COST,
+  rateLimiter,
+  streamAssistant,
+} from "./ai";
 import {
   type Auth,
   type AuthEnv,
@@ -16,6 +26,7 @@ import {
   signInMethods,
   trustedOrigins,
 } from "./auth";
+import { nightlyBackup } from "./backup";
 import { aiUsage, pushSubs } from "./db/schema";
 import type { Db } from "./db/types";
 import {
@@ -68,6 +79,17 @@ export type AppEnv = AuthEnv &
 
 /** AI calls a day: generous for planning, small enough that a runaway script costs little. */
 export const DAILY_AI = { user: 300, visitor: 60 };
+
+/** Adds what a call cost in tokens to today's row, for the cost view. */
+export async function addTokens(db: Db, key: string, tokens: number): Promise<void> {
+  if (!tokens) return;
+  const day = new Date().toISOString().slice(0, 10);
+  await db
+    .update(aiUsage)
+    .set({ tokens: sql`${aiUsage.tokens} + ${Math.round(tokens)}` })
+    .where(and(eq(aiUsage.key, key), eq(aiUsage.day, day)))
+    .catch(() => undefined);
+}
 
 /** Counts a call against today's allowance; false once it's used up. */
 export async function spendAi(db: Db, key: string, cost: number, limit: number): Promise<boolean> {
@@ -193,20 +215,16 @@ export function createApp(deps: {
       headers: { "cache-control": "no-store" },
     });
   });
-  app.post("/ai/:route", async (c) => {
-    const route = c.req.param("route");
+  /** The rate limit, size cap and daily allowance every AI call goes through. */
+  const aiGate = async (c: Context, route: string): Promise<{ key: string } | Response> => {
     const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "local";
     if (!allow(`ai:${ip}`)) return c.json({ error: "Too many requests" }, 429);
     if (Number(c.req.header("content-length") ?? 0) > (route === "read" ? MAX_READ_BODY : MAX_BODY))
       return c.json({ error: "Request too large" }, 413);
     // A daily allowance per person (or per network for the demo), so one user can't run up the bill.
     const session = await auth.api.getSession({ headers: c.req.raw.headers }).catch(() => null);
-    const left = await spendAi(
-      db,
-      session?.user.id ? `u:${session.user.id}` : `ip:${ip}`,
-      ROUTE_COST[route] ?? 1,
-      session ? DAILY_AI.user : DAILY_AI.visitor,
-    );
+    const key = session?.user.id ? `u:${session.user.id}` : `ip:${ip}`;
+    const left = await spendAi(db, key, ROUTE_COST[route] ?? 1, session ? DAILY_AI.user : DAILY_AI.visitor);
     if (!left)
       return c.json(
         {
@@ -214,8 +232,41 @@ export function createApp(deps: {
         },
         429,
       );
+    return { key };
+  };
+
+  // The assistant's answer as it's written, word by word, as server-sent events.
+  app.post("/ai/assistant/stream", async (c) => {
+    const gate = await aiGate(c, "assistant");
+    if (gate instanceof Response) return gate;
+    const config = ai();
+    if (!config.apiKey) return c.json({ error: "AI is not configured on this server" }, 503);
     const input = await c.req.json().catch(() => undefined);
-    const out = await handleAi(route, input, ai());
+    const meter = { tokens: 0 };
+    return streamSSE(c, async (stream) => {
+      const out = await streamAssistant(
+        input,
+        (text) => void stream.writeSSE({ event: "text", data: JSON.stringify({ text }) }),
+        config,
+        fetch,
+        meter,
+      );
+      await stream.writeSSE({
+        event: out.status === 200 ? "done" : "error",
+        data: JSON.stringify(out.body),
+      });
+      await addTokens(db, gate.key, meter.tokens);
+    });
+  });
+
+  app.post("/ai/:route", async (c) => {
+    const route = c.req.param("route");
+    const gate = await aiGate(c, route);
+    if (gate instanceof Response) return gate;
+    const input = await c.req.json().catch(() => undefined);
+    const meter = { tokens: 0 };
+    const out = await handleAi(route, input, ai(), fetch, meter);
+    await addTokens(db, gate.key, meter.tokens);
     return c.json(out.body as object, out.status as 200);
   });
 
@@ -260,9 +311,17 @@ export function createApp(deps: {
     if (!env.CRON_SECRET || c.req.header("authorization") !== `Bearer ${env.CRON_SECRET}`)
       return c.json({ error: "Not allowed" }, 401);
     await pruneErrors(db).catch(() => undefined);
-    if (!push) return c.json({ skipped: "Reminders aren't configured" });
     const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
-    return c.json(await sendReminders(db, push, today));
+    const reminders = push
+      ? await sendReminders(db, push, today)
+      : { skipped: "Reminders aren't configured" };
+    // The backup runs after the reminders, so a slow export never delays the morning message.
+    const backup = await nightlyBackup(db, env).catch((e: unknown) => {
+      const message = e instanceof Error ? e.message : String(e);
+      void recordError(db, { source: "server", message: `Backup failed: ${message}`, url: "cron/daily" });
+      return { failed: message };
+    });
+    return c.json({ reminders, backup });
   });
   app.get("/push/key", (c) => c.json({ key: push ? (env.VAPID_PUBLIC_KEY ?? null) : null }));
 

@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import { type App, createApp, spendAi } from "../server/app";
 import { signInMethods } from "../server/auth";
 import { createLocalDb } from "../server/db/local";
@@ -725,8 +726,12 @@ describe("morning reminders", () => {
       sent.length = 0;
       expect((await app.request("/api/cron/daily")).status).toBe(401);
       const run = await app.request("/api/cron/daily", { headers: { authorization: "Bearer s3cret" } });
-      const out = (await run.json()) as { people: number; sent: number; removed: number };
+      const { reminders: out, backup } = (await run.json()) as {
+        reminders: { people: number; sent: number; removed: number };
+        backup: { skipped?: string };
+      };
       expect(out).toMatchObject({ people: 1, removed: 1 });
+      expect(backup.skipped).toContain("BACKUP_KEY");
       // The seeded wedding has overdue tasks or payments, so the morning has something to say.
       expect(sent.length).toBe(out.sent);
       if (sent.length) expect(sent[0]?.title).toContain(ev.name);
@@ -831,6 +836,49 @@ describe("the owner's view", () => {
       expect(names).not.toContain("anything-else");
       expect(s.errors[0]?.message).toBe("Boom");
       expect(s.totals?.plans).toBe(1);
+    } finally {
+      app = prev;
+    }
+  });
+});
+
+describe("backups", () => {
+  test("encrypt, decrypt and restore into an empty database", async () => {
+    const db = await createLocalDb();
+    const backupApp = createApp({ db, env: {} });
+    const prev = app;
+    app = backupApp;
+    try {
+      const c = new Client();
+      await c.guest();
+      const ev = wedding();
+      await c.call("/api/events", { body: { event: ev } });
+      await c.call(`/api/events/${ev.id}/actions`, {
+        body: { actions: [{ type: "toggleTask", eventId: ev.id, taskId: ev.tasks.list[0]?.id }] },
+      });
+      const { exportTables, encrypt, decrypt, restore } = await import("../server/backup");
+      const key = randomBytes(32);
+      const sealed = encrypt(await exportTables(db), key);
+      // The plan's own words never appear in the stored bytes.
+      expect(sealed.includes(Buffer.from(ev.name))).toBe(false);
+      expect(() => decrypt(sealed, randomBytes(32))).toThrow();
+      const tampered = Buffer.from(sealed);
+      tampered[tampered.length - 1] = (tampered[tampered.length - 1] ?? 0) ^ 1;
+      expect(() => decrypt(tampered, key)).toThrow();
+
+      const backup = decrypt(sealed, key);
+      expect(backup.tables.events?.length).toBe(1);
+      expect(backup.tables.changes?.length).toBeGreaterThan(0);
+
+      const fresh = await createLocalDb();
+      const counts = await restore(fresh, backup);
+      expect(counts.events).toBe(1);
+      const again = await restore(fresh, backup);
+      expect(again.events).toBe(1);
+      const { events } = await import("../server/db/schema");
+      const rows = await fresh.select().from(events);
+      expect(rows[0]?.data.name).toBe(ev.name);
+      expect(rows[0]?.createdAt).toBeInstanceOf(Date);
     } finally {
       app = prev;
     }

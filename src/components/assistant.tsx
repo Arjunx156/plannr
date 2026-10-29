@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import type { CommunityEvent, Message, PersonalEvent, Preview } from "../data/types";
-import { aiEnabled, askAssistant } from "../lib/ai";
+import { aiEnabled, streamAssistantAnswer } from "../lib/ai";
 import { type AssistantContext, introFor, msgId, reply } from "../lib/assistant";
 import { TODAY } from "../lib/dates";
 import type { SpeechCode } from "../lib/voice";
@@ -27,6 +27,8 @@ export function AssistantPanel({
   const [busy, setBusy] = useState(false);
   const [lang, setLang] = useState<SpeechCode>("EN");
   const [ai, setAi] = useState(false);
+  /** The answer so far while it's being written. */
+  const [draft, setDraft] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const thread = ev.assistant.thread;
 
@@ -34,10 +36,10 @@ export function AssistantPanel({
     aiEnabled().then(setAi);
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll whenever the thread grows
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll whenever the thread or the answer being written grows
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [thread.length, busy]);
+  }, [thread.length, busy, draft.length > 0 ? Math.floor(draft.length / 80) : 0]);
 
   const send = async (raw: string) => {
     const message = raw.trim();
@@ -49,7 +51,7 @@ export function AssistantPanel({
     const local = reply(ev, message, context);
     let answer: Message = local;
     if (!local.preview && !local.action) {
-      const res = await askAssistant(ev, thread, message, lang);
+      const res = await streamAssistantAnswer(ev, thread, message, lang, setDraft);
       if (res)
         answer = {
           id: msgId(),
@@ -63,6 +65,7 @@ export function AssistantPanel({
     }
     await new Promise((r) => window.setTimeout(r, Math.max(0, 450 - (Date.now() - started))));
     dispatch({ type: "pushMessage", eventId: ev.id, message: answer });
+    setDraft("");
     setBusy(false);
   };
 
@@ -155,7 +158,18 @@ export function AssistantPanel({
             </div>
           ),
         )}
-        {busy && (
+        {busy && draft && (
+          <div className="flex max-w-[94%] flex-col gap-2 text-sm leading-[1.5]" aria-busy="true">
+            <span className="whitespace-pre-wrap">
+              {draft}
+              <span
+                aria-hidden="true"
+                className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-peacock align-middle"
+              />
+            </span>
+          </div>
+        )}
+        {busy && !draft && (
           <span role="status" aria-label="Plannr is thinking" className="flex gap-1 py-1">
             {[0, 1, 2].map((d) => (
               <span

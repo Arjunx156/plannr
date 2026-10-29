@@ -271,6 +271,77 @@ export function askAssistant(
   );
 }
 
+/** One server-sent event out of a buffer, or undefined when it isn't complete yet. */
+function nextEvent(buffer: string): { event: string; data: string; rest: string } | undefined {
+  const end = buffer.indexOf("\n\n");
+  if (end < 0) return undefined;
+  let event = "message";
+  const data: string[] = [];
+  for (const line of buffer.slice(0, end).split("\n")) {
+    if (line.startsWith("event:")) event = line.slice(6).trim();
+    else if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
+  }
+  return { event, data: data.join("\n"), rest: buffer.slice(end + 2) };
+}
+
+/**
+ * The assistant's answer as it's written: `onText` gets the answer so far, word by word.
+ * When streaming isn't available (an older server, a proxy that buffers), it asks the
+ * ordinary way, so the answer always arrives.
+ */
+export async function streamAssistantAnswer(
+  ev: PlannrEvent,
+  thread: Message[],
+  text: string,
+  lang: string | undefined,
+  onText: (soFar: string) => void,
+): Promise<AssistantAnswer | undefined> {
+  if (typeof window === "undefined" || !(await aiEnabled())) return undefined;
+  const body = {
+    text,
+    lang,
+    today: TODAY,
+    event: compactEvent(ev),
+    facts: eventFacts(ev),
+    history: thread.slice(-12).map((m) => ({ role: m.role, text: m.text })),
+  };
+  let res: Response | undefined;
+  try {
+    res = await fetch("/api/ai/assistant/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "text/event-stream" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(25000),
+    });
+  } catch {
+    res = undefined;
+  }
+  if (!res?.ok || !res.body || !res.headers.get("content-type")?.includes("text/event-stream"))
+    return askAssistant(ev, thread, text, lang);
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let shown = false;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      for (let e = nextEvent(buffer); e; e = nextEvent(buffer)) {
+        buffer = e.rest;
+        if (e.event === "text") {
+          shown = true;
+          onText((JSON.parse(e.data) as { text: string }).text);
+        } else if (e.event === "done") return JSON.parse(e.data) as AssistantAnswer;
+        else if (e.event === "error") return shown ? undefined : askAssistant(ev, thread, text, lang);
+      }
+    }
+  } catch {
+    // The connection dropped part-way; fall through.
+  }
+  return shown ? undefined : askAssistant(ev, thread, text, lang);
+}
+
 // ---------------------------------------------------------------- plan notes
 
 export interface PlanNotes {

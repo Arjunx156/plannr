@@ -70,6 +70,7 @@ export async function adminSummary(db: Db) {
     .select({
       day: aiUsage.day,
       calls: sql<number>`sum(${aiUsage.calls})`.mapWith(Number),
+      tokens: sql<number>`sum(${aiUsage.tokens})`.mapWith(Number),
       people: sql<number>`count(*)`.mapWith(Number),
     })
     .from(aiUsage)

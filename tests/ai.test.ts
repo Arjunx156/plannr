@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { aiConfig, handleAi, rateLimiter } from "../server/ai.ts";
+import { aiConfig, handleAi, partialText, rateLimiter, streamAssistant } from "../server/ai.ts";
 import { assistantPrompt, assistantRequest, sanitizeIntake, sanitizePlan } from "../server/prompts.ts";
 import { seedEvents } from "../src/data/seed";
 import type { PersonalEvent } from "../src/data/types";
@@ -354,5 +354,71 @@ describe("a busy model", () => {
     );
     expect(out.status).toBe(502);
     expect(calls).toBe(1);
+  });
+});
+
+describe("streaming the assistant's answer", () => {
+  const sse = (chunks: string[]) =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          const enc = new TextEncoder();
+          for (const c of chunks)
+            controller.enqueue(
+              enc.encode(
+                `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: c }] } }] })}\r\n\r\n`,
+              ),
+            );
+          controller.enqueue(
+            enc.encode(`data: ${JSON.stringify({ usageMetadata: { totalTokenCount: 321 } })}\n\n`),
+          );
+          controller.close();
+        },
+      }),
+      { headers: { "content-type": "text/event-stream" } },
+    );
+  const body = { text: "How much is left?", event: {}, facts: {}, history: [], today: TODAY };
+
+  test("reads the answer out of JSON that is still arriving", () => {
+    expect(partialText('{"text": "The cater')).toBe("The cater");
+    expect(partialText('{ "text" : "Line one\\nline \\"two\\" ₹5,')).toBe('Line one\nline "two" ₹5,');
+    expect(partialText('{"text": "half an escape \\')).toBe("half an escape ");
+    expect(partialText('{"text": "\\u0d28\\u0d3e')).toBe("നാ");
+    expect(partialText('{"actions": [{"text": "not the answer"}]')).toBeUndefined();
+    expect(partialText('{"text": "done", "source": "x"}')).toBe("done");
+  });
+
+  test("passes on the text as it grows and returns the finished answer", async () => {
+    const seen: string[] = [];
+    const meter = { tokens: 0 };
+    const out = await streamAssistant(
+      body,
+      (t) => seen.push(t),
+      config,
+      async () => sse(['{"text": "₹4,20,000 ', 'is left", "source": "Bu', 'dget"}']),
+      meter,
+    );
+    expect(seen).toEqual(["₹4,20,000 ", "₹4,20,000 is left"]);
+    expect(out).toEqual({ status: 200, body: { text: "₹4,20,000 is left", source: "Budget" } });
+    expect(meter.tokens).toBe(321);
+  });
+
+  test("a busy model is swapped for the fallback before anything is shown", async () => {
+    const urls: string[] = [];
+    const out = await streamAssistant(
+      body,
+      () => {},
+      { ...config, fallback: "backup" },
+      async (url) => {
+        urls.push(url);
+        return urls.length === 1 ? new Response("{}", { status: 503 }) : sse(['{"text": "Hi"}']);
+      },
+    );
+    expect(out.status).toBe(200);
+    expect(urls[1]).toContain("/models/backup:streamGenerateContent?alt=sse");
+  });
+
+  test("without a key it says so instead of streaming", async () => {
+    expect((await streamAssistant(body, () => {}, { model: "m" })).status).toBe(503);
   });
 });
