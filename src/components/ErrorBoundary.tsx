@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { reportError } from "../lib/report";
 
 interface State {
   error?: Error;
@@ -14,6 +15,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[plannr] screen crashed:", error, info.componentStack);
+    reportError(error);
   }
 
   render() {

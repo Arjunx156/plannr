@@ -1,10 +1,33 @@
 import type { Plugin } from "vite";
 
-/** Pages search engines may index. The Reach track adds the guides and tools here. */
-export const PUBLIC_ROUTES = ["/"];
+/** Pages search engines may index; each is also pre-rendered so it reads without JavaScript. */
+export const PUBLIC_ROUTES = [
+  "/",
+  "/weddings",
+  "/birthdays",
+  "/community",
+  "/how-it-works",
+  "/pricing",
+  "/tools",
+  "/tools/budget-calculator",
+  "/tools/kerala-wedding-checklist",
+  "/tools/shagun-register",
+  "/tools/festival-checklist",
+  "/privacy",
+  "/terms",
+];
 
 /** Signed-in screens: nothing there is useful to a search engine. */
-const PRIVATE_PREFIXES = ["/events", "/onboarding", "/new/generating", "/gallery"];
+const PRIVATE_PREFIXES = [
+  "/events",
+  "/onboarding",
+  "/new/generating",
+  "/gallery",
+  "/account",
+  "/admin",
+  "/today",
+  "/inbox",
+];
 
 /** The site's public origin, from SITE_URL or the Vercel production domain. */
 export function siteUrl(env: Record<string, string | undefined>): string | undefined {

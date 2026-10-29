@@ -31,8 +31,8 @@ const SHARED = /^\/(e|r|h|v|s|fund|a|stalls|gate)\//;
 function worker(version: string, files: string[]): string {
   return `// Plannr offline support. Generated at build time; do not edit.
 const CACHE = "plannr-${version}";
-const SHELL = "/";
-const FILES = ${JSON.stringify(["/", "/manifest.webmanifest", "/favicon.svg", "/icon-192.png", ...files])};
+const SHELL = "/index.html";
+const FILES = ${JSON.stringify(["/index.html", "/manifest.webmanifest", "/favicon.svg", "/icon-192.png", ...files])};
 const SHARED = ${SHARED.toString()};
 
 self.addEventListener("install", (event) => {
@@ -61,17 +61,9 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
   if (req.mode === "navigate") {
     if (SHARED.test(url.pathname)) return;
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(SHELL, copy));
-          }
-          return res;
-        })
-        .catch(() => caches.match(SHELL).then((r) => r || Response.error())),
-    );
+    // The network first, so pages are always current; offline, the app's own page opens
+    // and finds the plans saved on this device.
+    event.respondWith(fetch(req).catch(() => caches.match(SHELL).then((r) => r || Response.error())));
     return;
   }
   event.respondWith(

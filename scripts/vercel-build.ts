@@ -5,6 +5,7 @@
  */
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { PUBLIC_ROUTES } from "../server/seo";
 
 const root = join(import.meta.dir, "..");
 const out = join(root, ".vercel", "output");
@@ -29,6 +30,7 @@ if (process.env.DATABASE_URL) {
 
 await run(["bun", "x", "tsc", "-b"]);
 await run(["bun", "x", "vite", "build"]);
+await run(["bun", "scripts/prerender.ts"]);
 
 await rm(out, { recursive: true, force: true });
 await mkdir(fn, { recursive: true });
@@ -89,6 +91,15 @@ await writeFile(
           continue: true,
         },
         { src: "/(.*)", headers: security, continue: true },
+        // Public pages are served pre-rendered; the app takes over once it loads.
+        { src: "^/$", dest: "/prerendered/index.html" },
+        {
+          // Routes are plain lower-case paths, so they need no escaping in the pattern.
+          src: `^/(${PUBLIC_ROUTES.filter((r) => r !== "/")
+            .map((r) => r.slice(1))
+            .join("|")})/?$`,
+          dest: "/prerendered/$1.html",
+        },
         { handle: "filesystem" },
         { src: "/api(/.*)?", dest: "/api" },
         // Shared links get their own title and description for WhatsApp previews.

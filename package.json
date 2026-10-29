@@ -15,7 +15,9 @@
     "e2e": "playwright test",
     "brand": "bun scripts/brand-assets.ts",
     "vercel-build": "bun scripts/vercel-build.ts",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "ai:eval": "bun scripts/ai-eval.ts",
+    "size": "bun scripts/size-budget.ts"
   },
   "dependencies": {
     "@fontsource-variable/hanken-grotesk": "^5.3.0",

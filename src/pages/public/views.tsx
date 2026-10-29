@@ -6,6 +6,7 @@ import { dateRange, dueLabel, longDate } from "../../lib/dates";
 import { inr, timeAgo } from "../../lib/format";
 import { fill, type GuestLang, guestLang, guestText, LANG_NAME } from "../../lib/guestText";
 import { downloadIcs, mapLink } from "../../lib/ics";
+import { linkText } from "../../lib/linkText";
 import type {
   AlbumView,
   FundView,
@@ -19,6 +20,17 @@ import type {
   StallsView,
   VendorView,
 } from "../../shared/public";
+
+const ALL_LANGS: GuestLang[] = ["en", "ml", "hi", "ta"];
+
+/** The language for a helper's or neighbour's page: the family's, else the phone's, else English. */
+function useLinkLang(event: PublicBasics) {
+  const [lang, setLang] = useState<GuestLang>(() => {
+    const phone = typeof navigator === "undefined" ? undefined : guestLang(navigator.language?.slice(0, 2));
+    return guestLang(event.lang) ?? phone ?? "en";
+  });
+  return { t: linkText(lang), shell: { lang, langs: ALL_LANGS, onLang: setLang } };
+}
 
 /** Sends changes from a shared page and resolves when they're saved. */
 export type Act = (actions: unknown[]) => Promise<void>;
@@ -492,48 +504,56 @@ export function HelperPage({ view, act, preview }: { view: HelperView; act?: Act
     }
   };
   const open = view.tasks.filter((t) => !t.done);
+  const { t, shell } = useLinkLang(view.event);
   return (
-    <PublicShell event={view.event} eyebrow={`${view.helper}'s list`} preview={preview}>
+    <PublicShell
+      event={view.event}
+      eyebrow={fill(t.helperList, { name: view.helper })}
+      preview={preview}
+      {...shell}
+    >
       <p className="m-0 text-[17px]">
-        Namaste, {view.helper}.{" "}
+        {fill(t.helperHello, { name: view.helper })}{" "}
         {open.length
-          ? `${open.length} ${open.length === 1 ? "thing" : "things"} on your list.`
-          : "Everything on your list is done. Thank you!"}
+          ? open.length === 1
+            ? t.helperOne
+            : fill(t.helperMany, { n: open.length })
+          : t.helperDone}
       </p>
-      <Card label="Tasks">
+      <Card label={t.tasks}>
         <ul className="m-0 flex list-none flex-col p-0">
-          {view.tasks.map((t) => {
-            const due = dueLabel(t.due);
+          {view.tasks.map((task) => {
+            const due = dueLabel(task.due);
             return (
-              <li key={t.id} className="flex items-start gap-3 border-t border-sand-2 py-3 first:border-0">
+              <li key={task.id} className="flex items-start gap-3 border-t border-sand-2 py-3 first:border-0">
                 <input
                   type="checkbox"
-                  checked={t.done}
-                  disabled={!act || busy === t.id}
-                  aria-label={t.title}
-                  onChange={() => toggle([{ type: "toggleTask", taskId: t.id }], t.id)}
+                  checked={task.done}
+                  disabled={!act || busy === task.id}
+                  aria-label={task.title}
+                  onChange={() => toggle([{ type: "toggleTask", taskId: task.id }], task.id)}
                   className="mt-1 h-5 w-5 shrink-0 accent-[var(--color-leaf)]"
                 />
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className={`text-[15px] font-medium ${t.done ? "text-muted line-through" : ""}`}>
-                    {t.title}
+                  <span className={`text-[15px] font-medium ${task.done ? "text-muted line-through" : ""}`}>
+                    {task.title}
                   </span>
-                  {t.note && <span className="text-xs text-muted">{t.note}</span>}
+                  {task.note && <span className="text-xs text-muted">{task.note}</span>}
                 </span>
                 <span
-                  className={`shrink-0 text-xs font-medium ${due.late && !t.done ? "text-rust-ink" : "text-body"}`}
+                  className={`shrink-0 text-xs font-medium ${due.late && !task.done ? "text-rust-ink" : "text-body"}`}
                 >
                   {due.text}
                 </span>
               </li>
             );
           })}
-          {!view.tasks.length && <li className="text-sm text-muted">No tasks with your name yet.</li>}
+          {!view.tasks.length && <li className="text-sm text-muted">{t.noTasks}</li>}
         </ul>
       </Card>
       {view.checklist.length > 0 && (
-        <Card label="To bring">
-          <h2 className="font-serif text-[22px]">To bring on the day</h2>
+        <Card label={t.toBring}>
+          <h2 className="font-serif text-[22px]">{t.toBring}</h2>
           <ul className="m-0 flex list-none flex-col p-0">
             {view.checklist.map((c) => (
               <li key={c.id} className="flex items-center gap-3 border-t border-sand-2 py-2.5 first:border-0">
@@ -659,10 +679,11 @@ export function ShiftsPage({ view, act, preview }: { view: ShiftsView; act?: Act
   const [busy, setBusy] = useState("");
   const [done, setDone] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const { t, shell } = useLinkLang(view.event);
   const sign = async (role: string, slot: number) => {
     const clean = name.trim();
     if (clean.length < 2) {
-      setError("Add your name first.");
+      setError(t.addName);
       document.getElementById("vol-name")?.focus();
       return;
     }
@@ -682,15 +703,11 @@ export function ShiftsPage({ view, act, preview }: { view: ShiftsView; act?: Act
     .flatMap((r) => r.slots.map((s, i) => ({ role: r.role, slot: i, s })))
     .filter((x) => x.s.filled < x.s.need);
   return (
-    <PublicShell event={view.event} eyebrow="Volunteer sign-up" preview={preview}>
-      <p className="m-0 text-[17px]">
-        {open.length
-          ? `${open.length} shifts still need people. Pick one that suits you.`
-          : "Every shift is full. Thank you, everyone!"}
-      </p>
-      <Card label="Your name">
+    <PublicShell event={view.event} eyebrow={t.signup} preview={preview} {...shell}>
+      <p className="m-0 text-[17px]">{open.length ? fill(t.shiftsOpen, { n: open.length }) : t.shiftsFull}</p>
+      <Card label={t.yourName}>
         <label htmlFor="vol-name" className="label">
-          Your name
+          {t.yourName}
         </label>
         <input
           id="vol-name"
@@ -702,7 +719,7 @@ export function ShiftsPage({ view, act, preview }: { view: ShiftsView; act?: Act
         />
         {done.length > 0 && (
           <p role="status" className="m-0 text-sm text-leaf-ink">
-            You're on: {done.join("; ")}. Thank you!
+            {fill(t.youreOn, { list: done.join("; ") })}
           </p>
         )}
         {error && (
@@ -726,11 +743,11 @@ export function ShiftsPage({ view, act, preview }: { view: ShiftsView; act?: Act
                   <span className="flex flex-col">
                     <span className="font-medium">{view.slots[i]}</span>
                     <span className="text-xs text-muted">
-                      {s.names.join(", ") || "Nobody yet"} · {s.filled} of {s.need}
+                      {s.names.join(", ") || t.nobody} · {fill(t.ofNeed, { filled: s.filled, need: s.need })}
                     </span>
                   </span>
                   {full ? (
-                    <Pill tone="ok">full</Pill>
+                    <Pill tone="ok">{t.full}</Pill>
                   ) : (
                     <button
                       type="button"
@@ -738,7 +755,7 @@ export function ShiftsPage({ view, act, preview }: { view: ShiftsView; act?: Act
                       disabled={!act || !!busy}
                       onClick={() => sign(r.role, i)}
                     >
-                      {busy === `${r.role}-${i}` ? "Adding…" : "Sign me up"}
+                      {busy === `${r.role}-${i}` ? t.adding : t.signMe}
                     </button>
                   )}
                 </li>
@@ -831,6 +848,7 @@ export function FundPage({ view, preview }: { view: FundView; preview?: ReactNod
 // ---------------------------------------------------------------- stalls
 
 export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act; preview?: ReactNode }) {
+  const { t, shell } = useLinkLang(view.event);
   const [stall, setStall] = useState("");
   const [owner, setOwner] = useState("");
   const [phone, setPhone] = useState("");
@@ -842,11 +860,11 @@ export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act
     e.preventDefault();
     const digits = phone.replace(/\D/g, "");
     if (!stall.trim() || !owner.trim()) {
-      setError("Add the stall's name and yours.");
+      setError(t.stallNeedNames);
       return;
     }
     if (digits && digits.length < 10) {
-      setError("Enter a 10-digit mobile number.");
+      setError(t.stallPhone);
       return;
     }
     if (!act) return;
@@ -876,16 +894,14 @@ export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act
     setBusy(false);
   };
   return (
-    <PublicShell event={view.event} eyebrow="Stall booking" preview={preview}>
+    <PublicShell event={view.event} eyebrow={t.stallBooking} preview={preview} {...shell}>
       <p className="m-0 text-[17px]">
-        {view.open
-          ? `${view.open} of ${view.total} stalls are still open.`
-          : "All stalls are taken. Send a request to join the waiting list."}{" "}
-        The fee is {inr(view.fee)}; the committee confirms your stall and shares how to pay.
+        {view.open ? fill(t.stallsOpen, { open: view.open, total: view.total }) : t.stallsTaken}{" "}
+        {fill(t.stallFee, { fee: inr(view.fee) })}
       </p>
       {sent ? (
         <Card>
-          <p className="m-0 font-serif text-[22px]">Request sent. The committee will call you to confirm.</p>
+          <p className="m-0 font-serif text-[22px]">{t.stallSent}</p>
         </Card>
       ) : (
         <form
@@ -894,7 +910,7 @@ export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act
           noValidate
         >
           <label htmlFor="stall-name" className="label">
-            Stall name
+            {t.stallName}
           </label>
           <input
             id="stall-name"
@@ -904,7 +920,7 @@ export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act
             onChange={(e) => setStall(e.target.value)}
           />
           <label htmlFor="stall-owner" className="label">
-            Your name
+            {t.yourName}
           </label>
           <input
             id="stall-owner"
@@ -915,7 +931,7 @@ export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act
             onChange={(e) => setOwner(e.target.value)}
           />
           <label htmlFor="stall-phone" className="label">
-            Mobile number
+            {t.mobile}
           </label>
           <input
             id="stall-phone"
@@ -928,7 +944,7 @@ export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act
           {view.categories.length > 0 && (
             <>
               <label htmlFor="stall-cat" className="label">
-                What you'll sell
+                {t.sells}
               </label>
               <select
                 id="stall-cat"
@@ -939,7 +955,7 @@ export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act
                 {view.categories.map((c) => (
                   <option key={c}>{c}</option>
                 ))}
-                <option value="Other">Other</option>
+                <option value="Other">{t.other}</option>
               </select>
             </>
           )}
@@ -949,7 +965,7 @@ export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act
             </p>
           )}
           <button type="submit" className="btn btn-primary btn-lg" disabled={busy || !act}>
-            {busy ? "Sending…" : "Request a stall"}
+            {busy ? t.sending : t.requestStall}
           </button>
         </form>
       )}
@@ -968,6 +984,7 @@ export function AlbumPage({
   upload?: (file: File, by: string, caption: string) => Promise<void>;
   preview?: ReactNode;
 }) {
+  const { t, shell } = useLinkLang(view.event);
   const [by, setBy] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -975,7 +992,7 @@ export function AlbumPage({
     const file = files?.[0];
     if (!file || !upload) return;
     if (by.trim().length < 2) {
-      setError("Add your name first, so the family knows whose photo it is.");
+      setError(t.albumName);
       return;
     }
     setBusy(true);
@@ -988,10 +1005,10 @@ export function AlbumPage({
     setBusy(false);
   };
   return (
-    <PublicShell event={view.event} eyebrow="Shared album" preview={preview}>
-      <Card label="Add a photo">
+    <PublicShell event={view.event} eyebrow={t.album} preview={preview} {...shell}>
+      <Card label={t.addPhoto}>
         <label htmlFor="album-by" className="label">
-          Your name
+          {t.yourName}
         </label>
         <input
           id="album-by"
@@ -1004,7 +1021,7 @@ export function AlbumPage({
         <label
           className={`btn btn-primary self-start ${!upload || busy ? "pointer-events-none opacity-60" : ""}`}
         >
-          {busy ? "Uploading…" : "Add a photo"}
+          {busy ? t.uploading : t.addPhoto}
           <input
             type="file"
             accept="image/*"
@@ -1013,9 +1030,7 @@ export function AlbumPage({
             onChange={(e) => pick(e.target.files)}
           />
         </label>
-        {!upload && (
-          <span className="text-xs text-muted">Uploads open when the family turns the album on.</span>
-        )}
+        {!upload && <span className="text-xs text-muted">{t.albumClosed}</span>}
         {error && (
           <p role="alert" className="m-0 text-sm font-medium text-rust-ink">
             {error}
@@ -1037,7 +1052,7 @@ export function AlbumPage({
           ))}
         </ul>
       ) : (
-        <p className="m-0 text-center text-sm text-muted">No photos yet. Be the first!</p>
+        <p className="m-0 text-center text-sm text-muted">{t.noPhotos}</p>
       )}
     </PublicShell>
   );
@@ -1046,6 +1061,7 @@ export function AlbumPage({
 // ---------------------------------------------------------------- gate
 
 export function GatePage({ view, act, preview }: { view: GateView; act?: Act; preview?: ReactNode }) {
+  const { t, shell } = useLinkLang(view.event);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState("");
   const shown = view.passes.filter((p) => p.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 40);
@@ -1061,23 +1077,24 @@ export function GatePage({ view, act, preview }: { view: GateView; act?: Act; pr
   return (
     <PublicShell
       event={view.event}
-      eyebrow="Gate check-in"
+      eyebrow={t.gate}
       preview={preview}
+      {...shell}
       aside={
         <span className="mt-2 font-mono text-[28px] text-white tabular">
-          {view.inside} inside · {view.issued} passes · {view.capacity} capacity
+          {fill(t.gateCount, { inside: view.inside, issued: view.issued, capacity: view.capacity })}
         </span>
       }
     >
       <label htmlFor="gate-q" className="label">
-        Find a pass
+        {t.findPass}
       </label>
       <input
         id="gate-q"
         className="field text-lg"
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Flat number or name"
+        placeholder={t.flatOrName}
       />
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
         {shown.map((p) => (
@@ -1087,15 +1104,13 @@ export function GatePage({ view, act, preview }: { view: GateView; act?: Act; pr
           >
             <span className="flex flex-col">
               <span className="font-semibold">{p.name}</span>
-              <span className="text-xs text-muted">
-                {p.checkedIn} of {p.count} in
-              </span>
+              <span className="text-xs text-muted">{fill(t.inOf, { c: p.checkedIn, n: p.count })}</span>
             </span>
             <span className="flex items-center gap-2">
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
-                aria-label={`One less for ${p.name}`}
+                aria-label={fill(t.oneLessFor, { name: p.name })}
                 disabled={!act || busy === p.id || p.checkedIn <= 0}
                 onClick={() => set(p.id, p.checkedIn - 1)}
               >
@@ -1104,11 +1119,11 @@ export function GatePage({ view, act, preview }: { view: GateView; act?: Act; pr
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
-                aria-label={`One more in for ${p.name}`}
+                aria-label={fill(t.oneMoreFor, { name: p.name })}
                 disabled={!act || busy === p.id || p.checkedIn >= p.count + 2}
                 onClick={() => set(p.id, p.checkedIn + 1)}
               >
-                +1 in
+                {t.oneMore}
               </button>
             </span>
           </li>

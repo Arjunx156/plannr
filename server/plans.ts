@@ -18,6 +18,7 @@ import type {
   PlanSummary,
   Role,
 } from "../src/shared/types";
+import { count } from "./admin";
 import { changes, comments, events, invites, members, user } from "./db/schema";
 import type { Db } from "./db/types";
 
@@ -93,6 +94,7 @@ export async function createPlan(db: Db, userId: string, event: PlannrEvent): Pr
   if (existing) throw new HttpError(409, "An event with this id already exists");
   await db.insert(events).values({ id: event.id, ownerId: userId, data: event, base: event, version: 1 });
   await db.insert(members).values({ eventId: event.id, userId, role: "owner" });
+  await count(db, "plan");
   return { event, version: 1, role: "owner", side: null };
 }
 

@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { PlannrEvent } from "../src/data/types";
 import { EVENT_ACTION_TYPES, type EventAction } from "../src/shared/engine";
 import { deleteAccount, exportAccount } from "./account";
+import { adminSummary, count, isAdmin, METRIC_NAMES, pruneErrors, recordError } from "./admin";
 import { type AiConfig, aiConfig, handleAi, MAX_BODY, MAX_READ_BODY, ROUTE_COST, rateLimiter } from "./ai";
 import {
   type Auth,
@@ -150,10 +151,39 @@ export function createApp(deps: {
   app.onError((err, c) => {
     if (err instanceof HttpError) return c.json({ error: err.message }, err.status as 400);
     console.error("[api]", err);
+    void recordError(db, {
+      source: "server",
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      url: `${c.req.method} ${new URL(c.req.url).pathname}`,
+    });
     return c.json({ error: "Something went wrong on our side" }, 500);
   });
 
   app.get("/health", (c) => c.json({ ok: true }));
+
+  // Daily counts with no one's identity, and crash reports from browsers.
+  app.post("/m", async (c) => {
+    const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    if (!allow(`m:${ip}`)) return c.body(null, 204);
+    const raw = (await c.req.json().catch(() => ({}))) as { name?: string };
+    if (raw.name === "visit") await count(db, "visit");
+    return c.body(null, 204);
+  });
+  app.post("/errors", async (c) => {
+    const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    if (!allow(`e:${ip}`)) return c.body(null, 204);
+    const e = (await c.req.json().catch(() => ({}))) as { message?: unknown; stack?: unknown; url?: unknown };
+    if (typeof e.message === "string" && e.message.trim())
+      await recordError(db, {
+        source: "client",
+        message: e.message,
+        stack: typeof e.stack === "string" ? e.stack : undefined,
+        url: typeof e.url === "string" ? e.url : undefined,
+        userAgent: c.req.header("user-agent"),
+      });
+    return c.body(null, 204);
+  });
 
   // ------------------------------------------------------------ AI
   app.get("/ai/status", async (c) => {
@@ -229,6 +259,7 @@ export function createApp(deps: {
   app.get("/cron/daily", async (c) => {
     if (!env.CRON_SECRET || c.req.header("authorization") !== `Bearer ${env.CRON_SECRET}`)
       return c.json({ error: "Not allowed" }, 401);
+    await pruneErrors(db).catch(() => undefined);
     if (!push) return c.json({ skipped: "Reminders aren't configured" });
     const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
     return c.json(await sendReminders(db, push, today));
@@ -258,6 +289,13 @@ export function createApp(deps: {
   );
 
   app.get("/events", async (c) => c.json({ plans: await listPlans(db, c.get("userId")) }));
+
+  // ------------------------------------------------------------ the site owner's view
+  app.get("/admin/summary", async (c) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    if (!isAdmin(env, session?.user.email)) throw new HttpError(404, "Not found");
+    return c.json({ ...(await adminSummary(db)), metrics: METRIC_NAMES });
+  });
 
   // ------------------------------------------------------------ your data
   app.get("/account/export", async (c) =>
@@ -291,6 +329,7 @@ export function createApp(deps: {
         target: pushSubs.endpoint,
         set: { userId, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
       });
+    await count(db, "push_on");
     await push(
       { endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
       {

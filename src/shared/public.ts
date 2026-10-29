@@ -37,6 +37,8 @@ export interface PublicBasics {
   hue: PlannrEvent["hue"];
   functions: PublicFunction[];
   announcements: Announcement[];
+  /** The family's language for guest pages, e.g. "ml". */
+  lang?: string;
 }
 
 export interface RsvpView {
@@ -151,6 +153,7 @@ export function basics(ev: PlannrEvent, onlyFunctions?: string[]): PublicBasics 
     hue: ev.hue,
     functions: fns.map(fn),
     announcements: list(ev, "announcements").slice(-5).reverse(),
+    ...(ev.layout !== "empty" && ev.site?.lang ? { lang: ev.site.lang } : {}),
   };
 }
 

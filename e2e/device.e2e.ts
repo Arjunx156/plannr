@@ -34,3 +34,79 @@ test.describe("account", () => {
     await expectNoSideScroll(page);
   });
 });
+
+test.describe("public pages", () => {
+  for (const path of [
+    "/weddings",
+    "/birthdays",
+    "/community",
+    "/how-it-works",
+    "/pricing",
+    "/tools",
+    "/tools/kerala-wedding-checklist",
+    "/tools/festival-checklist",
+    "/privacy",
+    "/terms",
+  ])
+    test(`${path} reads well and is accessible @phone`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "index, follow");
+      await expectAccessible(page);
+      await expectNoSideScroll(page);
+    });
+
+  test("the budget splitter adds up and suggests a per-plate figure", async ({ page }) => {
+    await page.goto("/tools/budget-calculator");
+    await page.getByLabel("Total budget").fill("10L");
+    await page.getByLabel("Guests").fill("200");
+    await expect(
+      page.getByRole("heading", { name: /₹10,00,000 for 200 guests: ₹5,000 a guest/ }),
+    ).toBeVisible();
+    await expect(page.getByText(/a plate/)).toBeVisible();
+    await expectAccessible(page);
+  });
+
+  test("the shagun register keeps entries in this browser and totals them", async ({ page }) => {
+    await page.goto("/tools/shagun-register");
+    await page.getByLabel("From").fill("Menon family");
+    await page.getByLabel("Amount").fill("1,001");
+    await page.getByRole("button", { name: "Add" }).click();
+    await page.getByLabel("From").fill("Nair family");
+    await page.getByLabel("Amount").fill("2001");
+    await page.getByRole("button", { name: "Add" }).click();
+    await expect(page.getByRole("heading", { name: "2 entries · ₹3,002" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "2 entries · ₹3,002" })).toBeVisible();
+    await expectAccessible(page);
+  });
+
+  test("a checklist remembers what's ticked", async ({ page }) => {
+    await page.goto("/tools/kerala-wedding-checklist");
+    await page.getByLabel(/Fix the muhurtham/).check();
+    await expect(page.getByText(/1 of \d+ done/)).toBeVisible();
+    await page.reload();
+    await expect(page.getByLabel(/Fix the muhurtham/)).toBeChecked();
+  });
+});
+
+test.describe("shared pages in the family's language", () => {
+  test("volunteers can read the sign-up sheet in Malayalam, Hindi or Tamil @phone", async ({ page }) => {
+    await signInDemo(page);
+    await page.goto("/preview/shifts/green-valley-mela");
+    await expect(page.getByText("Volunteer sign-up")).toBeVisible();
+    await page.getByRole("button", { name: "മലയാളം" }).click();
+    await expect(page.getByText("വോളണ്ടിയർ രജിസ്ട്രേഷൻ")).toBeVisible();
+    await page.getByRole("button", { name: "हिन्दी" }).click();
+    await expect(page.getByText("स्वयंसेवक पंजीकरण")).toBeVisible();
+    await expectAccessible(page);
+    await expectNoSideScroll(page);
+  });
+
+  test("the gate team's page switches language", async ({ page }) => {
+    await signInDemo(page);
+    await page.goto("/preview/gate/green-valley-mela");
+    await page.getByRole("button", { name: "தமிழ்" }).click();
+    await expect(page.getByLabel("பாஸைக் கண்டுபிடி")).toBeVisible();
+  });
+});

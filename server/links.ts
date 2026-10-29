@@ -4,6 +4,7 @@ import type { PlannrEvent, Stall } from "../src/data/types";
 import type { EventAction } from "../src/shared/engine";
 import { isHelper, type PublicKind, type PublicView, projectView } from "../src/shared/public";
 import { findRecord, list, slugId } from "../src/shared/records";
+import { count } from "./admin";
 import { events, type LinkKind, links } from "./db/schema";
 import type { Db } from "./db/types";
 import { isEventPhoto } from "./photos";
@@ -149,6 +150,7 @@ async function resolve(db: Db, token: string): Promise<Resolved> {
 
 export async function publicView(db: Db, token: string): Promise<PublicView> {
   const r = await resolve(db, token);
+  await count(db, "link_open");
   const view = projectView(r.event, r.kind, r.target);
   if (!view)
     throw new HttpError(
@@ -250,6 +252,8 @@ export async function publicActions(db: Db, token: string, raw: unknown[]): Prom
   }
   const first = actions[0];
   if (!first) throw new HttpError(400, "Nothing to change");
+  if (first.type === "rsvp") await count(db, "rsvp");
+  if (first.type === "addRecord" && first.coll === "album") await count(db, "photo");
   await commit(db, r.eventId, { actor: actorFor(r, first) }, actions, (current, action) => {
     const problem = scope(r, action, current);
     if (problem) throw new HttpError(403, problem);

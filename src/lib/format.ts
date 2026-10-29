@@ -67,3 +67,17 @@ export function timeAgo(iso: string, now = Date.now()): string {
   if (days < 7) return `${days} days ago`;
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
+
+/**
+ * "2,40,000", "2.4L", "2.4 lakh", "85k" → rupees. Families write amounts every way; all of
+ * them should work. Returns 0 for anything that isn't an amount.
+ */
+export function parseAmount(text: string): number {
+  const t = text.toLowerCase().replace(/[₹,\s]|rs\.?|inr/g, "");
+  const m = t.match(/^(\d+(?:\.\d+)?)(l|lakh|lakhs|lac|k|thousand|cr|crore)?$/);
+  if (!m) return 0;
+  const n = Number(m[1]);
+  const unit = m[2] ?? "";
+  const mult = unit.startsWith("l") ? 100000 : unit.startsWith("c") ? 10000000 : unit ? 1000 : 1;
+  return Math.round(n * mult);
+}

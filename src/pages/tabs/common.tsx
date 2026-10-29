@@ -7,6 +7,7 @@ import type { PublicKind } from "../../shared/public";
 import { toast, useStore } from "../../store/store";
 
 export { QrCode } from "../../components/qr";
+export { parseAmount } from "../../lib/format";
 
 /** A tab's page: an eyebrow with the event name, a heading and whatever sits beside it. */
 export function TabPage({
@@ -221,20 +222,6 @@ export function ShareLink({
       </Link>
     </span>
   );
-}
-
-/**
- * "2,40,000", "2.4L", "2.4 lakh", "85k" → rupees. Families write amounts every way; all of
- * them should work. Returns 0 for anything that isn't an amount.
- */
-export function parseAmount(text: string): number {
-  const t = text.toLowerCase().replace(/[₹,\s]|rs\.?|inr/g, "");
-  const m = t.match(/^(\d+(?:\.\d+)?)(l|lakh|lakhs|lac|k|thousand|cr|crore)?$/);
-  if (!m) return 0;
-  const n = Number(m[1]);
-  const unit = m[2] ?? "";
-  const mult = unit.startsWith("l") ? 100000 : unit.startsWith("c") ? 10000000 : unit ? 1000 : 1;
-  return Math.round(n * mult);
 }
 
 /** Whether the server has AI switched on; undefined while asking. */

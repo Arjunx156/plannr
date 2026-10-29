@@ -180,7 +180,7 @@ const SAMPLES: Record<
       "Pass printing",
       "+3 more",
     ],
-    why: "Why police permission first: amplified sound on open ground after 7 pm needs it, and it takes about 3 weeks.",
+    why: "Why police permission first: loudspeakers at a public gathering need it, and it can take a few weeks to come through.",
   },
 };
 
@@ -415,12 +415,12 @@ export function Landing() {
               </div>
             </div>
             <div className="mt-4 flex flex-col gap-2 rounded-2xl bg-surface p-[18px] text-ink shadow-[0_24px_50px_rgba(20,5,10,.35)] lg:absolute lg:bottom-[30px] lg:left-0 lg:mt-0 lg:w-[360px]">
-              <Pill tone="warn">Booking window closing</Pill>
+              <Pill tone="warn">Over plan</Pill>
               <span className="text-[15px] leading-[1.4] font-medium">
-                Photographers in Kochi book out 6 months ahead. Book by 14 June.
+                Catering is heading for ₹5,04,000 against ₹4,50,000 planned, 12% over.
               </span>
               <span className="text-xs leading-[1.4] text-peacock">
-                Why: December is peak wedding season in Kerala.
+                From the caterer's quote: ₹2,016 a plate for 250 guests.
               </span>
             </div>
           </div>
@@ -682,7 +682,7 @@ export function Landing() {
             <FooterCol
               title="Product"
               links={[
-                ["#how", "How it works"],
+                ["/how-it-works", "How it works"],
                 ["#occasions", "Templates"],
                 ["#pricing", "Pricing"],
               ]}
@@ -690,9 +690,10 @@ export function Landing() {
             <FooterCol
               title="Plan a"
               links={[
-                ["/new?type=wedding", "Wedding"],
-                ["/new?type=birthday", "Birthday"],
-                ["/new?type=community", "Community event"],
+                ["/weddings", "Wedding"],
+                ["/birthdays", "Birthday"],
+                ["/community", "Community event"],
+                ["/tools", "Free tools"],
               ]}
             />
             <FooterCol

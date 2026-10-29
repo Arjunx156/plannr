@@ -10,6 +10,7 @@ import { KIND_LABEL } from "../lib/intake";
 import { communityReadiness, personalReadiness } from "../lib/metrics";
 import { ROLE_LABEL } from "../shared/types";
 import { toast, useStore } from "../store/store";
+import { TemplatePicker } from "./tabs/Templates";
 
 function readiness(ev: PlannrEvent): number | undefined {
   if (ev.layout === "personal") return personalReadiness(ev, TODAY).overall;
@@ -20,6 +21,7 @@ function readiness(ev: PlannrEvent): number | undefined {
 export function Events() {
   usePageMeta("My events", { private: true });
   const { state, dispatch } = useStore();
+  const [picking, setPicking] = useState(false);
   const live = state.events.filter((e) => !e.archived).sort((a, b) => a.date.localeCompare(b.date));
   const archived = state.events.filter((e) => e.archived);
   const past = [
@@ -37,10 +39,18 @@ export function Events() {
             </span>
             <h1 className="font-serif text-[44px] leading-none">My events</h1>
           </div>
-          <Link to="/new?fresh=1" className="btn btn-primary btn-lg">
-            + New event
-          </Link>
+          <span className="flex flex-wrap gap-2">
+            {state.mode === "account" && (
+              <button type="button" className="btn btn-secondary btn-lg" onClick={() => setPicking(true)}>
+                From a template
+              </button>
+            )}
+            <Link to="/new?fresh=1" className="btn btn-primary btn-lg">
+              + New event
+            </Link>
+          </span>
         </div>
+        <TemplatePicker open={picking} onClose={() => setPicking(false)} />
 
         {state.mode === "account" && state.localImports.length > 0 && <Imports />}
 

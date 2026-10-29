@@ -353,6 +353,12 @@ function meta(attr: "name" | "property", key: string, content: string) {
  */
 export function usePageMeta(title: string, opts: { description?: string; private?: boolean } = {}) {
   const { description = DEFAULT_DESCRIPTION, private: hidden = false } = opts;
+  // While pre-rendering there is no document: hand the title to the build script instead.
+  if (typeof document === "undefined")
+    (globalThis as { __plannrMeta?: unknown }).__plannrMeta = {
+      title: title === "Plannr" ? DEFAULT_TITLE : `${title} · Plannr`,
+      description,
+    };
   useEffect(() => {
     const full = title === "Plannr" ? DEFAULT_TITLE : `${title} · Plannr`;
     document.title = full;

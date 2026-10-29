@@ -3,6 +3,15 @@ import { Link, Navigate, Route, Routes, useLocation } from "react-router";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Logo, Spinner, Toasts } from "./components/ui";
 import { Landing } from "./pages/Landing";
+import { Birthdays, Community as CommunityGuide, HowItWorks, Pricing, Weddings } from "./pages/site/Guides";
+import { Privacy, Terms } from "./pages/site/Legal";
+import {
+  BudgetCalculator,
+  FestivalChecklist,
+  KeralaChecklist,
+  ShagunRegister,
+  ToolsIndex,
+} from "./pages/site/Tools";
 import { AccountSync } from "./store/account";
 import { useStore } from "./store/store";
 
@@ -19,8 +28,9 @@ const PreviewPage = lazy(() => import("./pages/public/PublicPage").then((m) => (
 const Today = lazy(() => import("./pages/Today").then((m) => ({ default: m.Today })));
 const Inbox = lazy(() => import("./pages/Inbox").then((m) => ({ default: m.Inbox })));
 const Account = lazy(() => import("./pages/Account").then((m) => ({ default: m.Account })));
-const Privacy = lazy(() => import("./pages/site/Legal").then((m) => ({ default: m.Privacy })));
-const Terms = lazy(() => import("./pages/site/Legal").then((m) => ({ default: m.Terms })));
+const Admin = lazy(() => import("./pages/Admin").then((m) => ({ default: m.Admin })));
+// Public pages are pre-rendered at build time, so they load with the app rather than lazily:
+// the HTML a visitor first sees is swapped for the same page with nothing in between.
 // The component gallery exists in development and in the build the journey tests run against.
 const SHOW_GALLERY = import.meta.env.DEV || import.meta.env.VITE_GALLERY === "1";
 const Gallery = SHOW_GALLERY
@@ -38,6 +48,16 @@ export function App() {
           <Route path="/signin" element={<Auth mode="signin" />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/weddings" element={<Weddings />} />
+          <Route path="/birthdays" element={<Birthdays />} />
+          <Route path="/community" element={<CommunityGuide />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/tools" element={<ToolsIndex />} />
+          <Route path="/tools/budget-calculator" element={<BudgetCalculator />} />
+          <Route path="/tools/kerala-wedding-checklist" element={<KeralaChecklist />} />
+          <Route path="/tools/shagun-register" element={<ShagunRegister />} />
+          <Route path="/tools/festival-checklist" element={<FestivalChecklist />} />
           <Route path="/signup" element={<Auth mode="signup" />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/join/:token" element={<Join />} />
@@ -55,6 +75,7 @@ export function App() {
           <Route path="/events/:id/:tab?" element={<Private>{<EventPage />}</Private>} />
           <Route path="/today" element={<Private>{<Today />}</Private>} />
           <Route path="/account" element={<Private>{<Account />}</Private>} />
+          <Route path="/admin" element={<Private>{<Admin />}</Private>} />
           <Route path="/inbox" element={<Private>{<Inbox />}</Private>} />
           {Gallery && <Route path="/gallery" element={<Gallery />} />}
           <Route path="*" element={<NotFound />} />

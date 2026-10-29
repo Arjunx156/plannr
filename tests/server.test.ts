@@ -762,3 +762,77 @@ describe("your data", () => {
     expect((await owner.call("/api/events")).status).toBe(401);
   });
 });
+
+describe("templates", () => {
+  test("next year's event starts from this year's plan, with answers and payments cleared", async () => {
+    const c = new Client();
+    await c.guest();
+    const ev = wedding();
+    await c.call("/api/events", { body: { event: ev } });
+    const saved = await c.call(`/api/events/${ev.id}/template`, { body: { name: "Our wedding plan" } });
+    expect(saved.status).toBe(201);
+    const listed = await c.call("/api/templates");
+    expect(listed.json.templates.map((t: { id: string }) => t.id)).toContain(saved.json.id);
+
+    const nextDate = "2028-04-23";
+    const made = await c.call(`/api/templates/${saved.json.id}/use`, {
+      body: { name: "Cousin's wedding", date: nextDate },
+    });
+    expect(made.status).toBe(201);
+    const next = made.json.event as PersonalEvent;
+    expect(next.id).not.toBe(ev.id);
+    expect(next.date).toBe(nextDate);
+    expect(next.name).toBe("Cousin's wedding");
+    expect(next.tasks.list.every((t) => !t.done)).toBe(true);
+    expect(next.budget.payments).toEqual([]);
+    expect((next.households ?? []).every((h) => Object.keys(h.rsvp).length === 0)).toBe(true);
+    // Every function moves by the same number of days as the event.
+    const shift = (Date.parse(nextDate) - Date.parse(ev.date)) / 86400000;
+    const before = ev.functions[0];
+    const after = next.functions.find((f) => f.id === before?.id);
+    if (before && after) expect((Date.parse(after.date) - Date.parse(before.date)) / 86400000).toBe(shift);
+
+    // Someone else can't use it.
+    const other = new Client();
+    await other.guest();
+    expect(
+      (await other.call(`/api/templates/${saved.json.id}/use`, { body: { name: "x", date: nextDate } }))
+        .status,
+    ).toBe(404);
+  });
+});
+
+describe("the owner's view", () => {
+  test("counts plans and link opens without names, records errors, and is hidden from others", async () => {
+    const db = await createLocalDb();
+    const adminApp = createApp({ db, env: { ADMIN_EMAILS: "owner@example.com", PLANNR_DEV_OUTBOX: "1" } });
+    const prev = app;
+    app = adminApp;
+    try {
+      const c = new Client();
+      await c.guest();
+      const ev = wedding();
+      await c.call("/api/events", { body: { event: ev } });
+      const link = await c.call(`/api/events/${ev.id}/links`, { body: { kind: "site" } });
+      await app.request("/api/m", { method: "POST", body: JSON.stringify({ name: "visit" }) });
+      await app.request("/api/m", { method: "POST", body: JSON.stringify({ name: "anything-else" }) });
+      await app.request("/api/errors", {
+        method: "POST",
+        body: JSON.stringify({ message: "Boom", stack: "at x", url: "/events" }),
+      });
+      // A guest isn't an owner of the site.
+      expect((await c.call("/api/admin/summary")).status).toBe(404);
+      void link;
+      const { adminSummary } = await import("../server/admin");
+      const s = await adminSummary(db);
+      const names = s.days.map((d) => d.name).sort();
+      expect(names).toContain("plan");
+      expect(names).toContain("visit");
+      expect(names).not.toContain("anything-else");
+      expect(s.errors[0]?.message).toBe("Boom");
+      expect(s.totals?.plans).toBe(1);
+    } finally {
+      app = prev;
+    }
+  });
+});
