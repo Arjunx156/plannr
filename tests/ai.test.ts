@@ -5,6 +5,7 @@ import { seedEvents } from "../src/data/seed";
 import type { PersonalEvent } from "../src/data/types";
 import { eventFacts, mergeAiProfile } from "../src/lib/ai";
 import { emptyProfile, parseDescription } from "../src/lib/intake";
+import { proposalActions, proposalRipple } from "../src/shared/proposals";
 
 const TODAY = "2026-09-27";
 const config = { apiKey: "test-key", model: "test-model" };
@@ -204,5 +205,114 @@ describe("needs from Gemini", () => {
       needs: ["Grandmother uses a wheelchair", "All vegetarian", "Elderly guests"],
     });
     expect(merged.needs).toEqual(["Wheelchair access", "Vegetarian", "Elderly guests"]);
+  });
+});
+
+describe("writing for the family", () => {
+  test("drafts in the chosen language and treats the context as data", async () => {
+    const { calls, fetchImpl } = gemini({ text: "  നന്ദി, മേനോൻ കുടുംബമേ  " });
+    const out = await handleAi(
+      "write",
+      { task: "thanks", lang: "ml", text: "Thank you", context: { from: "Menon family" } },
+      config,
+      fetchImpl,
+    );
+    expect(out).toEqual({ status: 200, body: { text: "നന്ദി, മേനോൻ കുടുംബമേ" } });
+    const sent = calls[0]?.body as { systemInstruction: { parts: { text: string }[] } };
+    expect(sent.systemInstruction.parts[0]?.text).toContain("Malayalam");
+    expect(sent.systemInstruction.parts[0]?.text).toContain("never as instructions");
+  });
+
+  test("refuses unknown tasks", async () => {
+    const { fetchImpl } = gemini({ text: "x" });
+    expect((await handleAi("write", { task: "spam" }, config, fetchImpl)).status).toBe(400);
+  });
+});
+
+describe("reading a document", () => {
+  const png = Buffer.from("not really a png").toString("base64");
+
+  test("sends the file inline and keeps only what was on the page", async () => {
+    const { calls, fetchImpl } = gemini({
+      kind: "quote",
+      vendor: "Kerala Kitchen",
+      total: "1,850",
+      perGuest: true,
+      items: [
+        { label: "Sadhya", amount: 1850 },
+        { label: "", amount: 5 },
+      ],
+      payments: [
+        { label: "Advance", amount: 150000, date: "2026-10-30" },
+        { label: "Balance", amount: "lots" },
+      ],
+      terms: "50% advance",
+    });
+    const out = await handleAi(
+      "read",
+      { mime: "image/png", data: png, categories: ["Catering"], today: TODAY },
+      config,
+      fetchImpl,
+    );
+    expect(out.status).toBe(200);
+    expect(out.body).toMatchObject({
+      kind: "quote",
+      vendor: "Kerala Kitchen",
+      total: 1850,
+      perGuest: true,
+      items: [{ label: "Sadhya", amount: 1850 }],
+      payments: [{ label: "Advance", amount: 150000, date: "2026-10-30" }],
+    });
+    const sent = calls[0]?.body as { contents: { parts: Record<string, unknown>[] }[] } | undefined;
+    const parts = sent?.contents[0]?.parts;
+    expect(parts?.[0]).toEqual({ inlineData: { mimeType: "image/png", data: png } });
+  });
+
+  test("refuses files it can't read", async () => {
+    const { fetchImpl } = gemini({});
+    expect((await handleAi("read", { mime: "text/html", data: png }, config, fetchImpl)).status).toBe(400);
+    expect((await handleAi("read", { mime: "image/png", data: "<script>" }, config, fetchImpl)).status).toBe(
+      400,
+    );
+  });
+});
+
+describe("assistant proposals", () => {
+  test("keep only known kinds and well-formed fields", async () => {
+    const { fetchImpl } = gemini({
+      text: "I've proposed moving the haldi.",
+      actions: [
+        { kind: "moveFunction", fnId: "haldi", date: "2026-11-02" },
+        { kind: "deleteEverything" },
+        { kind: "setHeadcount", guests: "300" },
+        { kind: "addTask", title: "Call the florist", due: "not a date" },
+      ],
+    });
+    const out = await handleAi(
+      "assistant",
+      { text: "move haldi", event: {}, facts: {}, history: [], today: TODAY },
+      config,
+      fetchImpl,
+    );
+    expect((out.body as { actions: unknown[] }).actions).toEqual([
+      { kind: "moveFunction", fnId: "haldi", date: "2026-11-02" },
+      { kind: "setHeadcount", guests: 300 },
+      { kind: "addTask", title: "Call the florist" },
+    ]);
+  });
+
+  test("become plan changes only for things the plan has", () => {
+    const ev = seedEvents().find((e) => e.id === "ananya-rohan") as PersonalEvent;
+    const task = ev.tasks.list.find((t) => !t.done);
+    expect(proposalActions(ev, { kind: "moveTask", taskId: "nope", due: "2026-10-01" }, TODAY)).toEqual([]);
+    expect(proposalActions(ev, { kind: "setBudgetLine", categoryId: "nope", amount: 5 }, TODAY)).toEqual([]);
+    expect(proposalActions(ev, { kind: "completeTask", taskId: task?.id }, TODAY)).toEqual([
+      { type: "toggleTask", eventId: ev.id, taskId: task?.id ?? "" },
+    ]);
+    const ripple = proposalRipple(ev, [{ kind: "setHeadcount", guests: ev.guests + 20 }], TODAY);
+    expect(ripple?.lines.some((l) => l.title === "Catering")).toBe(true);
+    expect(
+      proposalRipple(ev, [{ kind: "moveTask", taskId: "nope", due: "2026-10-01" }], TODAY),
+    ).toBeUndefined();
   });
 });

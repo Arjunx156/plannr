@@ -1,9 +1,9 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { type App, createApp } from "../server/app";
+import { type App, createApp, spendAi } from "../server/app";
 import { signInMethods } from "../server/auth";
 import { createLocalDb } from "../server/db/local";
 import { seedEvents } from "../src/data/seed";
-import type { PersonalEvent } from "../src/data/types";
+import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 
 const ORIGIN = "http://localhost:5173";
 let app: App;
@@ -192,6 +192,220 @@ describe("plans, history and undo", () => {
   });
 });
 
+describe("shared links", () => {
+  const mela = () => ({
+    ...(seedEvents().find((e) => e.id === "green-valley-mela") as CommunityEvent),
+    id: `mela-${crypto.randomUUID().slice(0, 8)}`,
+  });
+
+  test("an RSVP link answers for its own household only, and history names them", async () => {
+    const priya = new Client();
+    await priya.guest();
+    const ev = wedding();
+    await priya.call("/api/events", { body: { event: ev } });
+    const [nair, other] = (ev.households ?? []).filter((h) => h.functions.includes("ceremony"));
+    if (!nair || !other) throw new Error("seed has households");
+    const link = await priya.call(`/api/events/${ev.id}/links`, { body: { kind: "rsvp", target: nair.id } });
+    expect(link.status).toBe(201);
+    const again = await priya.call(`/api/events/${ev.id}/links`, { body: { kind: "rsvp", target: nair.id } });
+    expect(again.json.token).toBe(link.json.token);
+
+    const guest = new Client();
+    const view = await guest.call(`/api/p/${link.json.token}`);
+    expect(view.json.kind).toBe("rsvp");
+    expect(view.json.household.name).toBe(nair.name);
+    // Only the functions they're invited to, and nothing about other households.
+    expect(view.json.event.functions.map((f: { id: string }) => f.id)).toEqual(nair.functions);
+    expect(JSON.stringify(view.json)).not.toContain(other.name);
+
+    const answers = Object.fromEntries(nair.functions.map((f) => [f, { status: "yes", count: 2 }]));
+    const replied = await guest.call(`/api/p/${link.json.token}/actions`, {
+      body: { actions: [{ type: "rsvp", householdId: nair.id, answers, meal: "veg" }] },
+    });
+    expect(replied.status).toBe(200);
+    expect(replied.json.household.rsvp[nair.functions[0] ?? ""]).toEqual({ status: "yes", count: 2 });
+
+    // Naming another household changes nothing for them: the link answers for its own.
+    await guest.call(`/api/p/${link.json.token}/actions`, {
+      body: {
+        actions: [
+          { type: "rsvp", householdId: other.id, answers: { reception: { status: "no", count: 0 } } },
+        ],
+      },
+    });
+    const plan = await priya.call(`/api/events/${ev.id}`);
+    const otherNow = plan.json.event.households.find((h: { id: string }) => h.id === other.id);
+    expect(otherNow.rsvp).toEqual(other.rsvp);
+    const toggle = await guest.call(`/api/p/${link.json.token}/actions`, {
+      body: { actions: [{ type: "toggleTask", taskId: ev.tasks.list[0]?.id }] },
+    });
+    expect(toggle.status).toBe(403);
+
+    const hist = await priya.call(`/api/events/${ev.id}/history`);
+    const replies = hist.json.history.filter((h: { by: string }) => h.by === `${nair.name} (RSVP)`);
+    expect(replies[0].summary).toBe(`${nair.name} can't come to Reception`);
+    expect(replies[1].summary).toMatch(
+      new RegExp(`^${nair.name} replied: 2 coming to .*Ceremony, Reception$`),
+    );
+  });
+
+  test("a helper sees and ticks only their own tasks", async () => {
+    const priya = new Client();
+    await priya.guest();
+    const ev = wedding();
+    await priya.call("/api/events", { body: { event: ev } });
+    const link = await priya.call(`/api/events/${ev.id}/links`, {
+      body: { kind: "helper", target: "Suresh" },
+    });
+    const view = await new Client().call(`/api/p/${link.json.token}`);
+    const mine = ev.tasks.list.filter((t) => t.who.split(/,\s*/).includes("Suresh"));
+    expect(view.json.tasks.map((t: { id: string }) => t.id).sort()).toEqual(mine.map((t) => t.id).sort());
+    const notMine = ev.tasks.list.find((t) => !t.who.includes("Suresh"));
+    const blocked = await new Client().call(`/api/p/${link.json.token}/actions`, {
+      body: { actions: [{ type: "toggleTask", taskId: notMine?.id }] },
+    });
+    expect(blocked.status).toBe(403);
+    const ok = await new Client().call(`/api/p/${link.json.token}/actions`, {
+      body: { actions: [{ type: "toggleTask", taskId: mine[0]?.id }] },
+    });
+    expect(ok.status).toBe(200);
+  });
+
+  test("volunteers sign up for open shifts; full ones say so", async () => {
+    const rekha = new Client();
+    await rekha.guest();
+    const ev = mela();
+    await rekha.call("/api/events", { body: { event: ev } });
+    const link = await rekha.call(`/api/events/${ev.id}/links`, { body: { kind: "shifts" } });
+    const sign = (role: string, slot: number) =>
+      new Client().call(`/api/p/${link.json.token}/actions`, {
+        body: { actions: [{ type: "assignShift", role, slot, name: "Neha Varma" }] },
+      });
+    const ok = await sign("Food safety", 1);
+    expect(ok.status).toBe(200);
+    const food = ok.json.roles.find((r: { role: string }) => r.role === "Food safety");
+    expect(food.slots[1].names).toContain("Neha");
+    const full = await sign("Entry & passes", 0);
+    expect(full.status).toBe(403);
+    expect(full.json.error).toBe("That shift is already full");
+  });
+
+  test("a stall request pays the event's fee and waits for the committee", async () => {
+    const rekha = new Client();
+    await rekha.guest();
+    const ev = mela();
+    await rekha.call("/api/events", { body: { event: ev } });
+    const link = await rekha.call(`/api/events/${ev.id}/links`, { body: { kind: "stalls" } });
+    const res = await new Client().call(`/api/p/${link.json.token}/actions`, {
+      body: {
+        actions: [
+          {
+            type: "addRecord",
+            coll: "stalls",
+            record: { id: "x", name: "Dosa Corner", owner: "Usha", fee: 1, paid: true, status: "confirmed" },
+          },
+        ],
+      },
+    });
+    expect(res.status).toBe(200);
+    const plan = await rekha.call(`/api/events/${ev.id}`);
+    const stall = plan.json.event.stallList.find((s: { name: string }) => s.name === "Dosa Corner");
+    expect(stall).toMatchObject({ fee: 2500, paid: false, status: "requested" });
+    expect(stall.id).not.toBe("x");
+  });
+
+  test("the fund report shows totals, not who spent what", async () => {
+    const rekha = new Client();
+    await rekha.guest();
+    const ev = mela();
+    await rekha.call("/api/events", { body: { event: ev } });
+    const link = await rekha.call(`/api/events/${ev.id}/links`, { body: { kind: "fund" } });
+    const view = await new Client().call(`/api/p/${link.json.token}`);
+    expect(view.json.received).toBe(150000 + 40000 + 30000);
+    expect(view.json.pending.count).toBe(2);
+    expect(JSON.stringify(view.json)).not.toContain("Arjun");
+    const write = await new Client().call(`/api/p/${link.json.token}/actions`, {
+      body: { actions: [{ type: "approveExpense", approvalId: "a1", status: "approved" }] },
+    });
+    expect(write.status).toBe(403);
+  });
+
+  test("the event website is hidden until it's published", async () => {
+    const priya = new Client();
+    await priya.guest();
+    const ev = wedding();
+    await priya.call("/api/events", { body: { event: ev } });
+    const link = await priya.call(`/api/events/${ev.id}/links`, { body: { kind: "site" } });
+    expect(link.json.token).toMatch(/^ananya-rohans-wedding/);
+    expect((await new Client().call(`/api/p/${link.json.token}`)).status).toBe(404);
+    await priya.call(`/api/events/${ev.id}/actions`, {
+      body: { actions: [{ type: "updateEvent", patch: { site: { published: true } } }] },
+    });
+    const site = await new Client().call(`/api/p/${link.json.token}`);
+    expect(site.json.kind).toBe("site");
+    // Family-only functions stay off the website.
+    expect(site.json.event.functions.map((f: { id: string }) => f.id)).toEqual(["ceremony", "reception"]);
+    const renamed = await priya.call(`/api/events/${ev.id}/site-address`, {
+      method: "PUT",
+      body: { slug: `Ananya & Rohan ${ev.id.slice(-4)}` },
+    });
+    expect(renamed.json.token).toBe(`ananya-rohan-${ev.id.slice(-4)}`);
+    expect((await new Client().call(`/api/p/${link.json.token}`)).status).toBe(404);
+  });
+
+  test("viewers can't make links; unknown links say so", async () => {
+    expect((await new Client().call("/api/p/not-a-real-link")).status).toBe(404);
+    expect((await app.request("/api/p/a%2F..%2Fx")).status).toBe(404);
+  });
+});
+
+describe("checked changes", () => {
+  test("badly shaped records are refused with a reason", async () => {
+    const priya = new Client();
+    await priya.guest();
+    const ev = wedding();
+    await priya.call("/api/events", { body: { event: ev } });
+    const bad = await priya.call(`/api/events/${ev.id}/actions`, {
+      body: {
+        actions: [
+          {
+            type: "addRecord",
+            coll: "households",
+            record: { id: "x", name: "", expected: 0, functions: [], rsvp: {} },
+          },
+        ],
+      },
+    });
+    expect(bad.status).toBe(400);
+    expect(bad.json.error).toMatch(/name|expected/);
+    const unknownColl = await priya.call(`/api/events/${ev.id}/actions`, {
+      body: { actions: [{ type: "addRecord", coll: "users", record: { id: "x" } }] },
+    });
+    expect(unknownColl.status).toBe(400);
+    const good = await priya.call(`/api/events/${ev.id}/actions`, {
+      body: {
+        actions: [
+          {
+            type: "addRecord",
+            coll: "households",
+            record: {
+              id: "hx",
+              name: "Raman family",
+              expected: 3,
+              functions: ["reception"],
+              rsvp: {},
+              junk: "dropped",
+            },
+          },
+        ],
+      },
+    });
+    expect(good.status).toBe(200);
+    const added = good.json.event.households.find((h: { id: string }) => h.id === "hx");
+    expect(added.junk).toBeUndefined();
+  });
+});
+
 describe("planning together", () => {
   test("an invite brings someone in with the right role", async () => {
     const priya = new Client();
@@ -363,5 +577,113 @@ describe("upgrading a guest", () => {
     const plans = await priya.call("/api/events");
     expect(plans.json.plans.map((p: { event: { id: string } }) => p.event.id)).toEqual([ev.id]);
     expect(plans.json.plans[0].role).toBe("owner");
+  });
+});
+
+describe("AI allowance", () => {
+  test("counts each call against the day and stops at the limit", async () => {
+    const db = await createLocalDb();
+    const key = `u:${crypto.randomUUID()}`;
+    expect(await spendAi(db, key, 5, 6)).toBe(true);
+    expect(await spendAi(db, key, 1, 6)).toBe(true);
+    expect(await spendAi(db, key, 1, 6)).toBe(false);
+    expect(await spendAi(db, `${key}-other`, 1, 6)).toBe(true);
+  });
+});
+
+describe("the treasurer", () => {
+  test("once named, only the treasurer or the owner approves expenses", async () => {
+    const owner = new Client();
+    await owner.guest();
+    const mela = { ...(seedEvents()[2] as CommunityEvent), id: `mela-${crypto.randomUUID().slice(0, 8)}` };
+    await owner.call("/api/events", { body: { event: mela } });
+    const join = async (side: string) => {
+      const c = new Client();
+      await c.guest();
+      const invite = await owner.call(`/api/events/${mela.id}/invites`, { body: { role: "planner", side } });
+      await c.call(`/api/invites/${invite.json.token}/accept`, { body: {} });
+      return c;
+    };
+    const secretary = await join("Secretary");
+    const pending = mela.funds.approvals.find((a) => a.status === "pending");
+    const approve = (c: Client) =>
+      c.call(`/api/events/${mela.id}/actions`, {
+        body: {
+          actions: [
+            { type: "approveExpense", eventId: mela.id, approvalId: pending?.id, status: "approved" },
+          ],
+        },
+      });
+    // No treasurer yet: any planner can decide.
+    const before = await secretary.call(`/api/events/${mela.id}/actions`, {
+      body: {
+        actions: [
+          {
+            type: "addTask",
+            eventId: mela.id,
+            task: { id: "t-x", title: "x", who: "You", due: mela.date, done: false },
+          },
+        ],
+      },
+    });
+    expect(before.status).toBe(200);
+    await join("Treasurer");
+    expect((await approve(secretary)).status).toBe(403);
+    expect((await approve(owner)).status).toBe(200);
+  });
+});
+
+describe("album photos", () => {
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+
+  test("a guest adds a photo from the album link; the server stores it under the event", async () => {
+    const stored: string[] = [];
+    const photoApp = createApp({
+      db: await createLocalDb(),
+      env: {},
+      photos: async (eventId, _bytes, type) => {
+        stored.push(type);
+        return `https://abc.public.blob.vercel-storage.com/albums/${eventId}/p.jpg`;
+      },
+    });
+    const prev = app;
+    app = photoApp;
+    try {
+      const priya = new Client();
+      await priya.guest();
+      const ev = wedding();
+      await priya.call("/api/events", { body: { event: ev } });
+      const link = await priya.call(`/api/events/${ev.id}/links`, { body: { kind: "album" } });
+      const send = (body: BodyInit, by = "Anil") =>
+        app.request(`/api/p/${link.json.token}/photo?by=${by}`, { method: "POST", body, headers: { "content-type": "image/jpeg" } });
+      expect((await send(new Uint8Array([1, 2, 3]))).status).toBe(415);
+      expect((await send(jpeg, "A")).status).toBe(400);
+      const ok = await send(jpeg);
+      expect(ok.status).toBe(200);
+      const view = (await ok.json()) as { photos: { by: string; url: string }[] };
+      expect(view.photos[0]?.by).toBe("Anil");
+      expect(stored).toEqual(["image/jpeg"]);
+      // Pasting someone else's photo link into the album is refused.
+      const sneaky = await priya.call(`/api/p/${link.json.token}/actions`, {
+        body: {
+          actions: [
+            { type: "addRecord", coll: "album", record: { id: "x", url: "https://evil.public.blob.vercel-storage.com/a.jpg", by: "X", at: "" } },
+          ],
+        },
+      });
+      expect(sneaky.status).toBe(403);
+    } finally {
+      app = prev;
+    }
+  });
+
+  test("uploads are off until storage is connected", async () => {
+    const priya = new Client();
+    await priya.guest();
+    const ev = wedding();
+    await priya.call("/api/events", { body: { event: ev } });
+    const link = await priya.call(`/api/events/${ev.id}/links`, { body: { kind: "album" } });
+    const res = await app.request(`/api/p/${link.json.token}/photo?by=Anil`, { method: "POST", body: jpeg });
+    expect(res.status).toBe(503);
   });
 });

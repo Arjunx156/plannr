@@ -1,5 +1,7 @@
-import type { Message, PlannrEvent, Profile } from "../data/types";
+import type { AiProposal, Message, PlannrEvent, Profile } from "../data/types";
+import { fundTotals, rsvpSummary } from "../shared/derive";
 import { TODAY } from "./dates";
+import { shrinkImage } from "./images";
 import { FUNCTION_ORDER } from "./intake";
 import { budgetTotals, communityReadiness, personalReadiness, settle } from "./metrics";
 import type { PlanDraft } from "./plan";
@@ -39,6 +41,80 @@ async function post<T>(route: string, body: unknown, timeoutMs: number): Promise
 // ---------------------------------------------------------------- intake
 
 export type AiIntake = Partial<Omit<Profile, "inspiration" | "priorities" | "cuts">> & { reply?: string };
+
+export type WriteTask =
+  | "translate"
+  | "enquiry"
+  | "thanks"
+  | "permit"
+  | "reminder"
+  | "announcement"
+  | "invite";
+
+/** Plannr writes something for the family: a translation, a vendor enquiry, a thank-you note. */
+export async function aiWrite(req: {
+  task: WriteTask;
+  lang?: string;
+  text?: string;
+  context?: Record<string, unknown>;
+}): Promise<string | undefined> {
+  const out = await post<{ text?: string }>("write", req, 30000);
+  return out?.text?.trim() || undefined;
+}
+
+/** What Plannr read from a photo or PDF of a bill, quote or contract. */
+export interface ReadResult {
+  kind: "bill" | "quote" | "contract" | "other";
+  vendor?: string;
+  category?: string;
+  total?: number;
+  /** The amount is per plate or per guest. */
+  perGuest?: boolean;
+  date?: string;
+  items: { label: string; amount: number }[];
+  /** Instalments the document sets out: an advance, a balance. */
+  payments: { label: string; amount: number; date?: string }[];
+  inclusions?: string;
+  terms?: string;
+  summary?: string;
+}
+
+const MAX_READ_BYTES = 3 * 1024 * 1024;
+
+function base64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Reads a bill, quote or contract: amounts, instalments, what's included and the terms.
+ * Throws with a readable message, since the person is waiting on this one.
+ */
+export async function aiRead(
+  file: File,
+  context: { categories: string[]; guests?: number },
+): Promise<ReadResult> {
+  if (!(await aiEnabled())) throw new Error("Reading documents needs AI, which isn't switched on here.");
+  const blob = await shrinkImage(file);
+  if (blob.size > MAX_READ_BYTES) throw new Error("That file is over 3 MB. Try a photo of the page instead.");
+  const mime = blob.type || file.type;
+  if (!/^(image\/(jpeg|png|webp|heic|heif)|application\/pdf)$/.test(mime))
+    throw new Error("Plannr can read photos (JPG, PNG, WebP) and PDFs.");
+  const res = await fetch("/api/ai/read", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ mime, data: await base64(blob), today: TODAY, ...context }),
+    signal: AbortSignal.timeout(45000),
+  }).catch(() => undefined);
+  if (!res) throw new Error("Couldn't reach Plannr. Check the connection and try again.");
+  const body = (await res.json().catch(() => ({}))) as ReadResult & { error?: string };
+  if (!res.ok) throw new Error(body.error ?? "Couldn't read that document.");
+  return body;
+}
 
 export function extractWithAi(
   text: string,
@@ -113,7 +189,7 @@ export function eventFacts(ev: PlannrEvent): Record<string, unknown> {
         overall: pct(r.overall),
         tasks: `${pct(r.tasks)} (${r.tasksDone} of ${r.tasksTotal} done, ${r.overdue} overdue)`,
         vendors: `${pct(r.vendors)} (${r.vendorsBooked} of ${r.vendorsTotal} booked)`,
-        guests: `${pct(r.guests)} (${r.guestsConfirmed} of ${ev.rsvp.total} confirmed)`,
+        guests: `${pct(r.guests)} (${r.guestsConfirmed} of ${rsvpSummary(ev).total} confirmed)`,
         budgetHealth: pct(r.budget),
         weights: "tasks 30%, guests 30%, vendors 20%, budget 20%",
       },
@@ -141,12 +217,12 @@ export function eventFacts(ev: PlannrEvent): Record<string, unknown> {
         tasks: `${r.tasksDone} of ${ev.tasks.total} done`,
         permits: `${r.permitsDone} of ${r.permitsTotal} cleared`,
         volunteers: `${r.volunteersFilled} of ${r.volunteersNeeded} shift places filled`,
-        passes: `${ev.passes.issued} of ${ev.passes.capacity}`,
-        stalls: `${ev.stalls.booked} of ${ev.stalls.total}`,
+        passes: `${fundTotals(ev).passes.issued} of ${ev.passes.capacity}`,
+        stalls: `${fundTotals(ev).stalls.booked} of ${ev.stalls.total}`,
       },
       funds: {
-        received: ev.funds.sources.reduce((s, x) => s + x.received, 0),
-        expected: ev.funds.sources.reduce((s, x) => s + x.expected, 0),
+        received: fundTotals(ev).received,
+        expected: fundTotals(ev).expected,
         spent: ev.funds.spent,
         budget: ev.funds.budget,
         pendingApprovals: ev.funds.approvals.filter((a) => a.status === "pending").length,
@@ -171,6 +247,8 @@ export interface AssistantAnswer {
   text: string;
   source?: string;
   translation?: string;
+  /** Changes it proposes; nothing applies until the planner approves the preview. */
+  actions?: AiProposal[];
 }
 
 export function askAssistant(

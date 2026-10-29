@@ -319,9 +319,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const dispatch = useCallback(
     (action: Action) => {
       const s = stateRef.current;
-      const meta = isEventAction(action) && s.mode === "account" ? s.remote[action.eventId] : undefined;
-      if (!meta || !isEventAction(action)) return raw(action);
+      if (!isEventAction(action)) return raw(action);
+      // Time-dependent parts are fixed when the change is made, in the demo too.
       const stamped = stamp(action);
+      const meta = s.mode === "account" ? s.remote[action.eventId] : undefined;
+      if (!meta) return raw(stamped);
       if (!canEdit(meta.role) && !QUIET_ACTIONS.has(stamped.type)) {
         raw(toast("You can view this plan but not change it. Ask the owner to make you a co-planner."));
         return;

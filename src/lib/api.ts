@@ -1,15 +1,19 @@
 import type { PlannrEvent } from "../data/types";
 import type { EventAction } from "../shared/engine";
+import { PUBLIC_PATH, type PublicKind, type PublicView } from "../shared/public";
 import type {
   AccountUser,
   ActivityEntry,
   CommentView,
   HistoryEntry,
   InvitePreview,
+  LinkKind,
+  LinkRow,
   Member,
   PlanSummary,
   Role,
   SignInMethods,
+  TemplateRow,
 } from "../shared/types";
 
 /** Plannr's own API. Sessions ride on a same-site cookie, so nothing here handles tokens. */
@@ -52,6 +56,23 @@ async function request<T>(path: string, init: { method?: string; body?: unknown 
 }
 
 const enc = encodeURIComponent;
+
+async function upload<T>(path: string, body: Blob): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method: "POST",
+      headers: { "content-type": body.type || "image/jpeg" },
+      body,
+      credentials: "same-origin",
+    });
+  } catch {
+    throw new ApiError(0, "You're offline. Try the photo again when you're back.");
+  }
+  const data = (await res.json().catch(() => null)) as { error?: string } | null;
+  if (!res.ok) throw new ApiError(res.status, data?.error ?? "The photo didn't upload. Try again.");
+  return data as T;
+}
 
 export const api = {
   // ------------------------------------------------------------ accounts
@@ -114,6 +135,31 @@ export const api = {
   acceptInvite: (token: string) =>
     request<{ eventId: string; role: Role }>(`/api/invites/${enc(token)}/accept`, { body: {} }),
 
+  // ------------------------------------------------------------ shared links
+  links: (id: string) => request<{ links: LinkRow[] }>(`/api/events/${enc(id)}/links`).then((r) => r.links),
+  linkFor: (id: string, kind: LinkKind, target = "") =>
+    request<LinkRow>(`/api/events/${enc(id)}/links`, { body: { kind, target } }),
+  revokeLink: (id: string, token: string) =>
+    request(`/api/events/${enc(id)}/links/${enc(token)}`, { method: "DELETE" }),
+  renameSite: (id: string, slug: string) =>
+    request<LinkRow>(`/api/events/${enc(id)}/site-address`, { method: "PUT", body: { slug } }),
+  publicView: (token: string) => request<PublicView>(`/api/p/${enc(token)}`),
+  /** Adds a photo to a shared album: the image goes up as it is, the server checks and stores it. */
+  albumPhoto: (token: string, photo: Blob, by: string) =>
+    upload<PublicView>(`/api/p/${enc(token)}/photo?by=${enc(by)}`, photo),
+  eventPhoto: (eventId: string, photo: Blob) =>
+    upload<{ url: string }>(`/api/events/${enc(eventId)}/photo`, photo),
+  publicActions: (token: string, actions: unknown[]) =>
+    request<PublicView>(`/api/p/${enc(token)}/actions`, { body: { actions } }),
+
+  // ------------------------------------------------------------ templates
+  templates: () => request<{ templates: TemplateRow[] }>("/api/templates").then((r) => r.templates),
+  saveTemplate: (id: string, name: string) =>
+    request<TemplateRow>(`/api/events/${enc(id)}/template`, { body: { name } }),
+  startFromTemplate: (id: string, name: string, date: string) =>
+    request<PlanSummary>(`/api/templates/${enc(id)}/use`, { body: { name, date } }),
+  deleteTemplate: (id: string) => request(`/api/templates/${enc(id)}`, { method: "DELETE" }),
+
   // ------------------------------------------------------------ comments
   comments: (id: string, recordType: string, recordId: string) =>
     request<{ comments: CommentView[] }>(
@@ -122,6 +168,11 @@ export const api = {
   addComment: (id: string, recordType: string, recordId: string, body: string) =>
     request<CommentView>(`/api/events/${enc(id)}/comments`, { body: { recordType, recordId, body } }),
 };
+
+/** The full address of a shared link. */
+export function publicUrl(kind: PublicKind, token: string): string {
+  return `${window.location.origin}/${PUBLIC_PATH[kind]}/${token}`;
+}
 
 export function inviteUrl(token: string): string {
   return `${window.location.origin}/join/${token}`;

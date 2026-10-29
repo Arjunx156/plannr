@@ -12,6 +12,7 @@ import { Link, NavLink, useNavigate, useParams } from "react-router";
 import { seedNotifications } from "../data/seed";
 import type { PlannrEvent } from "../data/types";
 import { api } from "../lib/api";
+import { tabsFor } from "../pages/tabs/list";
 import type { SignInMethods } from "../shared/types";
 import { useAccount } from "../store/account";
 import { useStore } from "../store/store";
@@ -338,13 +339,6 @@ interface Command {
   run: () => void;
 }
 
-const TABS: { id: string; label: string }[] = [
-  { id: "", label: "Overview" },
-  { id: "tasks", label: "Tasks" },
-  { id: "history", label: "History" },
-  { id: "people", label: "People" },
-];
-
 function taskList(ev: PlannrEvent) {
   return ev.layout === "empty" ? [] : ev.tasks.list;
 }
@@ -379,7 +373,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     const list: Command[] = [];
     const current = state.events.find((e) => e.id === currentId);
     if (current)
-      for (const t of TABS)
+      for (const t of tabsFor(current))
         list.push({
           id: `tab-${t.id}`,
           label: t.label,

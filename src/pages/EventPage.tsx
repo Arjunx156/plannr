@@ -18,20 +18,25 @@ import type { ActionId, CommunityEvent, Notice, PersonalEvent, PlannrEvent, Task
 import { daysUntil, longDate, shortDate, TODAY } from "../lib/dates";
 import { inr, inrShort, pct } from "../lib/format";
 import { budgetTotals, communityReadiness, personalReadiness, tasksDone } from "../lib/metrics";
+import { fundTotals, rsvpSummary, vendorSummary } from "../shared/derive";
 import { ROLE_LABEL } from "../shared/types";
 import { usePlanFreshness } from "../store/account";
 import { toast, useStore } from "../store/store";
+import { tabsFor } from "./tabs/list";
 
 const TasksTab = lazy(() => import("./EventTabs").then((m) => ({ default: m.TasksTab })));
 const HistoryTab = lazy(() => import("./EventTabs").then((m) => ({ default: m.HistoryTab })));
 const PeopleTab = lazy(() => import("./EventTabs").then((m) => ({ default: m.PeopleTab })));
 
-const TABS = [
-  { id: "", label: "Overview" },
-  { id: "tasks", label: "Tasks" },
-  { id: "history", label: "History" },
-  { id: "people", label: "People" },
-] as const;
+const GuestsTab = lazy(() => import("./tabs/GuestsTab").then((m) => ({ default: m.GuestsTab })));
+const SiteTab = lazy(() => import("./tabs/SiteTab").then((m) => ({ default: m.SiteTab })));
+const SettingsTab = lazy(() => import("./tabs/SettingsTab").then((m) => ({ default: m.SettingsTab })));
+const MoneyTab = lazy(() => import("./tabs/MoneyTab").then((m) => ({ default: m.MoneyTab })));
+const VendorsTab = lazy(() => import("./tabs/VendorsTab").then((m) => ({ default: m.VendorsTab })));
+const DayTab = lazy(() => import("./tabs/DayTab").then((m) => ({ default: m.DayTab })));
+const FundsTab = lazy(() => import("./tabs/CommunityTabs").then((m) => ({ default: m.FundsTab })));
+const VolunteersTab = lazy(() => import("./tabs/CommunityTabs").then((m) => ({ default: m.VolunteersTab })));
+const StallsTab = lazy(() => import("./tabs/CommunityTabs").then((m) => ({ default: m.StallsTab })));
 
 /** /events/:id/:tab? — one event, with its overview, tasks, history and people. */
 export function EventPage() {
@@ -39,7 +44,7 @@ export function EventPage() {
   const { state } = useStore();
   const [params, setParams] = useSearchParams();
   const ev = state.events.find((e) => e.id === id);
-  const current = TABS.find((t) => t.id === tab);
+  const current = ev ? tabsFor(ev).find((t) => t.id === tab) : undefined;
   usePageMeta(ev ? (current?.id ? `${current.label} · ${ev.name}` : ev.name) : "Event not found", {
     private: true,
   });
@@ -83,8 +88,17 @@ export function EventPage() {
       ) : (
         <Suspense fallback={<Loading />}>
           {tab === "tasks" && <TasksTab ev={ev} onOpenTask={setTask} />}
+          {tab === "guests" && <GuestsTab ev={ev} />}
+          {tab === "budget" && <MoneyTab ev={ev} />}
+          {tab === "vendors" && <VendorsTab ev={ev} />}
+          {tab === "day" && <DayTab ev={ev} />}
+          {tab === "website" && <SiteTab ev={ev} />}
+          {tab === "funds" && <FundsTab ev={ev} />}
+          {tab === "volunteers" && <VolunteersTab ev={ev} />}
+          {tab === "stalls" && <StallsTab ev={ev} />}
           {tab === "history" && <HistoryTab ev={ev} />}
           {tab === "people" && <PeopleTab ev={ev} />}
+          {tab === "settings" && <SettingsTab ev={ev} />}
         </Suspense>
       )}
       <TaskSheet ev={ev} taskId={openTask} onClose={() => setTask(null)} />
@@ -115,7 +129,7 @@ function EventBar({ ev }: { ev: PlannrEvent }) {
         </div>
         {ev.layout !== "empty" && (
           <nav aria-label="Event sections" className="flex gap-1 overflow-x-auto">
-            {TABS.map((t) => (
+            {tabsFor(ev).map((t) => (
               <NavLink key={t.id} to={`/events/${ev.id}${t.id ? `/${t.id}` : ""}`} end className={tab}>
                 {t.label}
               </NavLink>
@@ -201,6 +215,8 @@ function Hero({ ev }: { ev: PersonalEvent | CommunityEvent }) {
 function Personal({ ev, onOpenTask }: { ev: PersonalEvent; onOpenTask: (id: string) => void }) {
   const r = personalReadiness(ev, TODAY);
   const t = budgetTotals(ev.budget);
+  const rsvp = rsvpSummary(ev);
+  const vendors = vendorSummary(ev);
   return (
     <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -226,8 +242,8 @@ function Personal({ ev, onOpenTask }: { ev: PersonalEvent; onOpenTask: (id: stri
         />
         <StatTile
           label="Guests"
-          value={`${ev.rsvp.confirmed}`}
-          sub={`confirmed of ${ev.rsvp.total} · ${ev.rsvp.pending} waiting`}
+          value={`${rsvp.confirmed}`}
+          sub={`confirmed of ${rsvp.total} · ${rsvp.pending} waiting`}
           bar={r.guests}
           color="var(--color-marigold)"
         />
@@ -252,10 +268,12 @@ function Personal({ ev, onOpenTask }: { ev: PersonalEvent; onOpenTask: (id: stri
       <div className="grid gap-6 lg:grid-cols-2">
         <Tasks ev={ev} onOpenTask={onOpenTask} />
         <Panel title="Vendors">
-          <VendorGroup label="Booked" items={ev.vendors.booked} tone="ok" />
-          <VendorGroup label="In conversation" items={ev.vendors.talking} tone="due" />
-          <VendorGroup label="Still to book" items={ev.vendors.needed} tone="idle" />
-          {ev.vendors.note && <span className="text-xs text-rust-ink">{ev.vendors.note}</span>}
+          <VendorGroup label="Booked" items={vendors.booked} tone="ok" />
+          <VendorGroup label="In conversation" items={vendors.talking} tone="due" />
+          <VendorGroup label="Still to book" items={vendors.needed} tone="idle" />
+          {ev.vendors.note && vendors.talking.includes("Photography") && (
+            <span className="text-xs text-rust-ink">{ev.vendors.note}</span>
+          )}
         </Panel>
       </div>
       <Budget ev={ev} />
@@ -667,8 +685,8 @@ function Community({ ev, onOpenTask }: { ev: CommunityEvent; onOpenTask: (id: st
   const { dispatch } = useStore();
   const editable = useEditable(ev);
   const r = communityReadiness(ev);
-  const received = ev.funds.sources.reduce((s, x) => s + x.received, 0);
-  const expected = ev.funds.sources.reduce((s, x) => s + x.expected, 0);
+  const f = fundTotals(ev);
+  const { received, expected } = f;
   return (
     <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -695,8 +713,8 @@ function Community({ ev, onOpenTask }: { ev: CommunityEvent; onOpenTask: (id: st
         />
         <StatTile
           label="Passes"
-          value={`${ev.passes.issued}`}
-          sub={`of ${ev.passes.capacity} · ${ev.stalls.booked}/${ev.stalls.total} stalls booked`}
+          value={`${f.passes.issued}`}
+          sub={`of ${f.passes.capacity} · ${f.stalls.booked}/${f.stalls.total} stalls booked`}
           bar={r.passes}
         />
       </div>
@@ -716,7 +734,7 @@ function Community({ ev, onOpenTask }: { ev: CommunityEvent; onOpenTask: (id: st
       </div>
       <Panel title="Funds" id="approvals">
         <ul className="m-0 flex list-none flex-col p-0">
-          {ev.funds.sources.map((s) => (
+          {f.sources.map((s) => (
             <li
               key={s.label}
               className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-t border-sand-2 py-2.5 text-sm"

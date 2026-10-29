@@ -142,10 +142,10 @@ describe("budget", () => {
 
 describe("readiness", () => {
   test("matches the dashboards", () => {
-    expect(Math.round(personalReadiness(wedding, "2026-09-27").overall * 100)).toBe(38);
-    expect(Math.round(personalReadiness(birthday, "2026-09-27").overall * 100)).toBe(61);
+    expect(Math.round(personalReadiness(wedding, "2026-09-27").overall * 100)).toBe(41);
+    expect(Math.round(personalReadiness(birthday, "2026-09-27").overall * 100)).toBe(63);
     const m = communityReadiness(mela);
-    expect(Math.round(m.overall * 100)).toBe(54);
+    expect(Math.round(m.overall * 100)).toBe(52);
     expect([m.volunteersFilled, m.volunteersNeeded]).toEqual([19, 24]);
   });
 

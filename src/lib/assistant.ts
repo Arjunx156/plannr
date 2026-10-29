@@ -1,4 +1,6 @@
 import type { CommunityEvent, Message, PersonalEvent, PlannrEvent, Preview } from "../data/types";
+import { fundTotals, rsvpSummary, vendorSummary } from "../shared/derive";
+import { vendorsOf } from "../shared/records";
 import { dayLabel, fridayOnOrBefore, fullDate, shortDate, TODAY } from "./dates";
 import { inr } from "./format";
 import { budgetTotals, communityReadiness, personalReadiness, settle } from "./metrics";
@@ -85,7 +87,7 @@ function personalReply(ev: PersonalEvent, text: string, context: AssistantContex
   if (has(t, /readiness|ready|on pace|\d+%/)) {
     const pct = (n: number) => Math.round(n * 100);
     return ai(
-      `Readiness is ${pct(r.overall)}%. Tasks are ${pct(r.tasks)}% (${r.tasksDone} of ${r.tasksTotal} done${r.overdue ? `, ${r.overdue} overdue` : ""}), vendors ${pct(r.vendors)}% (${r.vendorsBooked} of ${r.vendorsTotal} booked), guests ${pct(r.guests)}% (${r.guestsConfirmed} of ${ev.rsvp.total} confirmed) and budget health ${pct(r.budget)}%. Tasks and RSVPs count most.`,
+      `Readiness is ${pct(r.overall)}%. Tasks are ${pct(r.tasks)}% (${r.tasksDone} of ${r.tasksTotal} done${r.overdue ? `, ${r.overdue} overdue` : ""}), vendors ${pct(r.vendors)}% (${r.vendorsBooked} of ${r.vendorsTotal} booked), guests ${pct(r.guests)}% (${r.guestsConfirmed} of ${rsvpSummary(ev).total} confirmed) and budget health ${pct(r.budget)}%. Tasks and RSVPs count most.`,
       {
         source: r.overdue
           ? `Clearing the ${r.overdue} overdue ${r.overdue === 1 ? "task" : "tasks"} is the quickest way up.`
@@ -95,8 +97,7 @@ function personalReply(ev: PersonalEvent, text: string, context: AssistantContex
   }
 
   if (has(t, /left to book|still need|to book|book in|vendor/)) {
-    const needed = ev.vendors.needed;
-    const talking = ev.vendors.talking;
+    const { needed, talking } = vendorSummary(ev);
     return ai(
       `Still to book: ${needed.join(", ") || "nothing"}. In conversation: ${talking.join(", ") || "nobody"}. ${ev.vendors.note ? `${ev.vendors.note}, so start there.` : ""}`.trim(),
     );
@@ -182,8 +183,7 @@ function communityReply(ev: CommunityEvent, text: string): Message {
     );
   }
   if (has(t, /fund|money|committee|sponsor|stall fee|budget/)) {
-    const received = ev.funds.sources.reduce((s, x) => s + x.received, 0);
-    const expected = ev.funds.sources.reduce((s, x) => s + x.expected, 0);
+    const { received, expected } = fundTotals(ev);
     const pending = ev.funds.approvals.filter((a) => a.status === "pending");
     return ai(
       `${inr(received)} received of ${inr(expected)} expected. ${inr(ev.funds.spent)} spent against a ${inr(ev.funds.budget)} budget.${pending.length ? ` ${pending.length} ${pending.length === 1 ? "expense waits" : "expenses wait"} for treasurer approval: ${inr(pending.reduce((s, a) => s + a.amount, 0))}.` : " Nothing is waiting for approval."}`,
@@ -244,8 +244,8 @@ export function decorPreview(): Preview {
 export function introFor(ev: PlannrEvent, context: AssistantContext): string {
   if (context === "budget") return `On the budget planner · ${ev.name}`;
   if (ev.layout === "personal")
-    return `Working on ${ev.name}. I can see the budget, ${ev.tasks.total} tasks, ${ev.vendors.booked.length + ev.vendors.talking.length + ev.vendors.needed.length} vendor categories and ${ev.rsvp.total} guests.`;
+    return `Working on ${ev.name}. I can see the budget, ${ev.tasks.total} tasks, ${vendorsOf(ev).length} vendor categories and ${rsvpSummary(ev).total} guests.`;
   if (ev.layout === "community")
-    return `Working on the ${ev.name}. I can see funds, ${ev.tasks.total} tasks, permits, ${ev.volunteers.length} volunteers and ${ev.passes.issued} passes.`;
+    return `Working on the ${ev.name}. I can see funds, ${ev.tasks.total} tasks, permits, ${ev.volunteers.length} volunteers and ${fundTotals(ev).passes.issued} passes.`;
   return `Working on ${ev.name}.`;
 }

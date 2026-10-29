@@ -34,8 +34,10 @@ await rm(out, { recursive: true, force: true });
 await mkdir(fn, { recursive: true });
 await cp(join(root, "dist"), join(out, "static"), { recursive: true });
 
+const indexHtml = await Bun.file(join(root, "dist", "index.html")).text();
 const bundle = await Bun.build({
   entrypoints: [join(root, "server", "vercel.ts")],
+  define: { __INDEX_HTML__: JSON.stringify(indexHtml) },
   target: "node",
   format: "esm",
   minify: { syntax: true, whitespace: true },
@@ -70,7 +72,8 @@ const security = {
   "x-content-type-options": "nosniff",
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-frame-options": "DENY",
-  "permissions-policy": "camera=(), geolocation=(), microphone=(self)",
+  // The camera scans QR codes at the gate; the microphone is for voice input.
+  "permissions-policy": "camera=(self), geolocation=(), microphone=(self)",
 };
 await writeFile(
   join(out, "config.json"),
@@ -86,6 +89,8 @@ await writeFile(
         { src: "/(.*)", headers: security, continue: true },
         { handle: "filesystem" },
         { src: "/api(/.*)?", dest: "/api" },
+        // Shared links get their own title and description for WhatsApp previews.
+        { src: "/(e|r|h|v|s|fund|a|stalls|gate)/[\\w-]+/?", dest: "/api" },
         { src: "/(.*)", dest: "/index.html" },
       ],
     },

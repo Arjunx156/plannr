@@ -9,6 +9,15 @@ import type {
   Task,
 } from "../data/types";
 import { addDays, dayMonth, daysBetween, fridayOnOrBefore, TODAY } from "../lib/dates";
+import {
+  applyPlanAction,
+  describePlanAction,
+  PLAN_ACTION_TYPES,
+  type PlanAction,
+  QUIET_PLAN_ACTIONS,
+  stampPlanAction,
+} from "./planActions";
+import { findRecord, patch as patchRecord, upsert, vendorsOf } from "./records";
 
 /**
  * The plan engine. Every change to an event is a typed action, applied by one pure
@@ -47,7 +56,8 @@ export type EventAction =
   | { type: "archiveEvent"; eventId: string; archived: boolean }
   | { type: "renameEvent"; eventId: string; name: string }
   /** Puts a freshly drafted plan in place of an event that had none, or an earlier draft. */
-  | { type: "replacePlan"; eventId: string; event: PlannrEvent };
+  | { type: "replacePlan"; eventId: string; event: PlannrEvent }
+  | PlanAction;
 
 export const EVENT_ACTION_TYPES = new Set<EventAction["type"]>([
   "toggleTask",
@@ -73,13 +83,20 @@ export const EVENT_ACTION_TYPES = new Set<EventAction["type"]>([
   "archiveEvent",
   "renameEvent",
   "replacePlan",
+  ...PLAN_ACTION_TYPES,
 ]);
+
+const PLAN_TYPES = new Set<string>(PLAN_ACTION_TYPES);
+export function isPlanAction(a: EventAction): a is PlanAction {
+  return PLAN_TYPES.has(a.type);
+}
 
 /** Conversation with the assistant: saved with the plan, but not part of its history. */
 export const QUIET_ACTIONS = new Set<EventAction["type"]>([
   "pushMessage",
   "previewStatus",
   "messageActionDone",
+  ...QUIET_PLAN_ACTIONS,
 ]);
 
 export function isEventAction(a: { type: string }): a is EventAction {
@@ -87,10 +104,20 @@ export function isEventAction(a: { type: string }): a is EventAction {
 }
 
 /** Captures anything time-dependent so replaying the action later gives the same plan. */
-export function stamp(action: EventAction, today = TODAY): EventAction {
+export function stamp(action: EventAction, today = TODAY, now = new Date().toISOString()): EventAction {
   if (action.type === "bookPhotographer" && !action.advanceDue)
     return { ...action, advanceDue: addDays(today, 14) };
+  if (isPlanAction(action)) return stampPlanAction(action, today, now);
   return action;
+}
+
+/** Marks a vendor category booked in the vendor list, adding it if the list doesn't have it. */
+function bookCategory(ev: PlannrEvent, category: string, name: string): PlannrEvent {
+  const v = vendorsOf(ev).find((x) => x.category === category);
+  if (v) return patchRecord(ev, "vendors", v.id, { stage: "booked", name: v.name || name });
+  return findRecord(ev, "vendors", category.toLowerCase())
+    ? ev
+    : upsert(ev, "vendors", { id: category.toLowerCase(), category, name, stage: "booked", quotes: [] });
 }
 
 function withTasks<E extends PersonalEvent | CommunityEvent>(
@@ -183,6 +210,7 @@ function planned(ev: PlannrEvent, fn: <E extends PersonalEvent | CommunityEvent>
 
 /** Applies one change to one event. Pure: no clock, no randomness, no side effects. */
 export function applyEventAction(ev: PlannrEvent, action: EventAction): PlannrEvent {
+  if (isPlanAction(action)) return applyPlanAction(ev, action);
   switch (action.type) {
     case "toggleTask":
       return planned(ev, (e) =>
@@ -222,9 +250,13 @@ export function applyEventAction(ev: PlannrEvent, action: EventAction): PlannrEv
       return planned(ev, (e) =>
         withThread(e, (t) =>
           t.map((m) =>
-            m.id === action.messageId && m.preview
-              ? { ...m, preview: { ...m.preview, status: action.status } }
-              : m,
+            m.id !== action.messageId
+              ? m
+              : m.preview
+                ? { ...m, preview: { ...m.preview, status: action.status } }
+                : m.proposals
+                  ? { ...m, proposalStatus: action.status }
+                  : m,
           ),
         ),
       );
@@ -310,7 +342,8 @@ export function applyEventAction(ev: PlannrEvent, action: EventAction): PlannrEv
         const done = withTasks(withPhoto, (list) =>
           list.map((t) => (t.id === "w4" ? { ...t, done: true } : t)),
         );
-        return resolve(done, "photographer-window", `Booked ${action.studio}.`);
+        const listed = bookCategory(done, "Photography", action.studio) as PersonalEvent;
+        return resolve(listed, "photographer-window", `Booked ${action.studio}.`);
       });
     case "orderCake":
       return personal(ev, (e) => {
@@ -325,9 +358,10 @@ export function applyEventAction(ev: PlannrEvent, action: EventAction): PlannrEv
           },
           (list) => list.map((t) => (t.id === "b1" ? { ...t, done: true } : t)),
         );
+        const listed = bookCategory(ordered, "Cake", "Bake Street") as PersonalEvent;
         return resolve(
           {
-            ...ordered,
+            ...listed,
             home: { ...ordered.home, readinessNote: { text: "Snacks caterer not chosen", tone: "idle" } },
           },
           "cake-order",
@@ -412,6 +446,7 @@ export function applyEventAction(ev: PlannrEvent, action: EventAction): PlannrEv
     case "assignShift":
       return community(ev, (e) => ({
         ...e,
+        volunteers: e.volunteers.includes(action.name) ? e.volunteers : [...e.volunteers, action.name],
         shifts: {
           ...e.shifts,
           roles: e.shifts.roles.map((r) =>
@@ -447,6 +482,7 @@ const quote = (s: string) => `“${s}”`;
 
 /** One line for the history panel: what changed, in words a co-planner recognises. */
 export function describeAction(action: EventAction, ev: PlannrEvent): string {
+  if (isPlanAction(action)) return describePlanAction(action, ev);
   const task = (id: string) =>
     ev.layout === "empty" ? undefined : ev.tasks.list.find((t) => t.id === id)?.title;
   const notice = (id: string) =>

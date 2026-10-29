@@ -1,8 +1,9 @@
+import { sql } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { PlannrEvent } from "../src/data/types";
 import { EVENT_ACTION_TYPES, type EventAction } from "../src/shared/engine";
-import { type AiConfig, aiConfig, handleAi, MAX_BODY, rateLimiter } from "./ai";
+import { type AiConfig, aiConfig, handleAi, MAX_BODY, MAX_READ_BODY, ROUTE_COST, rateLimiter } from "./ai";
 import {
   type Auth,
   type AuthEnv,
@@ -13,7 +14,19 @@ import {
   signInMethods,
   trustedOrigins,
 } from "./auth";
+import { aiUsage } from "./db/schema";
 import type { Db } from "./db/types";
+import {
+  albumEvent,
+  isLinkKind,
+  linkFor,
+  listLinks,
+  publicActions,
+  publicView,
+  renameSite,
+  revokeLink,
+} from "./links";
+import { blobStore, readPhoto, type StorePhoto } from "./photos";
 import {
   acceptInvite,
   activity,
@@ -30,9 +43,12 @@ import {
   planVersion,
   previewInvite,
   removeMember,
+  requireRole,
   undoChange,
   updateMember,
 } from "./plans";
+import { deleteTemplate, listTemplates, planFromTemplate, saveTemplate } from "./templates";
+import { parseAction } from "./validate";
 
 /**
  * Plannr's API under /api. The same app runs in the Vite dev server, the journey tests,
@@ -46,6 +62,29 @@ export type AppEnv = AuthEnv &
     /** Development and tests only: lets the journey tests read the last email code. */
     PLANNR_DEV_OUTBOX?: string;
   };
+
+/** AI calls a day: generous for planning, small enough that a runaway script costs little. */
+export const DAILY_AI = { user: 300, visitor: 60 };
+
+/** Counts a call against today's allowance; false once it's used up. */
+export async function spendAi(db: Db, key: string, cost: number, limit: number): Promise<boolean> {
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    const [row] = await db
+      .insert(aiUsage)
+      .values({ key, day, calls: cost })
+      .onConflictDoUpdate({
+        target: [aiUsage.key, aiUsage.day],
+        set: { calls: sql`${aiUsage.calls} + ${cost}` },
+      })
+      .returning({ calls: aiUsage.calls });
+    return (row?.calls ?? 0) <= limit;
+  } catch (e) {
+    // Never block the family on the meter itself.
+    console.error("[ai] usage meter failed:", e instanceof Error ? e.message : e);
+    return true;
+  }
+}
 
 interface Vars {
   Variables: { userId: string };
@@ -85,8 +124,20 @@ async function body<T>(c: Context, shape: z.ZodType<T>): Promise<T> {
   return parsed.data;
 }
 
-export function createApp(deps: { db: Db; env: AppEnv; auth?: Auth; ai?: () => AiConfig }) {
+export function createApp(deps: {
+  db: Db;
+  env: AppEnv;
+  auth?: Auth;
+  ai?: () => AiConfig;
+  photos?: StorePhoto;
+}) {
   const { db, env } = deps;
+  const photos = deps.photos ?? blobStore(env.BLOB_READ_WRITE_TOKEN);
+  const store = async (eventId: string, req: Request): Promise<string> => {
+    if (!photos) throw new HttpError(503, "Photo uploads aren't switched on yet");
+    const { bytes, type } = await readPhoto(req);
+    return photos(eventId, bytes, type);
+  };
   const auth = deps.auth ?? createAuth(db, env);
   const ai = deps.ai ?? (() => aiConfig(env));
   const allow = rateLimiter(60, 60000);
@@ -109,12 +160,28 @@ export function createApp(deps: { db: Db; env: AppEnv; auth?: Auth; ai?: () => A
     });
   });
   app.post("/ai/:route", async (c) => {
+    const route = c.req.param("route");
     const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "local";
     if (!allow(`ai:${ip}`)) return c.json({ error: "Too many requests" }, 429);
-    if (Number(c.req.header("content-length") ?? 0) > MAX_BODY)
+    if (Number(c.req.header("content-length") ?? 0) > (route === "read" ? MAX_READ_BODY : MAX_BODY))
       return c.json({ error: "Request too large" }, 413);
+    // A daily allowance per person (or per network for the demo), so one user can't run up the bill.
+    const session = await auth.api.getSession({ headers: c.req.raw.headers }).catch(() => null);
+    const left = await spendAi(
+      db,
+      session?.user.id ? `u:${session.user.id}` : `ip:${ip}`,
+      ROUTE_COST[route] ?? 1,
+      session ? DAILY_AI.user : DAILY_AI.visitor,
+    );
+    if (!left)
+      return c.json(
+        {
+          error: "That's Plannr's AI limit for today. Everything else keeps working, and it resets tomorrow.",
+        },
+        429,
+      );
     const input = await c.req.json().catch(() => undefined);
-    const out = await handleAi(c.req.param("route"), input, ai());
+    const out = await handleAi(route, input, ai());
     return c.json(out.body as object, out.status as 200);
   });
 
@@ -132,6 +199,27 @@ export function createApp(deps: { db: Db; env: AppEnv; auth?: Auth; ai?: () => A
 
   // Invite previews are public: someone opening the link may not have an account yet.
   app.get("/invites/:token", async (c) => c.json(await previewInvite(db, c.req.param("token"))));
+
+  // Shared links: RSVPs, helpers, vendors, volunteers, fund reports. No account needed.
+  app.get("/p/:token", async (c) =>
+    c.json(await publicView(db, c.req.param("token")), 200, { "cache-control": "no-store" }),
+  );
+  app.post("/p/:token/actions", async (c) => {
+    const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    if (!allow(`p:${ip}`)) return c.json({ error: "Too many changes at once. Wait a minute." }, 429);
+    const { actions } = await body(c, z.object({ actions: z.array(z.unknown()).min(1).max(5) }));
+    return c.json(await publicActions(db, c.req.param("token"), actions));
+  });
+  app.post("/p/:token/photo", async (c) => {
+    const ip = c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    if (!allow(`p:${ip}`)) return c.json({ error: "Too many photos at once. Wait a minute." }, 429);
+    const by = (c.req.query("by") ?? "").trim().slice(0, 80);
+    if (by.length < 2) throw new HttpError(400, "Add your name, so the family knows whose photo it is");
+    const token = c.req.param("token");
+    const url = await store(await albumEvent(db, token), c.req.raw);
+    const record = { id: "photo", url, by, at: "" };
+    return c.json(await publicActions(db, token, [{ type: "addRecord", coll: "album", record }]));
+  });
 
   // ------------------------------------------------------------ signed in from here on
   const origins = trustedOrigins(env);
@@ -167,6 +255,10 @@ export function createApp(deps: { db: Db; env: AppEnv; auth?: Auth; ai?: () => A
   });
 
   app.get("/events/:id", async (c) => c.json(await getPlan(db, c.req.param("id"), c.get("userId"))));
+  app.post("/events/:id/photo", async (c) => {
+    await requireRole(db, c.req.param("id"), c.get("userId"), "planner");
+    return c.json({ url: await store(c.req.param("id"), c.req.raw) }, 201);
+  });
 
   app.get("/events/:id/version", async (c) =>
     c.json({ version: await planVersion(db, c.req.param("id"), c.get("userId")) }),
@@ -174,9 +266,54 @@ export function createApp(deps: { db: Db; env: AppEnv; auth?: Auth; ai?: () => A
 
   app.post("/events/:id/actions", async (c) => {
     const { actions } = await body(c, z.object({ actions: z.array(actionShape).min(1).max(50) }));
+    const parsed = actions.map((a) => parseAction(a));
+    const bad = parsed.find((p) => !p.ok);
+    if (bad && !bad.ok) throw new HttpError(400, bad.error);
     return c.json(
-      await applyActions(db, c.req.param("id"), c.get("userId"), actions as unknown as EventAction[]),
+      await applyActions(
+        db,
+        c.req.param("id"),
+        c.get("userId"),
+        parsed.flatMap((p) => (p.ok ? [p.action] : [])),
+      ),
     );
+  });
+
+  app.get("/templates", async (c) => c.json({ templates: await listTemplates(db, c.get("userId")) }));
+  app.post("/events/:id/template", async (c) => {
+    const { name } = await body(c, z.object({ name: z.string().trim().min(1).max(120) }));
+    return c.json(await saveTemplate(db, c.get("userId"), c.req.param("id"), name), 201);
+  });
+  app.post("/templates/:id/use", async (c) => {
+    const { name, date } = await body(
+      c,
+      z.object({ name: z.string().trim().min(1).max(120), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
+    );
+    return c.json(await planFromTemplate(db, c.get("userId"), c.req.param("id"), { name, date }), 201);
+  });
+  app.delete("/templates/:id", async (c) => {
+    await deleteTemplate(db, c.get("userId"), c.req.param("id"));
+    return c.json({ ok: true });
+  });
+
+  app.get("/events/:id/links", async (c) =>
+    c.json({ links: await listLinks(db, c.req.param("id"), c.get("userId")) }),
+  );
+  app.post("/events/:id/links", async (c) => {
+    const { kind, target } = await body(
+      c,
+      z.object({ kind: z.string(), target: z.string().max(120).optional() }),
+    );
+    if (!isLinkKind(kind)) throw new HttpError(400, "Unknown kind of link");
+    return c.json(await linkFor(db, c.req.param("id"), c.get("userId"), kind, target ?? ""), 201);
+  });
+  app.delete("/events/:id/links/:token", async (c) => {
+    await revokeLink(db, c.req.param("id"), c.get("userId"), c.req.param("token"));
+    return c.json({ ok: true });
+  });
+  app.put("/events/:id/site-address", async (c) => {
+    const { slug } = await body(c, z.object({ slug: z.string().max(60) }));
+    return c.json(await renameSite(db, c.req.param("id"), c.get("userId"), slug));
   });
 
   app.get("/events/:id/history", async (c) =>

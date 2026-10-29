@@ -6,6 +6,7 @@
 import { mkdirSync } from "node:fs";
 import { join, normalize } from "node:path";
 import { type AppEnv, createApp } from "./app";
+import { matchShare, sharePage } from "./share";
 
 const DIST = join(import.meta.dir, "..", "dist");
 const env = process.env as AppEnv;
@@ -20,13 +21,17 @@ async function database() {
   return (await import("./db/local")).createLocalDb(dir);
 }
 
-const api = createApp({ db: await database(), env });
+const db = await database();
+const api = createApp({ db, env });
+const indexHtml = await Bun.file(join(DIST, "index.html")).text();
 
 const server = Bun.serve({
   port,
   async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return api.fetch(req);
+    if (matchShare(url.pathname))
+      return new Response(await sharePage(db, indexHtml, url), { headers: { "content-type": "text/html" } });
     const path = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, "");
     const file = Bun.file(join(DIST, path));
     if (path !== "/" && (await file.exists())) {

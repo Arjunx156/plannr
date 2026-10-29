@@ -150,6 +150,8 @@ export const changes = pgTable(
     /** The event version this change produced. */
     seq: integer("seq").notNull(),
     userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    /** Who acted through a shared link, when it wasn't a signed-in member: "Meena aunty (RSVP)". */
+    actor: text("actor"),
     kind: text("kind").$type<ChangeKind>().notNull(),
     action: jsonb("action").$type<EventAction>(),
     /** For undo and redo: the change they act on. */
@@ -180,4 +182,105 @@ export const comments = pgTable(
   (t) => [index("comments_record_idx").on(t.eventId, t.recordType, t.recordId)],
 );
 
-export const schema = { user, session, account, verification, events, members, invites, changes, comments };
+/** Pages people open without signing in: an RSVP, a helper's tasks, a vendor's call sheet. */
+export type LinkKind =
+  | "rsvp"
+  | "helper"
+  | "vendor"
+  | "shifts"
+  | "fund"
+  | "site"
+  | "album"
+  | "stalls"
+  | "gate";
+
+export const links = pgTable(
+  "links",
+  {
+    /** The code in the URL. For the event website it is a readable slug. */
+    token: text("token").primaryKey(),
+    eventId: text("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<LinkKind>().notNull(),
+    /** The household, helper or vendor the link is for; empty for links about the whole event. */
+    target: text("target").notNull().default(""),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at"),
+  },
+  (t) => [uniqueIndex("links_target_idx").on(t.eventId, t.kind, t.target)],
+);
+
+/** AI calls per person (or per address for guests) per day, for limits and the cost view. */
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    key: text("key").notNull(),
+    day: text("day").notNull(),
+    calls: integer("calls").notNull().default(0),
+    tokens: integer("tokens").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.key, t.day] })],
+);
+
+/** Crashes and server errors, kept for a few weeks so they can be fixed. */
+export const errors = pgTable(
+  "errors",
+  {
+    id: text("id").primaryKey(),
+    at: timestamp("at").notNull().defaultNow(),
+    source: text("source").$type<"client" | "server">().notNull(),
+    message: text("message").notNull(),
+    stack: text("stack"),
+    url: text("url"),
+    userAgent: text("user_agent"),
+    release: text("release"),
+    userId: text("user_id"),
+  },
+  (t) => [index("errors_at_idx").on(t.at)],
+);
+
+/** Counts only, never people: how many visits, plans and invitations each day. */
+export const metrics = pgTable(
+  "metrics",
+  {
+    day: text("day").notNull(),
+    name: text("name").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.day, t.name] })],
+);
+
+/** A finished event saved to start the next one from: next year's mela starts from this one. */
+export const templates = pgTable(
+  "templates",
+  {
+    id: text("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    kind: text("kind").notNull(),
+    data: jsonb("data").$type<PlannrEvent>().notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("templates_owner_idx").on(t.ownerId)],
+);
+
+export const schema = {
+  user,
+  session,
+  account,
+  verification,
+  events,
+  members,
+  invites,
+  changes,
+  comments,
+  links,
+  aiUsage,
+  errors,
+  metrics,
+  templates,
+};

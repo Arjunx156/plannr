@@ -1,4 +1,11 @@
 import { addDays, dateRange, dayMonth, demoShift, longDate, monthName, shortDate, TODAY } from "../lib/dates";
+import {
+  BIRTHDAY_PAYMENT_LINKS,
+  birthdayRecords,
+  melaRecords,
+  WEDDING_PAYMENT_LINKS,
+  weddingRecords,
+} from "./seedRecords";
 import type {
   CommunityEvent,
   EmptyEvent,
@@ -33,6 +40,7 @@ const wedding: PersonalEvent = {
   listMeta: "Kochi · 4 functions · {range:2027-04-22:2027-04-25} · 268 guests",
   date: "2027-04-25",
   guests: 268,
+  ...weddingRecords,
   countdown: {
     label: "Countdown to the muhurtham",
     line: "{long:2027-04-25} · 10:42 am (tentative) · Kayal Heritage Centre, Maradu",
@@ -45,6 +53,7 @@ const wedding: PersonalEvent = {
       date: "2027-04-22",
       time: "6:00 pm",
       place: "Ananya's home, Tripunithura",
+      private: true,
     },
     {
       id: "haldi",
@@ -52,6 +61,7 @@ const wedding: PersonalEvent = {
       date: "2027-04-24",
       time: "10:00 am",
       place: "Ananya's home, Tripunithura",
+      private: true,
     },
     {
       id: "ceremony",
@@ -60,6 +70,9 @@ const wedding: PersonalEvent = {
       part: "AM",
       time: "10:42 am (tentative)",
       place: "Kayal Heritage Centre, Maradu",
+      address: "Kayal Heritage Centre, NH 66 Bypass, Maradu, Kochi 682304",
+      dress: "Kerala traditional: kasavu and mundu",
+      capacity: 400,
     },
     {
       id: "reception",
@@ -68,6 +81,9 @@ const wedding: PersonalEvent = {
       part: "PM",
       time: "7:00 pm",
       place: "Kayal Heritage Centre, Maradu",
+      address: "Kayal Heritage Centre, NH 66 Bypass, Maradu, Kochi 682304",
+      dress: "Festive",
+      capacity: 280,
     },
   ],
   people: [
@@ -567,7 +583,7 @@ const wedding: PersonalEvent = {
     chips: [
       "What's left to book in {month:2026-10-15}?",
       "Summarise spend for Rohan's parents",
-      "Why is readiness 38%?",
+      "What is holding readiness back?",
     ],
     thread: [
       { id: "m1", role: "user", text: "How much should we tip the chenda melam troupe?" },
@@ -627,6 +643,7 @@ const birthday: PersonalEvent = {
   listMeta: "Space theme · at home, Kakkanad · {short:2026-10-17} · 30 kids, 20 adults",
   date: "2026-10-17",
   guests: 50,
+  ...birthdayRecords,
   countdown: {
     label: "Countdown to the party",
     line: "{long:2026-10-17} · 4–7 pm · at home, Kakkanad",
@@ -899,6 +916,7 @@ const mela: CommunityEvent = {
   navMeta: "Community · Society grounds · {short:2026-11-07}",
   listMeta: "Stalls + cultural night · {short:2026-11-07} · 600 attendees · 12 volunteers",
   date: "2026-11-07",
+  ...melaRecords,
   countdown: { label: "Mela day in", line: "Gates open 4 pm · stalls, rangoli and a cultural night" },
   segments: [
     { id: "all", label: "Whole event", line: "Gates open 4 pm · stalls, rangoli and a cultural night" },
@@ -914,9 +932,8 @@ const mela: CommunityEvent = {
     budget: 250000,
     spent: 96500,
     sources: [
+      // Sponsorships and stall fees are added from the sponsor and stall lists.
       { label: "Society fund", expected: 150000, received: 150000, note: "received", tone: "ok" },
-      { label: "Sponsors · 2 of 3 paid", expected: 70000, received: 40000, note: "₹30,000 due", tone: "due" },
-      { label: "Stall fees · 18 × ₹2,500", expected: 45000, received: 30000, note: "6 pending", tone: "due" },
     ],
     approvals: [
       {
@@ -1070,6 +1087,9 @@ const mela: CommunityEvent = {
     readinessNote: { text: "Police permission not filed", tone: "warn" },
   },
 };
+
+wedding.budget.payments = wedding.budget.payments.map((p) => ({ ...p, ...WEDDING_PAYMENT_LINKS[p.id] }));
+birthday.budget.payments = birthday.budget.payments.map((p) => ({ ...p, ...BIRTHDAY_PAYMENT_LINKS[p.id] }));
 
 const anniversary: EmptyEvent = {
   id: "amma-achan-35",

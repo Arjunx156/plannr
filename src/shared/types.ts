@@ -76,6 +76,34 @@ export interface CommentView {
   at: string;
 }
 
+export type LinkKind =
+  | "rsvp"
+  | "helper"
+  | "vendor"
+  | "shifts"
+  | "fund"
+  | "site"
+  | "album"
+  | "stalls"
+  | "gate";
+
+export interface LinkRow {
+  token: string;
+  kind: LinkKind;
+  target: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface TemplateRow {
+  id: string;
+  name: string;
+  kind: string;
+  createdAt: string;
+  /** The date the template's event was on; a new event moves every date by the difference. */
+  date: string;
+}
+
 export const ROLE_LABEL: Record<Role, string> = {
   owner: "Owner",
   planner: "Co-planner",

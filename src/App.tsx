@@ -14,6 +14,8 @@ const Onboarding = lazy(() => import("./pages/Onboarding").then((m) => ({ defaul
 const Events = lazy(() => import("./pages/Events").then((m) => ({ default: m.Events })));
 const EventPage = lazy(() => import("./pages/EventPage").then((m) => ({ default: m.EventPage })));
 const Join = lazy(() => import("./pages/Join").then((m) => ({ default: m.Join })));
+const PublicPage = lazy(() => import("./pages/public/PublicPage").then((m) => ({ default: m.PublicPage })));
+const PreviewPage = lazy(() => import("./pages/public/PublicPage").then((m) => ({ default: m.PreviewPage })));
 const Today = lazy(() => import("./pages/Today").then((m) => ({ default: m.Today })));
 const Inbox = lazy(() => import("./pages/Inbox").then((m) => ({ default: m.Inbox })));
 // The component gallery exists in development and in the build the journey tests run against.
@@ -34,6 +36,16 @@ export function App() {
           <Route path="/signup" element={<Auth mode="signup" />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/join/:token" element={<Join />} />
+          <Route path="/e/:token" element={<PublicPage kind="site" />} />
+          <Route path="/r/:token" element={<PublicPage kind="rsvp" />} />
+          <Route path="/h/:token" element={<PublicPage kind="helper" />} />
+          <Route path="/v/:token" element={<PublicPage kind="vendor" />} />
+          <Route path="/s/:token" element={<PublicPage kind="shifts" />} />
+          <Route path="/fund/:token" element={<PublicPage kind="fund" />} />
+          <Route path="/a/:token" element={<PublicPage kind="album" />} />
+          <Route path="/stalls/:token" element={<PublicPage kind="stalls" />} />
+          <Route path="/gate/:token" element={<PublicPage kind="gate" />} />
+          <Route path="/preview/:kind/:eventId/:target?" element={<PreviewPage />} />
           <Route path="/events" element={<Private>{<Events />}</Private>} />
           <Route path="/events/:id/:tab?" element={<Private>{<EventPage />}</Private>} />
           <Route path="/today" element={<Private>{<Today />}</Private>} />

@@ -314,6 +314,8 @@ export function HistoryTab({ ev }: { ev: PlannrEvent }) {
 // ---------------------------------------------------------------- people
 
 const SIDES = ["Bride's side", "Groom's side", "Family", "Friends", "Volunteers"];
+/** Committees name roles instead; "Treasurer" decides on expenses. */
+const COMMITTEE = ["Treasurer", "Secretary", "President", "Volunteers"];
 
 export function PeopleTab({ ev }: { ev: PlannrEvent }) {
   const { state, dispatch } = useStore();
@@ -492,9 +494,13 @@ function Invite({ ev }: { ev: PlannrEvent }) {
           </div>
         </fieldset>
         <Field
-          label="Side (optional)"
+          label={ev.layout === "community" ? "Committee role (optional)" : "Side (optional)"}
           htmlFor="invite-side"
-          hint="Shows next to their name, so everyone knows who's who."
+          hint={
+            ev.layout === "community"
+              ? "Shows next to their name. Once someone is the Treasurer, only they or the owner approve expenses."
+              : "Shows next to their name, so everyone knows who's who."
+          }
         >
           <input
             id="invite-side"
@@ -506,10 +512,10 @@ function Invite({ ev }: { ev: PlannrEvent }) {
               setSide(e.target.value);
               setLink("");
             }}
-            placeholder="Groom's side"
+            placeholder={ev.layout === "community" ? "Treasurer" : "Groom's side"}
           />
           <datalist id="invite-sides">
-            {SIDES.map((s) => (
+            {(ev.layout === "community" ? COMMITTEE : SIDES).map((s) => (
               <option key={s} value={s} />
             ))}
           </datalist>

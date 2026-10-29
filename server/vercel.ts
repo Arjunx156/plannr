@@ -8,6 +8,10 @@ import { Hono } from "hono";
 import { aiConfig, handleAi } from "./ai";
 import { type AppEnv, createApp } from "./app";
 import { createNeonDb } from "./db/neon";
+import { matchShare, sharePage } from "./share";
+
+/** The built index.html, inlined by scripts/vercel-build.ts so shared links get their own titles. */
+declare const __INDEX_HTML__: string;
 
 function offline(env: AppEnv) {
   const app = new Hono().basePath("/api");
@@ -32,6 +36,16 @@ function offline(env: AppEnv) {
 }
 
 const env = process.env as AppEnv;
-const app = env.DATABASE_URL ? createApp({ db: createNeonDb(env.DATABASE_URL), env }) : offline(env);
+const db = env.DATABASE_URL ? createNeonDb(env.DATABASE_URL) : undefined;
+const app = db ? createApp({ db, env }) : offline(env);
 
-export default getRequestListener(app.fetch);
+async function handle(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  if (matchShare(url.pathname))
+    return new Response(await sharePage(db, __INDEX_HTML__, url), {
+      headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+    });
+  return app.fetch(req);
+}
+
+export default getRequestListener(handle);

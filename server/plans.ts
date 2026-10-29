@@ -49,7 +49,7 @@ export async function roleOf(db: Db, eventId: string, userId: string): Promise<R
   return row?.role;
 }
 
-async function requireRole(db: Db, eventId: string, userId: string, min: Role): Promise<Role> {
+export async function requireRole(db: Db, eventId: string, userId: string, min: Role): Promise<Role> {
   const role = await roleOf(db, eventId, userId);
   if (!role) throw new HttpError(404, "Event not found");
   if (RANK[role] < RANK[min])
@@ -106,7 +106,51 @@ export async function applyActions(
   userId: string,
   incoming: EventAction[],
 ): Promise<{ event: PlannrEvent; version: number }> {
-  await requireRole(db, eventId, userId, "planner");
+  const role = await requireRole(db, eventId, userId, "planner");
+  if (incoming.some(decidesExpense)) await requireTreasurer(db, eventId, userId, role);
+  return commit(db, eventId, { userId }, incoming);
+}
+
+/** Approving or declining a committee expense. */
+function decidesExpense(a: EventAction): boolean {
+  return (
+    a.type === "approveExpense" ||
+    (a.type === "updateRecord" && a.coll === "approvals" && "status" in a.patch)
+  );
+}
+
+const isTreasurer = (side: string | null) => side?.trim().toLowerCase() === "treasurer";
+
+/**
+ * When the committee has named a treasurer, only the treasurer or the owner decides on
+ * expenses, so no one approves their own claim. Without one, any planner can.
+ */
+async function requireTreasurer(db: Db, eventId: string, userId: string, role: Role): Promise<void> {
+  if (role === "owner") return;
+  const rows = await db
+    .select({ userId: members.userId, side: members.side })
+    .from(members)
+    .where(eq(members.eventId, eventId));
+  const treasurers = rows.filter((r) => isTreasurer(r.side));
+  if (treasurers.length && !treasurers.some((r) => r.userId === userId))
+    throw new HttpError(403, "Only the treasurer or the owner can approve expenses");
+}
+
+/** A plan bigger than this can't be saved; it would be slow to open on a phone. */
+export const MAX_PLAN_BYTES = 1_500_000;
+
+/**
+ * Applies changes with optimistic locking: read, apply, and write only if nobody else
+ * wrote in between; otherwise read again and re-apply on top of their change. Who made
+ * the change is a member's user id, or a name for someone using a shared link.
+ */
+export async function commit(
+  db: Db,
+  eventId: string,
+  who: { userId?: string; actor?: string },
+  incoming: EventAction[],
+  check?: (current: PlannrEvent, action: EventAction) => void,
+): Promise<{ event: PlannrEvent; version: number }> {
   const actions = incoming.map((a) => stamp({ ...a, eventId } as EventAction));
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const [row] = await db
@@ -117,9 +161,12 @@ export async function applyActions(
     let next = row.data;
     const summaries: string[] = [];
     for (const action of actions) {
+      check?.(next, action);
       summaries.push(describeAction(action, next));
       next = applyEventAction(next, action);
     }
+    if (JSON.stringify(next).length > MAX_PLAN_BYTES)
+      throw new HttpError(413, "The plan is too large to save. Remove old photos or notes first.");
     const version = row.version + actions.length;
     const updated = await db
       .update(events)
@@ -132,7 +179,8 @@ export async function applyActions(
         id: `chg_${randomUUID()}`,
         eventId,
         seq: row.version + i + 1,
-        userId,
+        userId: who.userId ?? null,
+        actor: who.actor ?? null,
         kind: "action" as const,
         action,
         summary: summaries[i] ?? "",
@@ -226,6 +274,7 @@ export async function history(db: Db, eventId: string, userId: string, limit = 1
       targetId: changes.targetId,
       byId: changes.userId,
       by: user.name,
+      actor: changes.actor,
     })
     .from(changes)
     .leftJoin(user, eq(user.id, changes.userId))
@@ -238,7 +287,7 @@ export async function history(db: Db, eventId: string, userId: string, limit = 1
     kind: r.kind,
     summary: r.summary,
     at: r.createdAt.toISOString(),
-    by: r.by,
+    by: r.by ?? r.actor,
     byId: r.byId,
     undone: !!r.undoneAt,
     targetId: r.targetId,
@@ -257,6 +306,7 @@ export async function activity(db: Db, userId: string, limit = 60): Promise<Acti
       createdAt: changes.createdAt,
       byId: changes.userId,
       by: user.name,
+      actor: changes.actor,
     })
     .from(changes)
     .innerJoin(members, and(eq(members.eventId, changes.eventId), eq(members.userId, userId)))
@@ -272,7 +322,7 @@ export async function activity(db: Db, userId: string, limit = 60): Promise<Acti
     kind: r.kind,
     summary: r.summary,
     at: r.createdAt.toISOString(),
-    by: r.by,
+    by: r.by ?? r.actor,
     mine: r.byId === userId,
   }));
 }

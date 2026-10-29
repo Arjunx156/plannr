@@ -1,4 +1,5 @@
 import type { BudgetPlan, Category, CommunityEvent, PersonalEvent } from "../data/types";
+import { fundTotals, rsvpSummary, vendorSummary } from "../shared/derive";
 import { clamp } from "./format";
 
 export interface BudgetTotals {
@@ -81,11 +82,14 @@ export function tasksDone(t: PersonalEvent["tasks"] | CommunityEvent["tasks"]): 
 /** Weighted so tasks and RSVPs move it most; ticking a task moves the ring. */
 export function personalReadiness(ev: PersonalEvent, today: string): Readiness {
   const done = tasksDone(ev.tasks);
-  const booked = ev.vendors.booked.length;
-  const vendorsTotal = booked + ev.vendors.talking.length + ev.vendors.needed.length;
+  const v = vendorSummary(ev);
+  const rsvp = rsvpSummary(ev);
+  const booked = v.booked.length;
+  const vendorsTotal = booked + v.talking.length + v.needed.length;
   const tasks = clamp(done / Math.max(1, ev.tasks.total));
   const vendors = clamp(booked / Math.max(1, vendorsTotal));
-  const guests = clamp(ev.rsvp.confirmed / Math.max(1, ev.rsvp.total));
+  // Answers count, not just yeses: a "can't come" is as settled as a "coming".
+  const guests = clamp((rsvp.confirmed + rsvp.declined) / Math.max(1, rsvp.total));
   const budget = clamp(ev.budgetScore);
   return {
     tasksDone: done,
@@ -94,7 +98,7 @@ export function personalReadiness(ev: PersonalEvent, today: string): Readiness {
     vendorsBooked: booked,
     vendorsTotal,
     vendors,
-    guestsConfirmed: ev.rsvp.confirmed,
+    guestsConfirmed: rsvp.confirmed,
     guests,
     budget,
     overall: 0.3 * tasks + 0.2 * vendors + 0.3 * guests + 0.2 * budget,
@@ -118,9 +122,8 @@ export interface CommunityReadiness {
 }
 
 export function communityReadiness(ev: CommunityEvent): CommunityReadiness {
-  const expected = ev.funds.sources.reduce((s, x) => s + x.expected, 0);
-  const received = ev.funds.sources.reduce((s, x) => s + x.received, 0);
-  const funds = clamp(received / Math.max(1, expected));
+  const f = fundTotals(ev);
+  const funds = clamp(f.received / Math.max(1, f.expected));
   const done = tasksDone(ev.tasks);
   const tasks = clamp(done / ev.tasks.total);
   const permitRows = ev.permits.filter((p) => p.permit);
@@ -134,8 +137,8 @@ export function communityReadiness(ev: CommunityEvent): CommunityReadiness {
       filled += Math.min(s.need, s.names.length);
     }
   const volunteers = clamp(filled / Math.max(1, needed));
-  const passes = clamp(ev.passes.issued / ev.passes.capacity);
-  const stalls = clamp(ev.stalls.booked / ev.stalls.total);
+  const passes = clamp(f.passes.issued / Math.max(1, f.passes.capacity));
+  const stalls = clamp(f.stalls.booked / Math.max(1, f.stalls.total));
   return {
     funds,
     tasks,

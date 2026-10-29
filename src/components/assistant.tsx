@@ -2,8 +2,11 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import type { CommunityEvent, Message, PersonalEvent, Preview } from "../data/types";
 import { aiEnabled, askAssistant } from "../lib/ai";
 import { type AssistantContext, introFor, msgId, reply } from "../lib/assistant";
+import { TODAY } from "../lib/dates";
 import type { SpeechCode } from "../lib/voice";
+import { proposalRipple } from "../shared/proposals";
 import { toast, useStore } from "../store/store";
+import { RipplePreview } from "./ripple";
 import { HoldToSpeak, LangSelect } from "./voice";
 
 /**
@@ -55,6 +58,7 @@ export function AssistantPanel({
           source: res.source,
           translation: res.translation,
           lang: res.translation ? lang.toLowerCase() : undefined,
+          ...(res.actions?.length ? { proposals: res.actions, proposalStatus: "pending" as const } : {}),
         };
     }
     await new Promise((r) => window.setTimeout(r, Math.max(0, 450 - (Date.now() - started))));
@@ -146,6 +150,7 @@ export function AssistantPanel({
                   onDecide={(apply) => decide(m, m.preview as Preview, apply)}
                 />
               )}
+              {m.proposals && <Proposal ev={ev} m={m} />}
               {m.footnote && <span className="text-xs text-muted">{m.footnote}</span>}
             </div>
           ),
@@ -241,5 +246,27 @@ export function PreviewCard({ preview, onDecide }: { preview: Preview; onDecide:
         </span>
       )}
     </div>
+  );
+}
+
+/** Changes the assistant proposed, as a preview of everything they move, applied only on yes. */
+function Proposal({ ev, m }: { ev: PersonalEvent | CommunityEvent; m: Message }) {
+  const { dispatch } = useStore();
+  const status = m.proposalStatus ?? "pending";
+  if (status !== "pending")
+    return (
+      <span className={`text-xs font-semibold ${status === "applied" ? "text-leaf-ink" : "text-muted"}`}>
+        {status === "applied" ? "✓ Applied" : "Not applied"}
+      </span>
+    );
+  const ripple = proposalRipple(ev, m.proposals ?? [], TODAY);
+  if (!ripple)
+    return (
+      <span className="text-xs text-muted">The suggested change no longer fits the plan as it is now.</span>
+    );
+  const decide = (s: "applied" | "rejected") =>
+    dispatch({ type: "previewStatus", eventId: ev.id, messageId: m.id, status: s });
+  return (
+    <RipplePreview ripple={ripple} onDone={() => decide("applied")} onCancel={() => decide("rejected")} />
   );
 }

@@ -9,9 +9,17 @@ import {
   planPrompt,
   planRequest,
   planSchema,
+  readPrompt,
+  readRequest,
+  readSchema,
   sanitizeAssistant,
   sanitizeIntake,
   sanitizePlan,
+  sanitizeRead,
+  sanitizeWrite,
+  writePrompt,
+  writeRequest,
+  writeSchema,
 } from "./prompts.js";
 
 /**
@@ -24,6 +32,11 @@ const BASE = "https://generativelanguage.googleapis.com/v1beta";
 export const DEFAULT_MODEL = "gemini-flash-lite-latest";
 const TIMEOUT_MS = 25000;
 const MAX_BODY = 128 * 1024;
+/** A document to read is sent whole: a 3 MB photo or PDF, base64. */
+export const MAX_READ_BODY = 4_400_000;
+
+/** What each route costs against a person's daily allowance. Reading a document is the heaviest. */
+export const ROUTE_COST: Record<string, number> = { intake: 1, assistant: 1, plan: 2, write: 1, read: 5 };
 
 export interface AiConfig {
   apiKey?: string;
@@ -44,9 +57,11 @@ export interface AiResponse {
 
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
+type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
+
 interface GenerateArgs {
   system: string;
-  contents: { role: "user" | "model"; parts: { text: string }[] }[];
+  contents: { role: "user" | "model"; parts: Part[] }[];
   schema: unknown;
   temperature?: number;
 }
@@ -59,7 +74,12 @@ class UpstreamError extends Error {
   }
 }
 
-async function generate(config: AiConfig, args: GenerateArgs, fetchImpl: Fetch): Promise<unknown> {
+async function generate(
+  config: AiConfig,
+  args: GenerateArgs,
+  fetchImpl: Fetch,
+  timeoutMs = TIMEOUT_MS,
+): Promise<unknown> {
   const res = await fetchImpl(`${BASE}/models/${encodeURIComponent(config.model)}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": config.apiKey ?? "" },
@@ -72,7 +92,7 @@ async function generate(config: AiConfig, args: GenerateArgs, fetchImpl: Fetch):
         temperature: args.temperature ?? 0.4,
       },
     }),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
@@ -126,6 +146,34 @@ export async function handleAi(
         fetchImpl,
       );
       return { status: 200, body: sanitizePlan(raw) };
+    }
+    if (route === "write") {
+      const req = writeRequest(body);
+      const { system, user: text } = writePrompt(req);
+      const raw = await generate(
+        config,
+        { system, contents: user(text), schema: writeSchema, temperature: 0.7 },
+        fetchImpl,
+      );
+      return { status: 200, body: sanitizeWrite(raw) };
+    }
+    if (route === "read") {
+      const req = readRequest(body);
+      const { system, text } = readPrompt(req);
+      const raw = await generate(
+        config,
+        {
+          system,
+          contents: [
+            { role: "user", parts: [{ inlineData: { mimeType: req.mime, data: req.data } }, { text }] },
+          ],
+          schema: readSchema,
+          temperature: 0,
+        },
+        fetchImpl,
+        40000,
+      );
+      return { status: 200, body: sanitizeRead(raw) };
     }
     return { status: 404, body: { error: "Unknown AI route" } };
   } catch (e) {
