@@ -157,17 +157,7 @@ export function eventFromDraft(
       needed: plan.vendors.filter((v) => !(venueBooked && v === "Venue")),
     },
     rsvp: { total: p.guests ?? 0, invited: 0, confirmed: 0, declined: 0, pending: 0, notSent: p.guests ?? 0 },
-    notices: [
-      {
-        id: "first-booking",
-        tone: "warn",
-        label: "Book first",
-        text: plan.vendorNote,
-        why: `Why: ${plan.vendorFocus.join(", ")} set the rest of the plan.`,
-        primary: { label: "Got it", action: "acknowledge" },
-        status: "open",
-      },
-    ],
+    notices: [],
     assistant: {
       intro: "",
       chips: ["What should I do this week?", "Why is readiness this low?", "Where are we over?"],

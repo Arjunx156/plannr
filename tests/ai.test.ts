@@ -316,3 +316,43 @@ describe("assistant proposals", () => {
     ).toBeUndefined();
   });
 });
+
+describe("a busy model", () => {
+  test("is retried once on the fallback model", async () => {
+    const urls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      urls.push(url);
+      if (urls.length === 1) return new Response('{"error":{"message":"high demand"}}', { status: 503 });
+      return new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ text: JSON.stringify({ text: "Hello" }) }] } }],
+        }),
+      );
+    };
+    const out = await handleAi(
+      "write",
+      { task: "invite", context: {} },
+      { ...config, fallback: "backup" },
+      fetchImpl,
+    );
+    expect(out).toEqual({ status: 200, body: { text: "Hello" } });
+    expect(urls[0]).toContain("/models/test-model:");
+    expect(urls[1]).toContain("/models/backup:");
+  });
+
+  test("a bad request is not retried", async () => {
+    let calls = 0;
+    const fetchImpl = async () => {
+      calls += 1;
+      return new Response("{}", { status: 400 });
+    };
+    const out = await handleAi(
+      "write",
+      { task: "invite", context: {} },
+      { ...config, fallback: "backup" },
+      fetchImpl,
+    );
+    expect(out.status).toBe(502);
+    expect(calls).toBe(1);
+  });
+});

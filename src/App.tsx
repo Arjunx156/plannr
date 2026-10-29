@@ -18,6 +18,9 @@ const PublicPage = lazy(() => import("./pages/public/PublicPage").then((m) => ({
 const PreviewPage = lazy(() => import("./pages/public/PublicPage").then((m) => ({ default: m.PreviewPage })));
 const Today = lazy(() => import("./pages/Today").then((m) => ({ default: m.Today })));
 const Inbox = lazy(() => import("./pages/Inbox").then((m) => ({ default: m.Inbox })));
+const Account = lazy(() => import("./pages/Account").then((m) => ({ default: m.Account })));
+const Privacy = lazy(() => import("./pages/site/Legal").then((m) => ({ default: m.Privacy })));
+const Terms = lazy(() => import("./pages/site/Legal").then((m) => ({ default: m.Terms })));
 // The component gallery exists in development and in the build the journey tests run against.
 const SHOW_GALLERY = import.meta.env.DEV || import.meta.env.VITE_GALLERY === "1";
 const Gallery = SHOW_GALLERY
@@ -33,6 +36,8 @@ export function App() {
           <Route path="/new" element={<Intake />} />
           <Route path="/new/generating" element={<Plan />} />
           <Route path="/signin" element={<Auth mode="signin" />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
           <Route path="/signup" element={<Auth mode="signup" />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/join/:token" element={<Join />} />
@@ -49,6 +54,7 @@ export function App() {
           <Route path="/events" element={<Private>{<Events />}</Private>} />
           <Route path="/events/:id/:tab?" element={<Private>{<EventPage />}</Private>} />
           <Route path="/today" element={<Private>{<Today />}</Private>} />
+          <Route path="/account" element={<Private>{<Account />}</Private>} />
           <Route path="/inbox" element={<Private>{<Inbox />}</Private>} />
           {Gallery && <Route path="/gallery" element={<Gallery />} />}
           <Route path="*" element={<NotFound />} />

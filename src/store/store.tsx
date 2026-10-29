@@ -8,7 +8,7 @@ import {
   useReducer,
   useRef,
 } from "react";
-import { DEMO_USER, SEED_IDS, seedEvents } from "../data/seed";
+import { DEMO_USER, SEED_IDS, SEED_REVISION, seedEvents } from "../data/seed";
 import type { PlannrEvent, Profile } from "../data/types";
 import { demoShift } from "../lib/dates";
 import { initials } from "../lib/format";
@@ -74,6 +74,8 @@ export interface AppState {
   version: 2;
   /** Days the demo story was moved when it was seeded; a new week reseeds it. */
   demoShift: number;
+  /** Which sample data the demo events were made from; new samples replace old ones. */
+  seed?: number;
   /** "demo": everything stays in this browser. "account": plans live on the server and sync. */
   mode: "demo" | "account";
   account: Account;
@@ -138,6 +140,7 @@ export function initialState(): AppState {
   return {
     version: 2,
     demoShift: demoShift(),
+    seed: SEED_REVISION,
     mode: "demo",
     account: { status: "unknown" },
     remote: {},
@@ -182,9 +185,10 @@ export function migrate(saved: SavedState): AppState {
   const state = { ...fresh, ...saved, version: 2 as const, toasts: [], activity: [] };
   // An account's plans come from the server, never from the demo seed.
   if (state.mode === "account") return { ...state, demoShift: fresh.demoShift };
-  if (saved.version === 2 && saved.demoShift === fresh.demoShift) return state;
+  if (saved.version === 2 && saved.demoShift === fresh.demoShift && saved.seed === SEED_REVISION)
+    return state;
   const own = saved.events.filter((e) => !SEED_IDS.includes(e.id));
-  return { ...state, demoShift: fresh.demoShift, events: [...fresh.events, ...own] };
+  return { ...state, demoShift: fresh.demoShift, seed: SEED_REVISION, events: [...fresh.events, ...own] };
 }
 
 function mapEvent(state: AppState, id: string, fn: (ev: PlannrEvent) => PlannrEvent): AppState {

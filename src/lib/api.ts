@@ -143,6 +143,11 @@ export const api = {
     request(`/api/events/${enc(id)}/links/${enc(token)}`, { method: "DELETE" }),
   renameSite: (id: string, slug: string) =>
     request<LinkRow>(`/api/events/${enc(id)}/site-address`, { method: "PUT", body: { slug } }),
+  deleteAccount: () =>
+    request<{ handedOver: number; deleted: number }>("/api/account/delete", { body: { confirm: "DELETE" } }),
+  pushKey: () => request<{ key: string | null }>("/api/push/key"),
+  pushOn: (sub: PushSubscriptionJSON) => request<{ ok: true }>("/api/push", { body: sub }),
+  pushOff: (endpoint: string) => request<{ ok: true }>("/api/push/remove", { body: { endpoint } }),
   publicView: (token: string) => request<PublicView>(`/api/p/${enc(token)}`),
   /** Adds a photo to a shared album: the image goes up as it is, the server checks and stores it. */
   albumPhoto: (token: string, photo: Blob, by: string) =>

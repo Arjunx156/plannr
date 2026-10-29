@@ -180,6 +180,14 @@ function AccountMenu() {
                 <MenuItem
                   onSelect={() => {
                     close();
+                    navigate("/account");
+                  }}
+                >
+                  Install the app
+                </MenuItem>
+                <MenuItem
+                  onSelect={() => {
+                    close();
                     dispatch({ type: "resetDemo" });
                     dispatch({ type: "toast", toast: { id: "demo-reset", text: "Demo data restored." } });
                   }}
@@ -212,10 +220,10 @@ function AccountMenu() {
                 <MenuItem
                   onSelect={() => {
                     close();
-                    navigate("/onboarding");
+                    navigate("/account");
                   }}
                 >
-                  Name, city and language
+                  Account, app and reminders
                 </MenuItem>
                 <MenuItem
                   danger

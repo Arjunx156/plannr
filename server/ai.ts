@@ -29,7 +29,7 @@ import {
  */
 
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
-export const DEFAULT_MODEL = "gemini-flash-lite-latest";
+export const DEFAULT_MODEL = "gemini-3.5-flash";
 const TIMEOUT_MS = 25000;
 const MAX_BODY = 128 * 1024;
 /** A document to read is sent whole: a 3 MB photo or PDF, base64. */
@@ -38,17 +38,31 @@ export const MAX_READ_BODY = 4_400_000;
 /** What each route costs against a person's daily allowance. Reading a document is the heaviest. */
 export const ROUTE_COST: Record<string, number> = { intake: 1, assistant: 1, plan: 2, write: 1, read: 5 };
 
+/** Tried when the main model is busy or slow: a different model has its own capacity. */
+export const FALLBACK_MODEL = "gemini-3.5-flash-lite";
+
 export interface AiConfig {
   apiKey?: string;
   model: string;
+  fallback?: string;
 }
 
 export function aiConfig(env: Record<string, string | undefined> = process.env): AiConfig {
   return {
     apiKey: env.GEMINI_API_KEY?.trim() || undefined,
     model: env.GEMINI_MODEL?.trim() || DEFAULT_MODEL,
+    fallback: env.GEMINI_FALLBACK_MODEL?.trim() || FALLBACK_MODEL,
   };
 }
+
+/** How long each route may take in all, inside what the browser waits for. */
+const BUDGET_MS: Record<string, number> = {
+  intake: 11000,
+  assistant: 19000,
+  plan: 19000,
+  write: 28000,
+  read: 42000,
+};
 
 export interface AiResponse {
   status: number;
@@ -74,19 +88,61 @@ class UpstreamError extends Error {
   }
 }
 
+/** Busy, rate-limited, failing or slow: worth one more try on the other model. */
+function retryable(e: unknown): boolean {
+  if (e instanceof UpstreamError) return [429, 500, 502, 503, 504].includes(e.status);
+  return e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+}
+
+/**
+ * Asks the main model, and when it's busy or slow asks the fallback with the time left,
+ * so a spike at Google doesn't leave a family staring at an error.
+ */
 async function generate(
   config: AiConfig,
   args: GenerateArgs,
   fetchImpl: Fetch,
-  timeoutMs = TIMEOUT_MS,
+  budgetMs = TIMEOUT_MS,
 ): Promise<unknown> {
-  const res = await fetchImpl(`${BASE}/models/${encodeURIComponent(config.model)}:generateContent`, {
+  const deadline = Date.now() + budgetMs;
+  const models = [
+    config.model,
+    ...(config.fallback && config.fallback !== config.model ? [config.fallback] : []),
+  ];
+  let last: unknown = new UpstreamError("AI took too long", 504);
+  for (const [i, model] of models.entries()) {
+    const left = deadline - Date.now();
+    if (left < 2500) break;
+    const share = i === models.length - 1 ? left : Math.round(left * 0.55);
+    try {
+      return await generateOnce(config, model, args, fetchImpl, share);
+    } catch (e) {
+      last = e;
+      if (!retryable(e)) throw e;
+      console.warn(
+        `[ai] ${model} unavailable, ${i < models.length - 1 ? "trying the fallback" : "giving up"}`,
+      );
+    }
+  }
+  throw last;
+}
+
+async function generateOnce(
+  config: AiConfig,
+  model: string,
+  args: GenerateArgs,
+  fetchImpl: Fetch,
+  timeoutMs: number,
+): Promise<unknown> {
+  const res = await fetchImpl(`${BASE}/models/${encodeURIComponent(model)}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": config.apiKey ?? "" },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: args.system }] },
       contents: args.contents,
       generationConfig: {
+        // Plannr's answers come from the plan and its computed facts; long thinking only adds waiting.
+        thinkingConfig: { thinkingLevel: "minimal" },
         responseMimeType: "application/json",
         responseJsonSchema: args.schema,
         temperature: args.temperature ?? 0.4,
@@ -128,13 +184,19 @@ export async function handleAi(
         config,
         { system, contents: user(text), schema: intakeSchema, temperature: 0.1 },
         fetchImpl,
+        BUDGET_MS.intake,
       );
       return { status: 200, body: sanitizeIntake(raw, req.today) };
     }
     if (route === "assistant") {
       const req = assistantRequest(body);
       const { system, contents } = assistantPrompt(req);
-      const raw = await generate(config, { system, contents, schema: assistantSchema }, fetchImpl);
+      const raw = await generate(
+        config,
+        { system, contents, schema: assistantSchema },
+        fetchImpl,
+        BUDGET_MS.assistant,
+      );
       return { status: 200, body: sanitizeAssistant(raw) };
     }
     if (route === "plan") {
@@ -144,6 +206,7 @@ export async function handleAi(
         config,
         { system, contents: user(text), schema: planSchema, temperature: 0.6 },
         fetchImpl,
+        BUDGET_MS.plan,
       );
       return { status: 200, body: sanitizePlan(raw) };
     }
@@ -154,6 +217,7 @@ export async function handleAi(
         config,
         { system, contents: user(text), schema: writeSchema, temperature: 0.7 },
         fetchImpl,
+        BUDGET_MS.write,
       );
       return { status: 200, body: sanitizeWrite(raw) };
     }
@@ -171,7 +235,7 @@ export async function handleAi(
           temperature: 0,
         },
         fetchImpl,
-        40000,
+        BUDGET_MS.read,
       );
       return { status: 200, body: sanitizeRead(raw) };
     }

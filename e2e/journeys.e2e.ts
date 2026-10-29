@@ -155,13 +155,32 @@ test.describe("running an event", () => {
     await expect(assistant.getByText("From the Sree Annapoorna quote.")).toBeVisible();
   });
 
-  test("approving a guest-list change updates the plan", async ({ page }) => {
+  test("the overview flags an overrun from the plan's own numbers, and accepting it updates the budget", async ({
+    page,
+  }) => {
     await signInDemo(page);
     await page.goto("/events/ananya-rohan");
-    await page.getByRole("button", { name: "Review 3 changes" }).click();
+    const notices = page.getByRole("region", { name: "Needs attention" });
     await expect(
-      page.getByText("Applied: catering, invitations and seating now plan for 268."),
+      notices.getByText("Catering is heading for ₹5,04,000 against ₹4,50,000 planned, 12% over."),
     ).toBeVisible();
+    await notices.getByRole("button", { name: "Make ₹5,04,000 the plan" }).click();
+    await expect(page.getByText(/Catering is now planned at ₹5,04,000/)).toBeVisible();
+    await expect(notices.getByText(/Catering is heading for/)).toHaveCount(0);
+    await page.goto("/events/ananya-rohan/budget");
+    await expect(page.getByRole("button", { name: /Catering/ }).first()).toContainText("₹5,04,000");
+  });
+
+  test("a notice can be put off for now", async ({ page }) => {
+    await signInDemo(page);
+    await page.goto("/events/green-valley-mela");
+    const notices = page.getByRole("region", { name: "Needs attention" });
+    const claims = notices.getByRole("article").filter({ hasText: "expense claims to decide" });
+    await expect(claims).toBeVisible();
+    await claims.getByRole("button", { name: "Not now" }).click();
+    await expect(claims).toHaveCount(0);
+    await page.reload();
+    await expect(notices.getByText("expense claims to decide")).toHaveCount(0);
   });
 
   test("a committee approves an expense and fills a shift", async ({ page }) => {

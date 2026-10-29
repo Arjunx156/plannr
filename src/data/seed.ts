@@ -23,7 +23,7 @@ export const DEMO_USER = {
   name: "Priya Menon",
   firstName: "Priya",
   initials: "PM",
-  plan: "Pro plan",
+  plan: "Early access",
   city: "Kochi, Kerala",
   language: "English",
 };
@@ -546,38 +546,7 @@ const wedding: PersonalEvent = {
     note: "Photographer is time-critical",
   },
   rsvp: { total: 268, invited: 180, confirmed: 96, declined: 8, pending: 76, notSent: 88 },
-  notices: [
-    {
-      id: "photographer-window",
-      tone: "warn",
-      label: "Booking window closing",
-      text: "Photographers in Kochi book out 6 months ahead. You have 2 weeks left to book.",
-      why: "Why: 11 of 14 Ernakulam photographers you'd consider are already 60% booked for your dates.",
-      primary: { label: "Compare 3 shortlisted", action: "compare-photographers" },
-      secondary: { label: "Remind me Fri", action: "remind" },
-      status: "open",
-    },
-    {
-      id: "catering-over",
-      tone: "warn",
-      label: "Over plan",
-      text: "Catering is 12% over plan: ₹5,04,000 quoted against ₹4,50,000.",
-      why: "Why: Sree Annapoorna quoted ₹2,016 a leaf for a 26-item sadhya for 250 guests.",
-      primary: { label: "See 3 ways to save", action: "open-savings" },
-      secondary: { label: "Accept overrun", action: "accept-overrun" },
-      status: "open",
-    },
-    {
-      id: "guests-grew",
-      tone: "ai",
-      label: "Waiting for your approval",
-      text: "The guest list grew from 250 to 268. Update the connected parts of the plan?",
-      lines: ["Catering +₹36,288 (18 leaves)", "Invitations +18 cards · Seating +2 tables"],
-      primary: { label: "Review 3 changes", action: "review-guest-changes" },
-      secondary: { label: "Not now", action: "dismiss" },
-      status: "open",
-    },
-  ],
+  notices: [],
   assistant: {
     intro: "",
     chips: [
@@ -864,36 +833,7 @@ const birthday: PersonalEvent = {
   },
   vendors: { booked: ["Planetarium show", "Return gifts"], talking: ["Cake"], needed: ["Snacks caterer"] },
   rsvp: { total: 50, invited: 50, confirmed: 29, declined: 3, pending: 18, notSent: 0 },
-  notices: [
-    {
-      id: "cake-order",
-      tone: "warn",
-      label: "Cake not ordered",
-      text: "Bake Street needs 10 days for a 2 kg shaped cake. Order by {short:2026-10-07} to be safe.",
-      why: "Why: the rocket has a fondant topper that is made separately.",
-      primary: { label: "Mark as ordered", action: "order-cake" },
-      secondary: { label: "Remind me Fri", action: "remind" },
-      status: "open",
-    },
-    {
-      id: "stars",
-      tone: "ai",
-      label: "Suggestion",
-      text: "Glow-in-the-dark stars on the living-room ceiling instead of a second balloon arch. Saves ₹1,800.",
-      why: "Why: the party runs 4–7 pm, so the room is dim enough by the cake cutting.",
-      primary: { label: "Add to plan", action: "add-stars" },
-      secondary: { label: "No thanks", action: "dismiss" },
-      status: "open",
-    },
-    {
-      id: "allergies",
-      tone: "info",
-      label: "From the guest list",
-      text: "3 kids have nut allergies. Bake Street charges ₹400 for a nut-free bake; it's already in the cake line.",
-      primary: { label: "Got it", action: "acknowledge" },
-      status: "open",
-    },
-  ],
+  notices: [],
   assistant: {
     intro: "",
     chips: ["What's left before the party?", "Snack ideas for 30 kids", "Who has allergies?"],
@@ -1052,27 +992,7 @@ const mela: CommunityEvent = {
     "Ravi",
     "Dr. Leela",
   ],
-  notices: [
-    {
-      id: "police",
-      tone: "warn",
-      label: "Permit",
-      text: "Police permission for amplified sound takes about 3 weeks. File by {short:2026-10-17}.",
-      why: "Why: cultural night runs till 10 pm with a 2 kW sound system on open ground.",
-      primary: { label: "Draft the application", action: "draft-permit" },
-      status: "open",
-    },
-    {
-      id: "areca",
-      tone: "ai",
-      label: "Suggestion",
-      text: "Ask food stalls to serve on areca-leaf plates. Adds ₹1.20 a plate, cuts most of last year's waste.",
-      why: "Why: 2023 clean-up logged 38 bags of single-use plates.",
-      primary: { label: "Add to plan · 2 tasks", action: "add-areca" },
-      secondary: { label: "Dismiss", action: "dismiss" },
-      status: "open",
-    },
-  ],
+  notices: [],
   assistant: {
     intro: "",
     chips: [
@@ -1136,6 +1056,8 @@ export function seedEvents(today = TODAY): PlannrEvent[] {
 }
 
 export const SEED_IDS = [wedding.id, birthday.id, mela.id, anniversary.id];
+/** Bump when the sample events change, so returning demo visitors see the new ones. */
+export const SEED_REVISION = 3;
 
 /** Past events keep their real dates: they're history, and festivals happen when they happen. */
 export function pastEvents(): PastEvent[] {

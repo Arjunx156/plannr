@@ -655,7 +655,11 @@ describe("album photos", () => {
       await priya.call("/api/events", { body: { event: ev } });
       const link = await priya.call(`/api/events/${ev.id}/links`, { body: { kind: "album" } });
       const send = (body: BodyInit, by = "Anil") =>
-        app.request(`/api/p/${link.json.token}/photo?by=${by}`, { method: "POST", body, headers: { "content-type": "image/jpeg" } });
+        app.request(`/api/p/${link.json.token}/photo?by=${by}`, {
+          method: "POST",
+          body,
+          headers: { "content-type": "image/jpeg" },
+        });
       expect((await send(new Uint8Array([1, 2, 3]))).status).toBe(415);
       expect((await send(jpeg, "A")).status).toBe(400);
       const ok = await send(jpeg);
@@ -667,7 +671,11 @@ describe("album photos", () => {
       const sneaky = await priya.call(`/api/p/${link.json.token}/actions`, {
         body: {
           actions: [
-            { type: "addRecord", coll: "album", record: { id: "x", url: "https://evil.public.blob.vercel-storage.com/a.jpg", by: "X", at: "" } },
+            {
+              type: "addRecord",
+              coll: "album",
+              record: { id: "x", url: "https://evil.public.blob.vercel-storage.com/a.jpg", by: "X", at: "" },
+            },
           ],
         },
       });
@@ -685,5 +693,72 @@ describe("album photos", () => {
     const link = await priya.call(`/api/events/${ev.id}/links`, { body: { kind: "album" } });
     const res = await app.request(`/api/p/${link.json.token}/photo?by=Anil`, { method: "POST", body: jpeg });
     expect(res.status).toBe(503);
+  });
+});
+
+describe("morning reminders", () => {
+  test("go to subscribed devices with what's due, and dropped devices are removed", async () => {
+    const sent: { endpoint: string; title: string; body: string }[] = [];
+    const db = await createLocalDb();
+    const remindApp = createApp({
+      db,
+      env: { CRON_SECRET: "s3cret", VAPID_PUBLIC_KEY: "pub" },
+      push: async (sub, msg) => {
+        if (sub.endpoint.includes("gone")) return false;
+        sent.push({ endpoint: sub.endpoint, title: msg.title, body: msg.body });
+        return true;
+      },
+    });
+    const prev = app;
+    app = remindApp;
+    try {
+      const priya = new Client();
+      await priya.guest();
+      const ev = wedding();
+      await priya.call("/api/events", { body: { event: ev } });
+      expect((await priya.call("/api/push/key")).json.key).toBe("pub");
+      const keys = { p256dh: "p256dh-key-value", auth: "auth-value" };
+      expect(
+        (await priya.call("/api/push", { body: { endpoint: "https://push.example/ok", keys } })).status,
+      ).toBe(201);
+      await priya.call("/api/push", { body: { endpoint: "https://push.example/gone", keys } });
+      sent.length = 0;
+      expect((await app.request("/api/cron/daily")).status).toBe(401);
+      const run = await app.request("/api/cron/daily", { headers: { authorization: "Bearer s3cret" } });
+      const out = (await run.json()) as { people: number; sent: number; removed: number };
+      expect(out).toMatchObject({ people: 1, removed: 1 });
+      // The seeded wedding has overdue tasks or payments, so the morning has something to say.
+      expect(sent.length).toBe(out.sent);
+      if (sent.length) expect(sent[0]?.title).toContain(ev.name);
+    } finally {
+      app = prev;
+    }
+  });
+});
+
+describe("your data", () => {
+  test("export holds your plans; deleting hands shared plans to a co-planner", async () => {
+    const owner = new Client();
+    await owner.guest();
+    const shared = wedding();
+    const mine = wedding();
+    await owner.call("/api/events", { body: { event: shared } });
+    await owner.call("/api/events", { body: { event: mine } });
+    const co = new Client();
+    await co.guest();
+    const invite = await owner.call(`/api/events/${shared.id}/invites`, { body: { role: "planner" } });
+    await co.call(`/api/invites/${invite.json.token}/accept`, { body: {} });
+
+    const exported = await owner.call("/api/account/export");
+    expect(exported.json.plans.map((p: { event: { id: string } }) => p.event.id).sort()).toEqual(
+      [shared.id, mine.id].sort(),
+    );
+    expect((await owner.call("/api/account/delete", { body: { confirm: "yes" } })).status).toBe(400);
+    const gone = await owner.call("/api/account/delete", { body: { confirm: "DELETE" } });
+    expect(gone.json).toEqual({ handedOver: 1, deleted: 1 });
+    const plans = await co.call("/api/events");
+    const kept = plans.json.plans.find((p: { event: { id: string } }) => p.event.id === shared.id);
+    expect(kept.role).toBe("owner");
+    expect((await owner.call("/api/events")).status).toBe(401);
   });
 });

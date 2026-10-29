@@ -14,6 +14,7 @@ import {
   toneText,
   usePageMeta,
 } from "../components/ui";
+import { WatchList } from "../components/watch";
 import type { ActionId, CommunityEvent, Notice, PersonalEvent, PlannrEvent, Task } from "../data/types";
 import { daysUntil, longDate, shortDate, TODAY } from "../lib/dates";
 import { inr, inrShort, pct } from "../lib/format";
@@ -248,6 +249,7 @@ function Personal({ ev, onOpenTask }: { ev: PersonalEvent; onOpenTask: (id: stri
           color="var(--color-marigold)"
         />
       </div>
+      <WatchList ev={ev} />
       <Notices ev={ev} />
       {ev.functions.length > 0 && (
         <Panel title="Functions">
@@ -486,7 +488,7 @@ function Notices({ ev }: { ev: PersonalEvent | CommunityEvent }) {
       case "dismiss":
         return resolve(n, "Dismissed.", "dismissed");
       case "remind":
-        return resolve(n, "Reminder set for Friday.");
+        return resolve(n, "Hidden for now.", "dismissed");
       case "compare-photographers":
         return setBooking(true);
       case "open-savings":
@@ -718,6 +720,7 @@ function Community({ ev, onOpenTask }: { ev: CommunityEvent; onOpenTask: (id: st
           bar={r.passes}
         />
       </div>
+      <WatchList ev={ev} />
       <Notices ev={ev} />
       <div className="grid gap-6 lg:grid-cols-2">
         <Tasks ev={ev} onOpenTask={onOpenTask} />

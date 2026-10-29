@@ -18,6 +18,8 @@ export default defineConfig({
     locale: "en-IN",
     timezoneId: "Asia/Kolkata",
     trace: "retain-on-failure",
+    // Request mocks can't see through a service worker; the offline test turns it back on.
+    serviceWorkers: "block",
     screenshot: "only-on-failure",
   },
   projects: [

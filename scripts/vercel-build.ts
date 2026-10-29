@@ -60,7 +60,7 @@ await writeFile(
       launcherType: "Nodejs",
       shouldAddHelpers: false,
       supportsResponseStreaming: true,
-      maxDuration: 30,
+      maxDuration: 60,
       regions: ["bom1"],
     },
     null,
@@ -80,6 +80,8 @@ await writeFile(
   JSON.stringify(
     {
       version: 3,
+      // Morning reminders at 8:00 in India (02:30 UTC).
+      crons: [{ path: "/api/cron/daily", schedule: "30 2 * * *" }],
       routes: [
         {
           src: "/assets/(.*)",

@@ -15,6 +15,13 @@
       "when": 1793286413586,
       "tag": "0001_shared_links",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793290183811,
+      "tag": "0002_reminders",
+      "breakpoints": true
     }
   ]
 }

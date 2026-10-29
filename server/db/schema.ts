@@ -268,6 +268,22 @@ export const templates = pgTable(
   (t) => [index("templates_owner_idx").on(t.ownerId)],
 );
 
+/** Phones and browsers that asked for reminders: the morning list of what's due. */
+export const pushSubs = pgTable(
+  "push_subs",
+  {
+    endpoint: text("endpoint").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    lastSentAt: timestamp("last_sent_at"),
+  },
+  (t) => [index("push_subs_user_idx").on(t.userId)],
+);
+
 export const schema = {
   user,
   session,
@@ -283,4 +299,5 @@ export const schema = {
   errors,
   metrics,
   templates,
+  pushSubs,
 };

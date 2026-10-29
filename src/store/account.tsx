@@ -24,9 +24,10 @@ export function useAccount() {
     const user = await api.me();
     if (!user) return null;
     dispatch({ type: "enterAccount", user });
+    sync.resume(user.id);
     await refreshPlans();
     return user;
-  }, [dispatch, refreshPlans]);
+  }, [dispatch, refreshPlans, sync]);
 
   const signOut = useCallback(async () => {
     try {
@@ -34,8 +35,9 @@ export function useAccount() {
     } catch {
       // The cookie goes stale on its own; this device forgets the account either way.
     }
+    sync.forget();
     dispatch({ type: "leaveAccount" });
-  }, [dispatch]);
+  }, [dispatch, sync]);
 
   return { refreshPlans, signedIn, signOut };
 }
@@ -45,10 +47,12 @@ export function useAccount() {
  * the plan list whenever the tab comes back into view.
  */
 export function AccountSync() {
-  const { state, dispatch } = useStore();
+  const { state, dispatch, sync } = useStore();
   const { refreshPlans } = useAccount();
   const mode = useRef(state.mode);
   mode.current = state.mode;
+  const savedUser = useRef(state.account.user?.id);
+  savedUser.current = state.account.user?.id;
 
   useEffect(() => {
     let live = true;
@@ -59,6 +63,7 @@ export function AccountSync() {
         if (!live) return;
         if (user) {
           dispatch({ type: "enterAccount", user });
+          sync.resume(user.id);
           await refreshPlans();
         } else if (mode.current === "account") {
           dispatch({ type: "leaveAccount" });
@@ -66,13 +71,16 @@ export function AccountSync() {
         } else dispatch({ type: "accountStatus", status: "signed-out" });
       })
       .catch(() => {
-        // Offline: an account keeps showing what this device saved; anyone else can still use the demo.
-        if (live && mode.current !== "account") dispatch({ type: "accountStatus", status: "signed-out" });
+        // Offline: an account keeps showing what this device saved, and keeps its unsaved
+        // changes for when the signal comes back; anyone else can still use the demo.
+        if (!live) return;
+        if (mode.current === "account" && savedUser.current) sync.resume(savedUser.current);
+        else if (mode.current !== "account") dispatch({ type: "accountStatus", status: "signed-out" });
       });
     return () => {
       live = false;
     };
-  }, [dispatch, refreshPlans]);
+  }, [dispatch, refreshPlans, sync]);
 
   useEffect(() => {
     let last = 0;

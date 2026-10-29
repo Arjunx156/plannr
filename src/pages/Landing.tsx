@@ -80,7 +80,7 @@ const FEATURES = [
   },
   {
     t: "Timeline",
-    d: "Tasks worked back from the date, with owners, dependencies and reminders by email, push or WhatsApp.",
+    d: "Tasks worked back from the date, with owners, a morning reminder on your phone, and helper pages for the people doing them.",
     c: "#D9962B",
   },
   {
@@ -184,26 +184,21 @@ const SAMPLES: Record<
   },
 };
 
-const TESTIMONIALS = [
+/** Three days Plannr is built for. Examples of what it does, not quotes from customers. */
+const EXAMPLES = [
   {
-    quote:
-      "Both our families could see the same budget. The 60/40 split stopped every awkward money conversation before it started.",
-    who: "Devika & Arjun",
-    where: "Married in Thrissur, 320 guests",
+    title: "A Kerala wedding, two families",
+    body: "Both families see one budget. Every advance is marked with who paid it, and the 60/40 split shows who owes whom, settled with one tap.",
     color: "#D9962B",
   },
   {
-    quote:
-      "I had ten days to plan a dinosaur party. It gave me a shopping list, a run sheet and which kids couldn't have peanuts.",
-    who: "Shalini R.",
-    where: "Parent, Bengaluru",
+    title: "A birthday in ten days",
+    body: "A run sheet for the afternoon, RSVPs with allergy notes from each family, and the return-gift order on the same list as the cake.",
     color: "#5A6FB8",
   },
   {
-    quote:
-      "Volunteer shifts, stall fees and the police permission in one place. Our Ganeshotsav committee finally stopped living in WhatsApp.",
-    who: "Mahesh Kulkarni",
-    where: "Secretary, Sai Residency, Pune",
+    title: "A housing society's festival",
+    body: "Volunteers pick their own shifts, stallholders request a stall, the treasurer approves expenses, and residents see where the money went.",
     color: "#3D7A4F",
   },
 ];
@@ -219,11 +214,11 @@ const FAQS = [
   },
   {
     q: "Can my family use it in Malayalam or Hindi?",
-    a: "Yes. The assistant understands and replies in nine Indian languages, typed or spoken, whatever the app itself is set to. Each person picks their own language.",
+    a: "Yes. Ask the assistant in Malayalam, Hindi, Tamil or English, typed or spoken, and it replies in kind. Guests read their invitation in their own language, and messages to vendors and guests can be drafted in it.",
   },
   {
     q: "Do guests need to download anything to RSVP?",
-    a: "No. Guests get a link on WhatsApp or email and reply on a simple page with no app and no login. Their answers update the headcount, and catering follows once you approve.",
+    a: "No. Each household gets its own link on WhatsApp and replies on a simple page with no app and no login. Their answers update the headcount for each function, and the catering count follows once you approve.",
   },
   {
     q: "Who can see our budget?",
@@ -586,23 +581,20 @@ export function Landing() {
           )}
         </section>
 
-        <section className={`flex flex-col gap-8 py-[72px] ${PAD}`} aria-labelledby="voices">
-          <h2 id="voices" className={H2}>
-            From people who've run the day
+        <section className={`flex flex-col gap-8 py-[72px] ${PAD}`} aria-labelledby="examples">
+          <h2 id="examples" className={H2}>
+            Built for days like these
           </h2>
           <div className="grid gap-8 md:grid-cols-3 md:gap-5">
-            {TESTIMONIALS.map((t) => (
-              <figure
-                key={t.who}
-                className="m-0 flex flex-col gap-[18px] border-t-2 pt-5"
+            {EXAMPLES.map((t) => (
+              <article
+                key={t.title}
+                className="m-0 flex flex-col gap-3 border-t-2 pt-5"
                 style={{ borderColor: t.color }}
               >
-                <blockquote className="m-0 font-serif text-[22px] leading-[1.4]">“{t.quote}”</blockquote>
-                <figcaption className="flex flex-col gap-[3px] text-sm leading-[1.3]">
-                  <b className="font-semibold">{t.who}</b>
-                  <span className="text-muted">{t.where}</span>
-                </figcaption>
-              </figure>
+                <h3 className="font-serif text-[24px] leading-[1.2]">{t.title}</h3>
+                <p className="m-0 text-[16px] leading-[1.5] text-body">{t.body}</p>
+              </article>
             ))}
           </div>
         </section>
@@ -613,42 +605,35 @@ export function Landing() {
         >
           <div className="flex flex-col gap-3.5 md:col-span-2 xl:col-span-1">
             <span className="eyebrow text-[12px] tracking-[0.1em] text-amber-ink">Pricing</span>
-            <h2 className={H2}>Free to plan. Pro when it gets big.</h2>
-          </div>
-          <div className="flex flex-col gap-4 rounded-[18px] border border-line bg-surface p-7">
-            <div className="flex items-baseline justify-between font-serif text-[30px] leading-none">
-              <h3>Free</h3>
-              <span>₹0</span>
-            </div>
-            <ul className="m-0 flex list-none flex-col gap-[9px] p-0 text-[15px] leading-[1.4] text-body">
-              <li>1 active event</li>
-              <li>Full AI plan: budget, tasks, vendors, ideas</li>
-              <li>Up to 100 guests with RSVP page</li>
-              <li>2 co-planners</li>
-              <li>Email reminders</li>
-            </ul>
-            <Link to="/new" className="btn btn-outline btn-lg mt-auto border-ink">
-              Start free
-            </Link>
+            <h2 className={H2}>Free while Plannr is new.</h2>
           </div>
           <div className="relative flex flex-col gap-4 overflow-hidden rounded-[18px] bg-ink p-7 text-paper">
             <Toran size="beads" className="absolute inset-x-0 top-0" />
             <div className="mt-2 flex items-baseline justify-between font-serif text-[30px] leading-none">
-              <h3>Pro</h3>
-              <span>
-                ₹349<span className="font-sans text-[15px] text-line-2"> /month</span>
-              </span>
+              <h3>Early access</h3>
+              <span>₹0</span>
             </div>
             <ul className="m-0 flex list-none flex-col gap-[9px] p-0 text-[15px] leading-[1.4] text-stone">
-              <li>Unlimited events and guests</li>
-              <li>Receipt and contract reading</li>
-              <li>WhatsApp reminders and vendor messages</li>
-              <li>Seating planner, passes and volunteer check-in</li>
-              <li>Unlimited collaborators with roles</li>
+              <li>Every feature, for every event and guest</li>
+              <li>AI planning, drafting and receipt reading, within a fair daily limit</li>
+              <li>RSVP pages, event website, vendor call sheets and helper links</li>
+              <li>Co-planners with roles, history and undo</li>
+              <li>Works offline on the day, with a morning reminder</li>
             </ul>
-            <Link to="/signup?plan=pro" className="btn btn-gold btn-lg mt-auto">
-              Try Pro free for 14 days
+            <Link to="/new" className="btn btn-gold btn-lg mt-auto">
+              Start planning
             </Link>
+          </div>
+          <div className="flex flex-col gap-4 rounded-[18px] border border-line bg-surface p-7">
+            <h3 className="font-serif text-[30px] leading-none">Later</h3>
+            <p className="m-0 text-[15px] leading-[1.5] text-body">
+              Plannr will stay free for small events. For big weddings we plan a one-time Celebration Pass,
+              and for associations and committees a Community plan.
+            </p>
+            <p className="m-0 text-[15px] leading-[1.5] text-body">
+              Nothing is charged today, and nothing will be without asking you first. Any event you start
+              during early access stays free to finish.
+            </p>
           </div>
         </section>
 
@@ -690,7 +675,9 @@ export function Landing() {
           >
             <div className="flex flex-col gap-2">
               <Logo size={28} tone="light" />
-              <span className="text-line-2">Made in Kochi. Available in 9 Indian languages.</span>
+              <span className="text-line-2">
+                Made in Kochi. Guest pages in English, Malayalam, Hindi and Tamil.
+              </span>
             </div>
             <FooterCol
               title="Product"
@@ -708,12 +695,14 @@ export function Landing() {
                 ["/new?type=community", "Community event"],
               ]}
             />
-            <div className="flex flex-col">
-              <span className="font-semibold text-white">Company</span>
-              <span>Privacy</span>
-              <span>Terms</span>
-              <span>Contact</span>
-            </div>
+            <FooterCol
+              title="Plannr"
+              links={[
+                ["/privacy", "Privacy"],
+                ["/terms", "Terms"],
+                ["/signin", "Sign in or try the demo"],
+              ]}
+            />
           </div>
           <p className={`m-0 text-[13px] text-line-2 ${PAD}`}>© 2026 Plannr · Engineered by Arjun Krishnan</p>
         </div>

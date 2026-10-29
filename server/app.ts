@@ -1,8 +1,9 @@
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { PlannrEvent } from "../src/data/types";
 import { EVENT_ACTION_TYPES, type EventAction } from "../src/shared/engine";
+import { deleteAccount, exportAccount } from "./account";
 import { type AiConfig, aiConfig, handleAi, MAX_BODY, MAX_READ_BODY, ROUTE_COST, rateLimiter } from "./ai";
 import {
   type Auth,
@@ -14,7 +15,7 @@ import {
   signInMethods,
   trustedOrigins,
 } from "./auth";
-import { aiUsage } from "./db/schema";
+import { aiUsage, pushSubs } from "./db/schema";
 import type { Db } from "./db/types";
 import {
   albumEvent,
@@ -47,6 +48,7 @@ import {
   undoChange,
   updateMember,
 } from "./plans";
+import { type PushSender, sendReminders, webPushSender } from "./reminders";
 import { deleteTemplate, listTemplates, planFromTemplate, saveTemplate } from "./templates";
 import { parseAction } from "./validate";
 
@@ -130,8 +132,10 @@ export function createApp(deps: {
   auth?: Auth;
   ai?: () => AiConfig;
   photos?: StorePhoto;
+  push?: PushSender;
 }) {
   const { db, env } = deps;
+  const push = deps.push ?? webPushSender(env);
   const photos = deps.photos ?? blobStore(env.BLOB_READ_WRITE_TOKEN);
   const store = async (eventId: string, req: Request): Promise<string> => {
     if (!photos) throw new HttpError(503, "Photo uploads aren't switched on yet");
@@ -221,6 +225,16 @@ export function createApp(deps: {
     return c.json(await publicActions(db, token, [{ type: "addRecord", coll: "album", record }]));
   });
 
+  // Morning reminders, run once a day by Vercel Cron with the project's secret.
+  app.get("/cron/daily", async (c) => {
+    if (!env.CRON_SECRET || c.req.header("authorization") !== `Bearer ${env.CRON_SECRET}`)
+      return c.json({ error: "Not allowed" }, 401);
+    if (!push) return c.json({ skipped: "Reminders aren't configured" });
+    const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+    return c.json(await sendReminders(db, push, today));
+  });
+  app.get("/push/key", (c) => c.json({ key: push ? (env.VAPID_PUBLIC_KEY ?? null) : null }));
+
   // ------------------------------------------------------------ signed in from here on
   const origins = trustedOrigins(env);
   app.use("*", async (c, next) => {
@@ -244,6 +258,57 @@ export function createApp(deps: {
   );
 
   app.get("/events", async (c) => c.json({ plans: await listPlans(db, c.get("userId")) }));
+
+  // ------------------------------------------------------------ your data
+  app.get("/account/export", async (c) =>
+    c.json(await exportAccount(db, c.get("userId")), 200, {
+      "content-disposition": `attachment; filename="plannr-${new Date().toISOString().slice(0, 10)}.json"`,
+      "cache-control": "no-store",
+    }),
+  );
+  app.post("/account/delete", async (c) => {
+    await body(c, z.object({ confirm: z.literal("DELETE") }));
+    return c.json(await deleteAccount(db, c.get("userId")));
+  });
+
+  // ------------------------------------------------------------ reminders on this device
+  const subShape = z.object({
+    endpoint: z
+      .string()
+      .url()
+      .max(1000)
+      .refine((u) => u.startsWith("https://"), "Not a push address"),
+    keys: z.object({ p256dh: z.string().min(10).max(200), auth: z.string().min(8).max(100) }),
+  });
+  app.post("/push", async (c) => {
+    if (!push) throw new HttpError(503, "Reminders aren't switched on yet");
+    const sub = await body(c, subShape);
+    const userId = c.get("userId");
+    await db
+      .insert(pushSubs)
+      .values({ endpoint: sub.endpoint, userId, p256dh: sub.keys.p256dh, auth: sub.keys.auth })
+      .onConflictDoUpdate({
+        target: pushSubs.endpoint,
+        set: { userId, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
+      });
+    await push(
+      { endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
+      {
+        title: "Reminders are on",
+        body: "Each morning Plannr will tell you what's due that day.",
+        url: "/today",
+        tag: "welcome",
+      },
+    ).catch(() => false);
+    return c.json({ ok: true }, 201);
+  });
+  app.post("/push/remove", async (c) => {
+    const { endpoint } = await body(c, z.object({ endpoint: z.string().max(1000) }));
+    await db
+      .delete(pushSubs)
+      .where(and(eq(pushSubs.endpoint, endpoint), eq(pushSubs.userId, c.get("userId"))));
+    return c.json({ ok: true });
+  });
 
   app.get("/activity", async (c) => c.json({ activity: await activity(db, c.get("userId")) }));
 

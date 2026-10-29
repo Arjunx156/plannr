@@ -13,15 +13,72 @@ const MAX_DELAY = 30_000;
  * Offline or server trouble: changes wait and retry with backoff. A change the server
  * refuses is dropped, and the plan is reloaded so the screen matches what was saved.
  */
+const OUTBOX_KEY = "plannr:outbox";
+
+interface Outbox {
+  userId: string;
+  actions: EventAction[];
+}
+
 export class SyncQueue {
   private pending = new Map<string, EventAction[]>();
   private inflight = new Map<string, EventAction[]>();
   private failures = new Map<string, number>();
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly dispatch: (a: Action) => void;
+  /** Whose changes these are; the outbox is only kept for a known account. */
+  private owner: string | undefined;
 
   constructor(dispatch: (a: Action) => void) {
     this.dispatch = dispatch;
+  }
+
+  /**
+   * Picks up changes made offline in an earlier visit, so a check-in or a ticked task at a
+   * venue with no signal still reaches the server once the phone is back online.
+   */
+  resume(userId: string): void {
+    this.owner = userId;
+    let saved: Outbox | undefined;
+    try {
+      saved = JSON.parse(localStorage.getItem(OUTBOX_KEY) ?? "null") ?? undefined;
+    } catch {
+      saved = undefined;
+    }
+    if (!saved || saved.userId !== userId || !saved.actions?.length) return;
+    for (const a of saved.actions) {
+      const list = this.pending.get(a.eventId) ?? [];
+      list.push(a);
+      this.pending.set(a.eventId, list);
+    }
+    this.report();
+    this.flushAll();
+  }
+
+  /** Forgets everything waiting: signing out on a shared phone leaves nothing behind. */
+  forget(): void {
+    this.owner = undefined;
+    this.pending.clear();
+    for (const t of this.timers.values()) clearTimeout(t);
+    this.timers.clear();
+    this.failures.clear();
+    try {
+      localStorage.removeItem(OUTBOX_KEY);
+    } catch {
+      // Nothing saved to remove.
+    }
+    this.report();
+  }
+
+  private save(): void {
+    if (!this.owner) return;
+    const actions = [...this.inflight.values(), ...this.pending.values()].flat();
+    try {
+      if (actions.length) localStorage.setItem(OUTBOX_KEY, JSON.stringify({ userId: this.owner, actions }));
+      else localStorage.removeItem(OUTBOX_KEY);
+    } catch {
+      // Storage full: changes still sync while this tab stays open.
+    }
   }
 
   enqueue(action: EventAction): void {
@@ -60,6 +117,7 @@ export class SyncQueue {
   }
 
   private report(patch: { offline?: boolean } = {}): void {
+    this.save();
     this.dispatch({ type: "syncStatus", patch: { pending: this.count(), ...patch } });
   }
 

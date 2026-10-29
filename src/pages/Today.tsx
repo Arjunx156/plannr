@@ -5,6 +5,7 @@ import { TaskRow } from "../components/tasks";
 import { HUE_COLOR, Pill, usePageMeta } from "../components/ui";
 import type { Notice, PlannrEvent, Task } from "../data/types";
 import { addDays, daysUntil, greeting, longDate, TODAY } from "../lib/dates";
+import { watchPlan } from "../shared/watch";
 import { canEdit, toast, useStore } from "../store/store";
 
 interface Due {
@@ -30,10 +31,12 @@ export function Today() {
   const today = due.filter((d) => d.task.due === TODAY);
   const soon = due.filter((d) => d.task.due > TODAY);
 
-  const notices: { ev: PlannrEvent; notice: Notice }[] = live.flatMap((ev) =>
-    ev.layout === "empty"
-      ? []
-      : ev.notices.filter((n) => n.status === "open").map((notice) => ({ ev, notice })),
+  // The two most urgent things in each event, worked out from its plan.
+  const notices: { ev: PlannrEvent; notice: Pick<Notice, "id" | "tone" | "label" | "text"> }[] = live.flatMap(
+    (ev) =>
+      watchPlan(ev, TODAY)
+        .slice(0, 2)
+        .map((notice) => ({ ev, notice })),
   );
   const upcoming = live.filter((e) => daysUntil(e.date) >= 0).sort((a, b) => a.date.localeCompare(b.date));
 
