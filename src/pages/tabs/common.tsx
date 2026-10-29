@@ -25,6 +25,7 @@ export function TabPage({
 }) {
   return (
     <main
+      id="main"
       className={`mx-auto flex ${wide ? "max-w-[1180px]" : "max-w-[960px]"} flex-col gap-6 px-4 py-8 sm:px-8`}
     >
       <div className="flex flex-wrap items-end justify-between gap-4">

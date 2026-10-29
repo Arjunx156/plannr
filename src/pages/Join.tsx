@@ -88,7 +88,7 @@ export function Join() {
       <div className="flex items-center px-5 py-4 sm:px-10">
         <Logo to="/" />
       </div>
-      <main className="flex flex-1 items-start justify-center px-4 pb-12 sm:items-center">
+      <main id="main" className="flex flex-1 items-start justify-center px-4 pb-12 sm:items-center">
         <section className="flex w-full max-w-[560px] flex-col gap-5 rounded-xl bg-paper p-6 shadow-[0_1px_2px_rgba(0,0,0,.06),0_16px_48px_rgba(60,40,20,.10)] sm:px-12 sm:py-10">
           {invite === undefined ? (
             <div className="flex min-h-[220px] items-center justify-center">

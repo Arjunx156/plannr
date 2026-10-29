@@ -211,7 +211,7 @@ export function Auth({ mode }: { mode: "signup" | "signin" }) {
         </span>
       </aside>
 
-      <main className="flex flex-col justify-center gap-5 px-5 py-12 sm:px-[72px]">
+      <main id="main" className="flex flex-col justify-center gap-5 px-5 py-12 sm:px-[72px]">
         <div className="mx-auto flex w-full max-w-[440px] flex-col gap-5">
           <h2 className="font-serif text-[34px] leading-[1.1]">
             {upgrading ? "Keep your plans safe" : signup ? "Create your account" : "Log in to Plannr"}

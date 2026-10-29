@@ -32,7 +32,7 @@ export function Inbox() {
   let last = "";
   return (
     <AppShell>
-      <main className="mx-auto flex max-w-[760px] flex-col gap-6 px-4 py-8 sm:px-8">
+      <main id="main" className="mx-auto flex max-w-[760px] flex-col gap-6 px-4 py-8 sm:px-8">
         <div className="flex flex-col gap-1.5">
           <span className="eyebrow text-muted">
             {state.mode === "demo" ? "Updates on the demo events" : "Changes by your co-planners"}

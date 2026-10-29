@@ -193,6 +193,7 @@ const RECORDS: Record<Coll, z.ZodObject> = {
     categoryId: id.optional(),
     status: z.enum(["idea", "planned", "dropped"]),
     note: str(500).optional(),
+    because: str(300).optional(),
   }),
   stalls: z.object({
     id,

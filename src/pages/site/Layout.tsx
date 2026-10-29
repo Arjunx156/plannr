@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { Logo, Toran, usePageMeta } from "../../components/ui";
+import { Logo, SkipLink, Toran, usePageMeta } from "../../components/ui";
 
 /** The public pages' frame: guides, tools, pricing and the legal pages. */
 export function SitePage({
@@ -23,6 +23,7 @@ export function SitePage({
   usePageMeta(title, { description });
   return (
     <div className="flex min-h-dvh flex-col bg-paper text-ink">
+      <SkipLink />
       <header className="border-b border-line bg-surface">
         <nav
           aria-label="Main"
@@ -46,6 +47,7 @@ export function SitePage({
         </nav>
       </header>
       <main
+        id="main"
         className={`mx-auto flex w-full ${wide ? "max-w-[1180px]" : "max-w-[860px]"} flex-1 flex-col gap-8 px-4 py-10 sm:px-8`}
       >
         <div className="flex flex-col gap-3">

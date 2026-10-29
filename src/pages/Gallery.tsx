@@ -296,7 +296,7 @@ export function Gallery() {
           Phone width
         </label>
       </header>
-      <main className="grid gap-px bg-line xl:grid-cols-2">
+      <main id="main" className="grid gap-px bg-line xl:grid-cols-2">
         {(["day", "night"] as const).map((theme) => (
           <div
             key={theme}

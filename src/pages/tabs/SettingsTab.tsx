@@ -2,10 +2,10 @@ import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router";
 import { useEditable } from "../../components/tasks";
 import { Field, Modal, Pill } from "../../components/ui";
-import type { FunctionDay, Idea, PlannrEvent } from "../../data/types";
-import { addDays, daysBetween, longDate, TODAY } from "../../lib/dates";
-import { inr, plural } from "../../lib/format";
-import { findRecord, functionsOf, list } from "../../shared/records";
+import type { FunctionDay, PlannrEvent } from "../../data/types";
+import { addDays, daysBetween, longDate } from "../../lib/dates";
+import { plural } from "../../lib/format";
+import { functionsOf, list } from "../../shared/records";
 import { toast, useStore } from "../../store/store";
 import { newId, Section, TabPage } from "./common";
 import { SaveTemplate } from "./Templates";
@@ -17,7 +17,6 @@ export function SettingsTab({ ev }: { ev: PlannrEvent }) {
       <Basics ev={ev} editable={editable} />
       <Functions ev={ev} editable={editable} />
       <Memory ev={ev} editable={editable} />
-      <Ideas ev={ev} editable={editable} />
       <SaveTemplate ev={ev} />
       <Archive ev={ev} editable={editable} />
     </TabPage>
@@ -336,190 +335,6 @@ function Memory({ ev, editable }: { ev: PlannrEvent; editable: boolean }) {
           />
           <button type="submit" className="btn btn-secondary" disabled={!text.trim()}>
             Remember
-          </button>
-        </form>
-      )}
-    </Section>
-  );
-}
-
-const EFFORT: Record<NonNullable<Idea["effort"]>, string> = {
-  low: "Easy",
-  medium: "Some work",
-  high: "A project",
-};
-
-function Ideas({ ev, editable }: { ev: PlannrEvent; editable: boolean }) {
-  const { dispatch } = useStore();
-  const ideas = list(ev, "ideas");
-  const categories = list(ev, "categories");
-  const [title, setTitle] = useState("");
-  const [cost, setCost] = useState("");
-  const [effort, setEffort] = useState<Idea["effort"]>("low");
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
-
-  const add = (e: FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    dispatch({
-      type: "addRecord",
-      eventId: ev.id,
-      coll: "ideas",
-      record: {
-        id: newId("i"),
-        title: title.trim(),
-        status: "idea",
-        effort,
-        ...(Number(cost) > 0 ? { cost: Number(cost) } : {}),
-        ...(categoryId ? { categoryId } : {}),
-      },
-    });
-    setTitle("");
-    setCost("");
-  };
-
-  /** Planning an idea adds its task and its cost to the budget line it belongs to. */
-  const plan = (i: Idea) => {
-    dispatch({ type: "updateRecord", eventId: ev.id, coll: "ideas", id: i.id, patch: { status: "planned" } });
-    if (ev.layout !== "empty")
-      dispatch({
-        type: "addTask",
-        eventId: ev.id,
-        task: {
-          id: newId("t"),
-          title: `Arrange: ${i.title}`,
-          who: "You",
-          due: addDays(ev.date, -14) > TODAY ? addDays(ev.date, -14) : ev.date,
-          done: false,
-          note: "From the ideas board",
-        },
-      });
-    const c = i.categoryId ? findRecord(ev, "categories", i.categoryId) : undefined;
-    if (c && i.cost)
-      dispatch({
-        type: "updateRecord",
-        eventId: ev.id,
-        coll: "categories",
-        id: c.id,
-        patch: { projected: (c.projected ?? c.planned) + i.cost },
-      });
-    dispatch(
-      toast(`Planned: ${i.title}${c && i.cost ? `. ${c.name} now includes ${inr(i.cost)} for it.` : "."}`),
-    );
-  };
-
-  return (
-    <Section title="Ideas board">
-      <ul className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2">
-        {ideas.map((i) => (
-          <li
-            key={i.id}
-            className={`flex flex-col gap-1.5 rounded-xl border p-3 ${i.status === "dropped" ? "border-line opacity-60" : "border-line bg-paper"}`}
-          >
-            <span className="text-sm font-semibold">{i.title}</span>
-            <span className="text-xs text-muted">
-              {[
-                i.cost ? inr(i.cost) : undefined,
-                i.effort ? EFFORT[i.effort] : undefined,
-                categories.find((c) => c.id === i.categoryId)?.name,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
-            <span className="mt-1 flex flex-wrap items-center gap-2">
-              {i.status === "planned" ? (
-                <Pill tone="ok">in the plan</Pill>
-              ) : i.status === "dropped" ? (
-                <Pill tone="idle">dropped</Pill>
-              ) : (
-                editable && (
-                  <>
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => plan(i)}>
-                      Plan it
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() =>
-                        dispatch({
-                          type: "updateRecord",
-                          eventId: ev.id,
-                          coll: "ideas",
-                          id: i.id,
-                          patch: { status: "dropped" },
-                        })
-                      }
-                    >
-                      Drop
-                    </button>
-                  </>
-                )
-              )}
-            </span>
-          </li>
-        ))}
-        {!ideas.length && (
-          <li className="text-sm text-muted">Collect ideas here before they become plans.</li>
-        )}
-      </ul>
-      {editable && (
-        <form onSubmit={add} className="grid gap-2 sm:grid-cols-[1fr_120px_140px_auto]">
-          <label htmlFor="idea-title" className="sr-only">
-            Idea
-          </label>
-          <input
-            id="idea-title"
-            className="field"
-            placeholder="An idea"
-            value={title}
-            maxLength={160}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <label htmlFor="idea-cost" className="sr-only">
-            Cost
-          </label>
-          <input
-            id="idea-cost"
-            className="field"
-            inputMode="numeric"
-            placeholder="₹ cost"
-            value={cost}
-            onChange={(e) => setCost(e.target.value.replace(/\D/g, ""))}
-          />
-          <label htmlFor="idea-effort" className="sr-only">
-            Effort
-          </label>
-          <select
-            id="idea-effort"
-            className="field appearance-auto"
-            value={effort}
-            onChange={(e) => setEffort(e.target.value as Idea["effort"])}
-          >
-            <option value="low">Easy</option>
-            <option value="medium">Some work</option>
-            <option value="high">A project</option>
-          </select>
-          {categories.length > 0 && (
-            <>
-              <label htmlFor="idea-cat" className="sr-only">
-                Budget line
-              </label>
-              <select
-                id="idea-cat"
-                className="field appearance-auto sm:col-span-3"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-          <button type="submit" className="btn btn-secondary" disabled={!title.trim()}>
-            Add idea
           </button>
         </form>
       )}

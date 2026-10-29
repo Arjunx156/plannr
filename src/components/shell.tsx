@@ -16,7 +16,7 @@ import { tabsFor } from "../pages/tabs/list";
 import type { SignInMethods } from "../shared/types";
 import { useAccount } from "../store/account";
 import { useStore } from "../store/store";
-import { Logo, Menu, MenuDivider, MenuItem, Modal, Toran } from "./ui";
+import { Logo, Menu, MenuDivider, MenuItem, Modal, SkipLink, Toran } from "./ui";
 
 /** The frame around every signed-in screen: navigation, sync state, account and ⌘K. */
 export function AppShell({ children }: { children: ReactNode }) {
@@ -37,6 +37,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-paper">
+      <SkipLink />
       <Toran />
       <header className="border-b border-line">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 sm:px-8">

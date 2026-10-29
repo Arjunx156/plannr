@@ -96,7 +96,7 @@ export function PublicShell({
           {aside}
         </div>
       </header>
-      <main className="mx-auto flex max-w-[720px] flex-col gap-5 px-4 py-6 sm:px-5">
+      <main id="main" className="mx-auto flex max-w-[720px] flex-col gap-5 px-4 py-6 sm:px-5">
         {event.announcements.length > 0 && <Announcements items={event.announcements} />}
         {children}
       </main>

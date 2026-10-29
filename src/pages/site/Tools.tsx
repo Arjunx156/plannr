@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Field } from "../../components/ui";
 import type { Kind } from "../../data/types";
+import { toCsv } from "../../lib/csv";
 import { inr, parseAmount } from "../../lib/format";
 import { splitBudget } from "../../lib/plan";
 import { CallToAction, SitePage } from "./Layout";
@@ -427,8 +428,7 @@ export function ShagunRegister() {
       ["From", "Amount", "Gift", "Side", "Thanked"],
       ...entries.map((e) => [e.from, String(e.amount || ""), e.gift, e.side, e.thanked ? "yes" : "no"]),
     ];
-    const text = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
-    const url = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+    const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = "gift-register.csv";

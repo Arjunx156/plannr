@@ -1,6 +1,8 @@
 import type { AiProposal, Message, PlannrEvent, Profile } from "../data/types";
 import { fundTotals, rsvpSummary } from "../shared/derive";
+import { list } from "../shared/records";
 import { TODAY } from "./dates";
+import { type IdeaSuggestion, ideaBrief, type PlannedEvent } from "./ideas";
 import { shrinkImage } from "./images";
 import { FUNCTION_ORDER } from "./intake";
 import { budgetTotals, communityReadiness, personalReadiness, settle } from "./metrics";
@@ -353,4 +355,16 @@ export interface PlanNotes {
 
 export function planNotes(profile: Profile, plan: PlanDraft): Promise<PlanNotes | undefined> {
   return post<PlanNotes>("plan", { profile, plan, today: TODAY }, 20000);
+}
+
+// ---------------------------------------------------------------- ideas
+
+/** Ideas Gemini picks for this event, none already on the board. */
+export async function suggestIdeas(ev: PlannedEvent): Promise<IdeaSuggestion[] | undefined> {
+  const out = await post<{ ideas?: IdeaSuggestion[] }>(
+    "ideas",
+    { brief: ideaBrief(ev), avoid: list(ev, "ideas").map((i) => i.title), today: TODAY },
+    20000,
+  );
+  return out?.ideas?.length ? out.ideas : undefined;
 }

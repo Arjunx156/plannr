@@ -3,6 +3,9 @@ import {
   assistantRequest,
   assistantSchema,
   BadRequest,
+  ideasPrompt,
+  ideasRequest,
+  ideasSchema,
   intakePrompt,
   intakeRequest,
   intakeSchema,
@@ -13,6 +16,7 @@ import {
   readRequest,
   readSchema,
   sanitizeAssistant,
+  sanitizeIdeas,
   sanitizeIntake,
   sanitizePlan,
   sanitizeRead,
@@ -36,7 +40,14 @@ const MAX_BODY = 128 * 1024;
 export const MAX_READ_BODY = 4_400_000;
 
 /** What each route costs against a person's daily allowance. Reading a document is the heaviest. */
-export const ROUTE_COST: Record<string, number> = { intake: 1, assistant: 1, plan: 2, write: 1, read: 5 };
+export const ROUTE_COST: Record<string, number> = {
+  intake: 1,
+  assistant: 1,
+  plan: 2,
+  ideas: 2,
+  write: 1,
+  read: 5,
+};
 
 /** Tried when the main model is busy or slow: a different model has its own capacity. */
 export const FALLBACK_MODEL = "gemini-3.5-flash-lite";
@@ -60,6 +71,7 @@ const BUDGET_MS: Record<string, number> = {
   intake: 11000,
   assistant: 19000,
   plan: 19000,
+  ideas: 19000,
   write: 28000,
   read: 42000,
 };
@@ -376,6 +388,18 @@ export async function handleAi(
         meter,
       );
       return { status: 200, body: sanitizePlan(raw) };
+    }
+    if (route === "ideas") {
+      const req = ideasRequest(body);
+      const { system, user: text } = ideasPrompt(req);
+      const raw = await generate(
+        config,
+        { system, contents: user(text), schema: ideasSchema, temperature: 0.8 },
+        fetchImpl,
+        BUDGET_MS.ideas,
+        meter,
+      );
+      return { status: 200, body: sanitizeIdeas(raw, req.avoid) };
     }
     if (route === "write") {
       const req = writeRequest(body);

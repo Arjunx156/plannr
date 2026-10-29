@@ -82,7 +82,7 @@ export function Onboarding() {
       <div className="flex items-center px-5 py-4 sm:px-10">
         <Logo to="/" />
       </div>
-      <main className="flex flex-1 items-start justify-center px-4 pb-12 sm:items-center">
+      <main id="main" className="flex flex-1 items-start justify-center px-4 pb-12 sm:items-center">
         <form
           onSubmit={submit}
           noValidate

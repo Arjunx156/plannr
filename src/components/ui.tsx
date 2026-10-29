@@ -91,6 +91,18 @@ export function toneText(t: Tone): string {
   return TONE_TEXT[t];
 }
 
+/** Jumps past the navigation to the page itself. Every screen's <main> carries id="main". */
+export function SkipLink() {
+  return (
+    <a
+      href="#main"
+      className="sr-only z-50 rounded-lg bg-ink px-4 py-2 text-paper focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+    >
+      Skip to content
+    </a>
+  );
+}
+
 export function Pill({ tone, children }: { tone: Tone | "ai"; children: ReactNode }) {
   return <span className={`pill pill-${tone}`}>{children}</span>;
 }

@@ -34,6 +34,7 @@ const SiteTab = lazy(() => import("./tabs/SiteTab").then((m) => ({ default: m.Si
 const SettingsTab = lazy(() => import("./tabs/SettingsTab").then((m) => ({ default: m.SettingsTab })));
 const MoneyTab = lazy(() => import("./tabs/MoneyTab").then((m) => ({ default: m.MoneyTab })));
 const VendorsTab = lazy(() => import("./tabs/VendorsTab").then((m) => ({ default: m.VendorsTab })));
+const IdeasTab = lazy(() => import("./tabs/IdeasTab").then((m) => ({ default: m.IdeasTab })));
 const DayTab = lazy(() => import("./tabs/DayTab").then((m) => ({ default: m.DayTab })));
 const FundsTab = lazy(() => import("./tabs/CommunityTabs").then((m) => ({ default: m.FundsTab })));
 const VolunteersTab = lazy(() => import("./tabs/CommunityTabs").then((m) => ({ default: m.VolunteersTab })));
@@ -74,7 +75,7 @@ export function EventPage() {
         <EmptyPlan ev={ev} />
       ) : tab === "" ? (
         <div className="mx-auto grid max-w-[1440px] gap-6 px-4 pt-6 pb-24 sm:px-8 xl:grid-cols-[minmax(0,1fr)_400px] xl:pb-6">
-          <main className="flex min-w-0 flex-col gap-6">
+          <main id="main" className="flex min-w-0 flex-col gap-6">
             <Hero ev={ev} />
             {ev.layout === "personal" ? (
               <Personal ev={ev} onOpenTask={setTask} />
@@ -107,6 +108,7 @@ export function EventPage() {
           {tab === "guests" && <GuestsTab ev={ev} />}
           {tab === "budget" && <MoneyTab ev={ev} />}
           {tab === "vendors" && <VendorsTab ev={ev} />}
+          {tab === "ideas" && <IdeasTab ev={ev} />}
           {tab === "day" && <DayTab ev={ev} />}
           {tab === "website" && <SiteTab ev={ev} />}
           {tab === "funds" && <FundsTab ev={ev} />}
@@ -196,7 +198,7 @@ function Missing() {
 function EmptyPlan({ ev }: { ev: PlannrEvent }) {
   const editable = useEditable(ev);
   return (
-    <main className="mx-auto flex max-w-[640px] flex-col gap-4 px-4 py-16 text-center">
+    <main id="main" className="mx-auto flex max-w-[640px] flex-col gap-4 px-4 py-16 text-center">
       <span className="eyebrow text-muted">{ev.eyebrow}</span>
       <h1 className="font-serif text-[44px] leading-[1.05]">{ev.name}</h1>
       <p className="m-0 text-body">

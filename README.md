@@ -83,6 +83,7 @@ JSON response schema and sanitizes the answer (`server/prompts.ts`). Each person
 | --- | --- |
 | `intake` | Reads a description into the event profile; the on-device parser runs first and Gemini fills gaps |
 | `plan` | Adds tips, watch-outs and ideas to a first draft |
+| `ideas` | Suggests ideas for one event on the Ideas tab, each naming the detail it answers (month, functions, guest count, meals, budget lines, the family's notes). Guests go as counts only. With no AI, rules on the device suggest instead (`src/lib/ideas.ts`) |
 | `assistant` | Answers from the live plan with precomputed numbers, and proposes changes in a small vocabulary that the app turns into a preview (`src/shared/proposals.ts`). `/api/ai/assistant/stream` sends the answer word by word as server-sent events |
 | `write` | Drafts enquiries, thank-yous, reminders, permit letters and translations in English, Malayalam, Hindi or Tamil |
 | `read` | Reads a photo or PDF of a bill, quote or contract into amounts, instalments and terms |

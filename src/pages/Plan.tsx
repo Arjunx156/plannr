@@ -94,7 +94,7 @@ export function Plan() {
           ← Edit details
         </Link>
       </header>
-      <main className="mx-auto flex max-w-[1180px] flex-col gap-6 px-4 py-8 sm:px-8">
+      <main id="main" className="mx-auto flex max-w-[1180px] flex-col gap-6 px-4 py-8 sm:px-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="flex max-w-[720px] flex-col gap-2">
             <span className="eyebrow text-peacock">◆ First draft</span>

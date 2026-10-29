@@ -381,6 +381,8 @@ export interface Idea {
   categoryId?: string;
   status: "idea" | "planned" | "dropped";
   note?: string;
+  /** Why Plannr suggested it: the detail of this event it answers. */
+  because?: string;
 }
 
 export interface Stall {

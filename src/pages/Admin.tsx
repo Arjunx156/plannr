@@ -42,13 +42,15 @@ export function Admin() {
   if (data === undefined)
     return (
       <AppShell>
-        <main className="mx-auto max-w-[960px] px-4 py-8 text-muted">Loading…</main>
+        <main id="main" className="mx-auto max-w-[960px] px-4 py-8 text-muted">
+          Loading…
+        </main>
       </AppShell>
     );
   if (!data)
     return (
       <AppShell>
-        <main className="mx-auto max-w-[960px] px-4 py-8">
+        <main id="main" className="mx-auto max-w-[960px] px-4 py-8">
           <h1 className="font-serif text-[32px]">Not found</h1>
         </main>
       </AppShell>
@@ -58,7 +60,7 @@ export function Admin() {
     data.days.find((d) => d.day === day && d.name === name)?.count ?? 0;
   return (
     <AppShell>
-      <main className="mx-auto flex max-w-[1180px] flex-col gap-6 px-4 py-8 sm:px-8">
+      <main id="main" className="mx-auto flex max-w-[1180px] flex-col gap-6 px-4 py-8 sm:px-8">
         <h1 className="font-serif text-[40px] leading-none">Admin</h1>
         <p className="m-0 text-body">
           {data.totals.accounts} accounts · {data.totals.plans} plans. Counts are totals per day, with no

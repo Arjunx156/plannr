@@ -72,7 +72,10 @@ export function Today() {
 
   return (
     <AppShell>
-      <main className="mx-auto grid max-w-[1180px] gap-8 px-4 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <main
+        id="main"
+        className="mx-auto grid max-w-[1180px] gap-8 px-4 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_340px]"
+      >
         <div className="flex min-w-0 flex-col gap-5">
           <div className="flex flex-col gap-1.5">
             <span className="eyebrow text-muted">
