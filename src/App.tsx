@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/react";
 import { lazy, type ReactNode, Suspense } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -56,6 +57,7 @@ export function App() {
       </Suspense>
       <Toasts />
       <AccountSync />
+      <Analytics />
     </ErrorBoundary>
   );
 }

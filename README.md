@@ -20,11 +20,11 @@ Set `GEMINI_API_KEY` in the server's environment.
 runs the browser journeys and accessibility checks against the production build, on desktop and phone sizes.
 CI (`.github/workflows/ci.yml`) runs both on every push and pull request.
 
-| Command | What it does |
-| --- | --- |
-| `bun run dev` | App and AI routes on http://localhost:5173 |
-| `bun test` | Unit tests, with the clock pinned to the demo story's day |
-| `bun run e2e` | Journey tests in Chromium; Gemini is mocked per test |
+| Command         | What it does                                                  |
+| --------------- | ------------------------------------------------------------- |
+| `bun run dev`   | App and AI routes on http://localhost:5173                    |
+| `bun test`      | Unit tests, with the clock pinned to the demo story's day     |
+| `bun run e2e`   | Journey tests in Chromium; Gemini is mocked per test          |
 | `bun run brand` | Regenerates the favicon PNGs and the share image in `public/` |
 
 The component gallery lives at `/gallery` in development: every shared component on paper and in the
@@ -32,11 +32,11 @@ lamp-lit night theme, at full or phone width.
 
 ### Environment
 
-| Variable | Where | Purpose |
-| --- | --- | --- |
-| `GEMINI_API_KEY` | Server only | Turns on the AI routes |
-| `GEMINI_MODEL` | Server only | Optional model override |
-| `SITE_URL` | Build | Public origin for canonical links, share images and `sitemap.xml`. On Vercel the production domain is used automatically. |
+| Variable         | Where       | Purpose                                                                                                                   |
+| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY` | Server only | Turns on the AI routes                                                                                                    |
+| `GEMINI_MODEL`   | Server only | Optional model override                                                                                                   |
+| `SITE_URL`       | Build       | Public origin for canonical links, share images and `sitemap.xml`. On Vercel the production domain is used automatically. |
 
 ## How AI is wired
 
@@ -45,11 +45,11 @@ prompt, calls Gemini with a JSON response schema and sanitizes the answer (`serv
 handler runs inside `vite`/`vite preview` (`server/vitePlugin.ts`) and the production server
 (`server/serve.ts`), with a body-size cap and a per-IP rate limit.
 
-| Route | Used by | What Gemini does |
-| --- | --- | --- |
-| `intake` | Describe-it chat | Reads free text into the event profile and writes the acknowledgement. The regex parser in `src/lib/intake.ts` runs first and instantly; Gemini only fills what it missed (`mergeAiProfile`). |
-| `plan` | `/new/generating` | Adds "Plannr's notes": tips, watch-outs and ideas for this city, month and set of priorities. |
-| `assistant` | Event dashboard | Answers questions from the live plan. Numbers come precomputed (`eventFacts`) so the model quotes, never calculates. Requests that change the plan still go through the on-device intents, which return a preview the planner approves. |
+| Route       | Used by           | What Gemini does                                                                                                                                                                                                                        |
+| ----------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `intake`    | Describe-it chat  | Reads free text into the event profile and writes the acknowledgement. The regex parser in `src/lib/intake.ts` runs first and instantly; Gemini only fills what it missed (`mergeAiProfile`).                                           |
+| `plan`      | `/new/generating` | Adds "Plannr's notes": tips, watch-outs and ideas for this city, month and set of priorities.                                                                                                                                           |
+| `assistant` | Event dashboard   | Answers questions from the live plan. Numbers come precomputed (`eventFacts`) so the model quotes, never calculates. Requests that change the plan still go through the on-device intents, which return a preview the planner approves. |
 
 Every client call (`src/lib/ai.ts`) has a timeout and falls back to local behaviour, so AI being slow, down
 or unconfigured never blocks the app.

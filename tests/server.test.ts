@@ -655,7 +655,11 @@ describe("album photos", () => {
       await priya.call("/api/events", { body: { event: ev } });
       const link = await priya.call(`/api/events/${ev.id}/links`, { body: { kind: "album" } });
       const send = (body: BodyInit, by = "Anil") =>
-        app.request(`/api/p/${link.json.token}/photo?by=${by}`, { method: "POST", body, headers: { "content-type": "image/jpeg" } });
+        app.request(`/api/p/${link.json.token}/photo?by=${by}`, {
+          method: "POST",
+          body,
+          headers: { "content-type": "image/jpeg" },
+        });
       expect((await send(new Uint8Array([1, 2, 3]))).status).toBe(415);
       expect((await send(jpeg, "A")).status).toBe(400);
       const ok = await send(jpeg);
@@ -667,7 +671,11 @@ describe("album photos", () => {
       const sneaky = await priya.call(`/api/p/${link.json.token}/actions`, {
         body: {
           actions: [
-            { type: "addRecord", coll: "album", record: { id: "x", url: "https://evil.public.blob.vercel-storage.com/a.jpg", by: "X", at: "" } },
+            {
+              type: "addRecord",
+              coll: "album",
+              record: { id: "x", url: "https://evil.public.blob.vercel-storage.com/a.jpg", by: "X", at: "" },
+            },
           ],
         },
       });
