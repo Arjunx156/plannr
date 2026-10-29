@@ -27,7 +27,7 @@ history all work locally.
 | `bun run brand` | Regenerates the favicon PNGs and the share image in `public/` |
 
 CI (`.github/workflows/ci.yml`) runs lint, types, tests, the build, the size budget, pre-rendering and the
-browser journeys on every push to `main`. Dependabot proposes dependency updates weekly.
+browser journeys on every push to `main`.
 
 ## What's in it
 
