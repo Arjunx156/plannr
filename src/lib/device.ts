@@ -44,8 +44,18 @@ const standalone = () =>
 
 const isIos = () => typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
 
+type InstallState = "installed" | "ready" | "ios" | "unavailable";
+
+/** Installed already; installable with one tap; installable by hand (iOS Share menu); or not at all. */
+function installState(): InstallState {
+  if (standalone()) return "installed";
+  if (deferred) return "ready";
+  return isIos() ? "ios" : "unavailable";
+}
+
+/** Whether Plannr can be added to the home screen, and the button that does it. */
 export function useInstall(): {
-  state: "installed" | "ready" | "ios" | "unavailable";
+  state: InstallState;
   install: () => Promise<void>;
 } {
   const [, force] = useState(0);
@@ -56,7 +66,7 @@ export function useInstall(): {
       listeners.delete(l);
     };
   }, []);
-  const state = standalone() ? "installed" : deferred ? "ready" : isIos() ? "ios" : "unavailable";
+  const state = installState();
   return {
     state,
     install: async () => {

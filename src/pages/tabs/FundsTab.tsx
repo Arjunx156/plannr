@@ -1,12 +1,12 @@
 import { type FormEvent, useState } from "react";
 import { useEditable } from "../../components/tasks";
-import { Field, Modal, Pill } from "../../components/ui";
+import { Field, Modal } from "../../components/ui";
 import type { Approval, CommunityEvent, PlannrEvent } from "../../data/types";
 import { inr, inrShort, plural } from "../../lib/format";
 import { fundTotals } from "../../shared/derive";
 import { toast, useStore } from "../../store/store";
 import { newId, parseAmount, Section, ShareLink, Stat, TabPage } from "./common";
-import { NotCommunity, useDecides } from "./community";
+import { ApprovalDecision, NotCommunity, useDecides } from "./community";
 import { Permits } from "./funds/Permits";
 import { Sources } from "./funds/Sources";
 import { Sponsors } from "./funds/Sponsors";
@@ -113,30 +113,12 @@ function Approvals({ ev, editable }: { ev: CommunityEvent; editable: boolean }) 
               </span>
             </span>
             <span className="tabular font-semibold">{inr(a.amount)}</span>
-            {a.status === "pending" ? (
-              editable && decides ? (
-                <span className="flex gap-1.5">
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => decide(a, "approved")}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => decide(a, "declined")}
-                  >
-                    Decline
-                  </button>
-                </span>
-              ) : (
-                <Pill tone="due">waiting for the treasurer</Pill>
-              )
-            ) : (
-              <Pill tone={a.status === "approved" ? "ok" : "idle"}>{a.status}</Pill>
-            )}
+            <ApprovalDecision
+              approval={a}
+              canDecide={editable && decides}
+              waiting="waiting for the treasurer"
+              onDecide={(status) => decide(a, status)}
+            />
           </li>
         ))}
         {!approvals.length && (

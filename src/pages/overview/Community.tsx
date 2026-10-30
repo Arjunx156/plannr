@@ -1,5 +1,5 @@
 import { useEditable } from "../../components/tasks";
-import { Panel, Pill, StatTile, toneText } from "../../components/ui";
+import { Panel, StatTile, toneText } from "../../components/ui";
 import { WatchList } from "../../components/watch";
 import type { CommunityEvent } from "../../data/types";
 import { longDate } from "../../lib/dates";
@@ -7,6 +7,7 @@ import { inr, inrShort, pct } from "../../lib/format";
 import { communityReadiness } from "../../lib/metrics";
 import { fundTotals } from "../../shared/derive";
 import { toast, useStore } from "../../store/store";
+import { ApprovalDecision } from "../tabs/community";
 import { Notices } from "./Notices";
 import { Tasks } from "./Tasks";
 
@@ -90,43 +91,15 @@ export function Community({ ev, onOpenTask }: { ev: CommunityEvent; onOpenTask: 
                 <span className="text-xs text-muted">by {a.by}</span>
               </span>
               <span className="tabular">{inr(a.amount)}</span>
-              {a.status === "pending" && !editable ? (
-                <Pill tone="due">waiting</Pill>
-              ) : a.status === "pending" ? (
-                <span className="flex gap-1.5">
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => {
-                      dispatch({
-                        type: "approveExpense",
-                        eventId: ev.id,
-                        approvalId: a.id,
-                        status: "approved",
-                      });
-                      dispatch(toast(`Approved ${inr(a.amount)} for ${a.by}.`));
-                    }}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() =>
-                      dispatch({
-                        type: "approveExpense",
-                        eventId: ev.id,
-                        approvalId: a.id,
-                        status: "declined",
-                      })
-                    }
-                  >
-                    Decline
-                  </button>
-                </span>
-              ) : (
-                <Pill tone={a.status === "approved" ? "ok" : "idle"}>{a.status}</Pill>
-              )}
+              <ApprovalDecision
+                approval={a}
+                canDecide={editable}
+                waiting="waiting"
+                onDecide={(status) => {
+                  dispatch({ type: "approveExpense", eventId: ev.id, approvalId: a.id, status });
+                  if (status === "approved") dispatch(toast(`Approved ${inr(a.amount)} for ${a.by}.`));
+                }}
+              />
             </li>
           ))}
         </ul>

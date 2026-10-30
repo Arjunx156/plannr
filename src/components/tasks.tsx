@@ -229,6 +229,29 @@ function TaskForm({
   );
 }
 
+/** A record's comments: loading, empty, or the list. */
+function CommentList({ list }: { list: CommentView[] | null }) {
+  if (list === null) return <span className="text-sm text-muted">Loading…</span>;
+  if (!list.length)
+    return (
+      <span className="text-sm text-muted">
+        No comments yet. Ask a question or leave a note for the others.
+      </span>
+    );
+  return (
+    <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+      {list.map((c) => (
+        <li key={c.id} className="flex flex-col gap-0.5 rounded-xl bg-sand px-3 py-2.5">
+          <span className="text-xs text-muted">
+            <strong className="font-semibold text-ink">{c.by ?? "Someone"}</strong> · {timeAgo(c.at)}
+          </span>
+          <span className="text-sm whitespace-pre-wrap">{c.body}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Comments({
   eventId,
   recordType,
@@ -272,24 +295,7 @@ function Comments({
   return (
     <section aria-label="Comments" className="flex flex-col gap-3">
       <h3 className="font-serif text-lg">Comments</h3>
-      {list === null ? (
-        <span className="text-sm text-muted">Loading…</span>
-      ) : list.length ? (
-        <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
-          {list.map((c) => (
-            <li key={c.id} className="flex flex-col gap-0.5 rounded-xl bg-sand px-3 py-2.5">
-              <span className="text-xs text-muted">
-                <strong className="font-semibold text-ink">{c.by ?? "Someone"}</strong> · {timeAgo(c.at)}
-              </span>
-              <span className="text-sm whitespace-pre-wrap">{c.body}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <span className="text-sm text-muted">
-          No comments yet. Ask a question or leave a note for the others.
-        </span>
-      )}
+      <CommentList list={list} />
       <form onSubmit={send} className="flex flex-col gap-2">
         <label htmlFor={`comment-${recordId}`} className="sr-only">
           Add a comment

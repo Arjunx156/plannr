@@ -35,6 +35,9 @@ export function Logo({
   );
 }
 
+const TORAN_CLASS = { sm: "toran", md: "toran-md", lg: "toran-lg", beads: "toran-beads" } as const;
+
+/** The marigold garland that tops a card; purely decorative. */
 export function Toran({
   size = "sm",
   className = "",
@@ -42,9 +45,7 @@ export function Toran({
   size?: "sm" | "md" | "lg" | "beads";
   className?: string;
 }) {
-  const cls =
-    size === "lg" ? "toran-lg" : size === "md" ? "toran-md" : size === "beads" ? "toran-beads" : "toran";
-  return <div aria-hidden="true" className={`${cls} ${className}`} />;
+  return <div aria-hidden="true" className={`${TORAN_CLASS[size]} ${className}`} />;
 }
 
 export function Kolam({ className = "kolam", style }: { className?: string; style?: React.CSSProperties }) {
@@ -102,6 +103,13 @@ export function SkipLink() {
     </a>
   );
 }
+
+/** Notice card styling by tone: AI suggestions glow, warnings get a rust edge. */
+export const NOTICE_CARD: Record<"ai" | "warn" | "info", string> = {
+  ai: "card-ai",
+  warn: "border-rust-line bg-surface",
+  info: "border-line bg-surface",
+};
 
 export function Pill({ tone, children }: { tone: Tone | "ai"; children: ReactNode }) {
   return <span className={`pill pill-${tone}`}>{children}</span>;

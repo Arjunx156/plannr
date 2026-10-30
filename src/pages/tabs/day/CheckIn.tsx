@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { detectorClass, Scanner } from "../../../components/scanner";
-import type { FunctionDay, PlannrEvent } from "../../../data/types";
+import type { FunctionDay, PlannrEvent, RsvpStatus } from "../../../data/types";
 import { plural } from "../../../lib/format";
 import { checkInCount, comingCount } from "../../../shared/derive";
 import { readEntryCode, readPassCode } from "../../../shared/public";
@@ -9,6 +9,12 @@ import { toast, useStore } from "../../../store/store";
 import { Section } from "../common";
 
 /** Guest check-in at the door, by name or by scanning an entry QR code. */
+/** What a household said for this function. */
+function answerText(a: { status: RsvpStatus; count: number } | undefined): string {
+  if (a?.status === "yes") return `${a.count} coming`;
+  return a?.status === "no" ? "said they can't come" : "didn't answer";
+}
+
 export function CheckIn({ ev, fn, editable }: { ev: PlannrEvent; fn: FunctionDay; editable: boolean }) {
   const { dispatch } = useStore();
   const [q, setQ] = useState("");
@@ -82,11 +88,7 @@ export function CheckIn({ ev, fn, editable }: { ev: PlannrEvent; fn: FunctionDay
               <span className="flex min-w-0 flex-col">
                 <span className="font-medium">{h.name}</span>
                 <span className="text-xs text-muted">
-                  {a?.status === "yes"
-                    ? `${a.count} coming`
-                    : a?.status === "no"
-                      ? "said they can't come"
-                      : "didn't answer"}
+                  {answerText(a)}
                   {n ? ` · ${n} in` : ""}
                 </span>
               </span>

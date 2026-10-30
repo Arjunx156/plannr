@@ -9,6 +9,8 @@ import { newId, ShareLink } from "../common";
 import { FunctionPicker, inviteMessage, phoneDigits } from "./shared";
 
 /** Adds one household by hand. */
+const MEAL_LABEL: Record<Meal, string> = { veg: "Vegetarian", nonveg: "Non-veg", jain: "Jain" };
+
 export function AddHousehold({
   ev,
   open,
@@ -377,7 +379,7 @@ function HouseholdForm({
                 className="chip chip-sm"
                 onClick={() => setMeal(meal === m ? undefined : m)}
               >
-                {m === "veg" ? "Vegetarian" : m === "nonveg" ? "Non-veg" : "Jain"}
+                {MEAL_LABEL[m]}
               </button>
             ))}
           </div>

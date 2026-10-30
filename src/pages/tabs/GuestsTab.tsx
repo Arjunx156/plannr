@@ -37,6 +37,14 @@ const STATE_TONE: Record<HouseholdState, "idle" | "due" | "ok" | "warn"> = {
 
 type Filter = "all" | HouseholdState | "stay" | "pickup" | `side:${string}`;
 
+/** "12 of 300 free", "8 over the 300 seats", or a dash when the venue's capacity isn't known. */
+function seatsLeft(expected: number, capacity: number | undefined): string {
+  if (!capacity) return "—";
+  return expected > capacity
+    ? `${expected - capacity} over the ${capacity} seats`
+    : `${capacity - expected} of ${capacity} free`;
+}
+
 export function GuestsTab({ ev }: { ev: PlannrEvent }) {
   const { dispatch } = useStore();
   const editable = useEditable(ev);
@@ -148,11 +156,7 @@ export function GuestsTab({ ev }: { ev: PlannrEvent }) {
                     <td className="py-2.5 text-right tabular">{c.waiting}</td>
                     <td className="py-2.5 text-right tabular font-semibold">{plan}</td>
                     <td className={`py-2.5 pl-4 text-xs ${over ? "text-rust-ink" : "text-body"}`}>
-                      {f.capacity
-                        ? over
-                          ? `${plan - f.capacity} over the ${f.capacity} seats`
-                          : `${f.capacity - plan} of ${f.capacity} free`
-                        : "—"}
+                      {seatsLeft(plan, f.capacity)}
                     </td>
                   </tr>
                 );

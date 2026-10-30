@@ -15,7 +15,7 @@ import { api } from "../lib/api";
 import { tabsFor } from "../pages/tabs/list";
 import type { SignInMethods } from "../shared/types";
 import { useAccount } from "../store/account";
-import { useStore } from "../store/store";
+import { type AppState, useStore } from "../store/store";
 import { Logo, Menu, MenuDivider, MenuItem, Modal, SkipLink, Toran } from "./ui";
 
 /** The frame around every signed-in screen: navigation, sync state, account and ⌘K. */
@@ -107,15 +107,18 @@ function Nav() {
   );
 }
 
+/** The sync badge's dot colour and words: offline, saving, or saved. */
+function syncDisplay(pending: number, offline: boolean): [dot: string, text: string] {
+  if (offline) return ["bg-rust", pending ? `Offline · ${pending} waiting` : "Offline"];
+  return pending ? ["bg-marigold", "Saving…"] : ["bg-leaf", "Saved"];
+}
+
+/** Whether changes are saved, saving, or waiting for a connection. The demo saves locally and shows none. */
 function SyncBadge() {
   const { state } = useStore();
   if (state.mode === "demo") return null;
   const { pending, offline } = state.sync;
-  const [dot, text] = offline
-    ? ["bg-rust", pending ? `Offline · ${pending} waiting` : "Offline"]
-    : pending
-      ? ["bg-marigold", "Saving…"]
-      : ["bg-leaf", "Saved"];
+  const [dot, text] = syncDisplay(pending, offline);
   return (
     <span role="status" className="flex items-center gap-1.5 text-xs font-medium text-body">
       <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dot}`} />
@@ -137,6 +140,13 @@ function DemoRibbon() {
       </p>
     </div>
   );
+}
+
+/** The line under the name in the account menu. */
+function accountLine(state: AppState, guest: boolean): string {
+  if (state.mode === "demo") return "Demo · saved in this browser";
+  if (guest) return "Guest account";
+  return `${state.account.user?.email ?? ""} · ${state.session.plan}`;
 }
 
 function AccountMenu() {
@@ -171,13 +181,7 @@ function AccountMenu() {
           <>
             <span className="flex flex-col px-3 py-2">
               <span className="text-sm font-semibold">{state.session.name}</span>
-              <span className="text-xs text-muted">
-                {state.mode === "demo"
-                  ? "Demo · saved in this browser"
-                  : guest
-                    ? "Guest account"
-                    : `${state.account.user?.email ?? ""} · ${state.session.plan}`}
-              </span>
+              <span className="text-xs text-muted">{accountLine(state, guest)}</span>
             </span>
             <MenuDivider />
             {state.mode === "demo" ? (
@@ -364,6 +368,82 @@ function taskList(ev: PlannrEvent) {
   return ev.layout === "empty" ? [] : ev.tasks.list;
 }
 
+type Go = (to: string) => () => void;
+
+/** Most results the palette lists at once. */
+const MAX_COMMANDS = 40;
+
+/** The open event's tabs. */
+function tabCommands(current: PlannrEvent | undefined, go: Go): Command[] {
+  if (!current) return [];
+  return tabsFor(current).map((t) => ({
+    id: `tab-${t.id}`,
+    label: t.label,
+    hint: current.name,
+    group: "This event",
+    run: go(`/events/${current.id}${t.id ? `/${t.id}` : ""}`),
+  }));
+}
+
+/** Every event that isn't archived. */
+function eventCommands(events: PlannrEvent[], go: Go): Command[] {
+  return events
+    .filter((e) => !e.archived)
+    .map((ev) => ({
+      id: `ev-${ev.id}`,
+      label: ev.name,
+      hint: ev.listMeta,
+      group: "Events",
+      run: go(`/events/${ev.id}`),
+    }));
+}
+
+/** The app's own pages. */
+function pageCommands(demo: boolean, go: Go): Command[] {
+  return [
+    { id: "new", label: "Plan a new event", group: "Go to", run: go("/new?fresh=1") },
+    { id: "today", label: "Today", hint: "What's due across every event", group: "Go to", run: go("/today") },
+    { id: "inbox", label: "Inbox", hint: "What co-planners changed", group: "Go to", run: go("/inbox") },
+    { id: "events", label: "My events", group: "Go to", run: go("/events") },
+    ...(demo ? [{ id: "signup", label: "Create an account", group: "Go to", run: go("/signup") }] : []),
+  ];
+}
+
+/** Tasks in any event whose title contains the query. */
+function taskCommands(events: PlannrEvent[], q: string, go: Go): Command[] {
+  return events.flatMap((ev) =>
+    taskList(ev)
+      .filter((t) => t.title.toLowerCase().includes(q))
+      .map((t) => ({
+        id: `task-${ev.id}-${t.id}`,
+        label: t.title,
+        hint: `${ev.name}${t.done ? " · done" : ""}`,
+        group: "Tasks",
+        run: go(`/events/${ev.id}/timeline?task=${encodeURIComponent(t.id)}`),
+      })),
+  );
+}
+
+/** Commands matching the query: the open event's tabs, events, pages, then (from two letters) tasks. */
+function buildCommands(
+  events: PlannrEvent[],
+  opts: { query: string; currentId: string | undefined; demo: boolean },
+  go: Go,
+): Command[] {
+  const q = opts.query.trim().toLowerCase();
+  const all = [
+    ...tabCommands(
+      events.find((e) => e.id === opts.currentId),
+      go,
+    ),
+    ...eventCommands(events, go),
+    ...pageCommands(opts.demo, go),
+  ];
+  const shown = all.filter((c) => !q || `${c.label} ${c.hint ?? ""}`.toLowerCase().includes(q));
+  if (q.length < 2) return shown;
+  return [...shown, ...taskCommands(events, q, go).slice(0, Math.max(0, MAX_COMMANDS - shown.length))];
+}
+
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { state } = useStore();
   const navigate = useNavigate();
@@ -388,56 +468,10 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     [navigate, onClose],
   );
 
-  const commands = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const match = (text: string) => !q || text.toLowerCase().includes(q);
-    const list: Command[] = [];
-    const current = state.events.find((e) => e.id === currentId);
-    if (current)
-      for (const t of tabsFor(current))
-        list.push({
-          id: `tab-${t.id}`,
-          label: t.label,
-          hint: current.name,
-          group: "This event",
-          run: go(`/events/${current.id}${t.id ? `/${t.id}` : ""}`),
-        });
-    for (const ev of state.events.filter((e) => !e.archived))
-      list.push({
-        id: `ev-${ev.id}`,
-        label: ev.name,
-        hint: ev.listMeta,
-        group: "Events",
-        run: go(`/events/${ev.id}`),
-      });
-    list.push(
-      { id: "new", label: "Plan a new event", group: "Go to", run: go("/new?fresh=1") },
-      {
-        id: "today",
-        label: "Today",
-        hint: "What's due across every event",
-        group: "Go to",
-        run: go("/today"),
-      },
-      { id: "inbox", label: "Inbox", hint: "What co-planners changed", group: "Go to", run: go("/inbox") },
-      { id: "events", label: "My events", group: "Go to", run: go("/events") },
-    );
-    if (state.mode === "demo")
-      list.push({ id: "signup", label: "Create an account", group: "Go to", run: go("/signup") });
-    const shown = list.filter((c) => match(`${c.label} ${c.hint ?? ""}`));
-    if (q.length >= 2)
-      for (const ev of state.events)
-        for (const t of taskList(ev))
-          if (t.title.toLowerCase().includes(q) && shown.length < 40)
-            shown.push({
-              id: `task-${ev.id}-${t.id}`,
-              label: t.title,
-              hint: `${ev.name}${t.done ? " · done" : ""}`,
-              group: "Tasks",
-              run: go(`/events/${ev.id}/timeline?task=${encodeURIComponent(t.id)}`),
-            });
-    return shown;
-  }, [query, state.events, state.mode, currentId, go]);
+  const commands = useMemo(
+    () => buildCommands(state.events, { query, currentId, demo: state.mode === "demo" }, go),
+    [query, state.events, state.mode, currentId, go],
+  );
 
   const index = Math.min(active, Math.max(0, commands.length - 1));
   const onKey = (e: KeyboardEvent) => {

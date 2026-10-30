@@ -8,6 +8,12 @@ import { useStore } from "../../../store/store";
 import { newId, Section } from "../common";
 
 /** Room blocks for out-of-town guests, and who is in which room. */
+/** Groups pickups by where they start: the airport, a railway station, or anywhere else. */
+function pickupPoint(pickup: string): string {
+  if (/airport/i.test(pickup)) return "Airport";
+  return /station|junction|railway/i.test(pickup) ? "Railway station" : "Other";
+}
+
 export function Rooms({ ev }: { ev: PlannrEvent }) {
   const { dispatch } = useStore();
   const editable = useEditable(ev);
@@ -105,11 +111,7 @@ export function Pickups({ ev }: { ev: PlannrEvent }) {
   if (!pickups.length) return null;
   const groups = new Map<string, Household[]>();
   for (const h of pickups) {
-    const where = /airport/i.test(h.pickup ?? "")
-      ? "Airport"
-      : /station|junction|railway/i.test(h.pickup ?? "")
-        ? "Railway station"
-        : "Other";
+    const where = pickupPoint(h.pickup ?? "");
     groups.set(where, [...(groups.get(where) ?? []), h]);
   }
   return (

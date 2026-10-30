@@ -146,58 +146,48 @@ function vendorsFor(p: Profile): { list: string[]; focus: string[]; note: string
   };
 }
 
+/** How a guest list usually divides, by kind of event. */
+const GUEST_SHARES: Record<Kind, [string, number][]> = {
+  wedding: [
+    ["Bride's side", 0.44],
+    ["Groom's side", 0.4],
+    ["Friends", 0.12],
+    ["Colleagues", 0.04],
+  ],
+  birthday: [
+    ["Kids", 0.6],
+    ["Parents & family", 0.4],
+  ],
+  community: [
+    ["Residents", 0.8],
+    ["Visitors", 0.2],
+  ],
+  other: [
+    ["Family", 0.6],
+    ["Friends", 0.4],
+  ],
+};
+
+/** The guest note: wheelchair needs first, then allergies, from what the family told Plannr. */
+function guestNote(needs: string[]): string | undefined {
+  const wheel = needs.find((n) => /wheelchair/i.test(n));
+  if (wheel) {
+    const count = wheel.match(/\d+/)?.[0];
+    return `Step-free entry and ${count ? `${count} ` : ""}wheelchair spaces added to venue questions.`;
+  }
+  const allergy = needs.find((n) => /allerg/i.test(n));
+  return allergy ? `Allergy notes collected on the RSVP form: ${allergy}.` : undefined;
+}
+
 function guestGroups(p: Profile, total: number): PlanDraft["guests"] {
-  const share = (parts: [string, number][]) => {
-    const groups = parts.map(([name, s]) => ({ name, count: Math.round(total * s) }));
-    const drift = total - groups.reduce((a, g) => a + g.count, 0);
-    const first = groups[0];
-    if (first) first.count += drift;
-    return groups;
-  };
-  const wheel = p.needs.find((n) => /wheelchair/i.test(n));
-  const wheelCount = wheel?.match(/\d+/)?.[0] ?? "";
-  const note = wheel
-    ? `Step-free entry and ${wheelCount ? `${wheelCount} ` : ""}wheelchair spaces added to venue questions.`
-    : p.needs.find((n) => /allerg/i.test(n))
-      ? `Allergy notes collected on the RSVP form: ${p.needs.find((n) => /allerg/i.test(n))}.`
-      : undefined;
-  if (p.kind === "wedding")
-    return {
-      total,
-      note,
-      groups: share([
-        ["Bride's side", 0.44],
-        ["Groom's side", 0.4],
-        ["Friends", 0.12],
-        ["Colleagues", 0.04],
-      ]),
-    };
-  if (p.kind === "birthday")
-    return {
-      total,
-      note,
-      groups: share([
-        ["Kids", 0.6],
-        ["Parents & family", 0.4],
-      ]),
-    };
-  if (p.kind === "community")
-    return {
-      total,
-      note,
-      groups: share([
-        ["Residents", 0.8],
-        ["Visitors", 0.2],
-      ]),
-    };
-  return {
-    total,
-    note,
-    groups: share([
-      ["Family", 0.6],
-      ["Friends", 0.4],
-    ]),
-  };
+  const groups = GUEST_SHARES[p.kind ?? "other"].map(([name, share]) => ({
+    name,
+    count: Math.round(total * share),
+  }));
+  // Rounding can leave the groups a guest or two off the total; the largest group absorbs it.
+  const first = groups[0];
+  if (first) first.count += total - groups.reduce((sum, g) => sum + g.count, 0);
+  return { total, note: guestNote(p.needs), groups };
 }
 
 function timelineFor(kind: Kind, date: string): PlanDraft["timeline"] {
@@ -233,6 +223,7 @@ function timelineFor(kind: Kind, date: string): PlanDraft["timeline"] {
 
 const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six"];
 
+/** How the plan summary names the event: "Ananya & Rohan", "Aarav's birthday", "your event". */
 export function planTitle(p: Profile): string {
   if (p.kind === "wedding") return p.names ?? "your wedding";
   if (p.kind === "birthday") return p.names ? `${p.names}'s birthday` : "the birthday";
@@ -240,12 +231,30 @@ export function planTitle(p: Profile): string {
   return "your event";
 }
 
+/** The colours ideas are drawn in: the family's own, else ones that suit the event. */
+function ideaColours(p: Profile, kind: Kind): string {
+  if (p.colours.length) return p.colours.map((c) => c.toLowerCase()).join(" and ");
+  if (kind === "wedding" && p.style === "Kerala-style") return "kasavu gold and ivory";
+  return kind === "birthday" ? "the party theme" : "festive marigold and green";
+}
+
+/** What a draft assumes until the family says otherwise. */
+const DEFAULT_BUDGET = 100000;
+const DEFAULT_GUESTS = 50;
+/** An event with no date yet is drafted for about three months out. */
+const DEFAULT_LEAD_DAYS = 90;
+
+/** The event's date, or the default lead time from today. */
+export function draftDate(p: Profile): string {
+  return p.date ?? addDays(TODAY, DEFAULT_LEAD_DAYS);
+}
+
 /** Everything the plan summary shows, derived from the profile alone. */
 export function draftPlan(p: Profile): PlanDraft {
   const kind = p.kind ?? "other";
-  const total = p.budget ?? 100000;
-  const guests = p.guests ?? 50;
-  const date = p.date ?? addDays(TODAY, 90);
+  const total = p.budget ?? DEFAULT_BUDGET;
+  const guests = p.guests ?? DEFAULT_GUESTS;
+  const date = draftDate(p);
   const vendors = vendorsFor({ ...p, kind });
   const fnCount = p.functions.length;
   const basisBits = [
@@ -254,13 +263,7 @@ export function draftPlan(p: Profile): PlanDraft {
     parseDate(date).toLocaleString("en-IN", { month: "long" }),
   ].filter(Boolean);
   const priorities = p.priorities.map((x) => x.toLowerCase()).join(" · ");
-  const colours = p.colours.length
-    ? p.colours.map((c) => c.toLowerCase()).join(" and ")
-    : kind === "wedding" && p.style === "Kerala-style"
-      ? "kasavu gold and ivory"
-      : kind === "birthday"
-        ? "the party theme"
-        : "festive marigold and green";
+  const colours = ideaColours(p, kind);
   return {
     title: planTitle(p),
     kind,

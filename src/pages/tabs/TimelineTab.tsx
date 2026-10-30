@@ -12,6 +12,12 @@ import { TabPage } from "./common";
 type View = "phases" | "list";
 
 /** /events/:id/timeline — the plan in date order: what's due, what to book, what to pay, and the day itself. */
+/** "12 days to go", "it's today" or "the day has passed". */
+function countdownText(daysLeft: number): string {
+  if (daysLeft > 0) return `${plural(daysLeft, "day")} to go`;
+  return daysLeft === 0 ? "it's today" : "the day has passed";
+}
+
 export function TimelineTab({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (id: string) => void }) {
   const [view, setView] = useState<View>("phases");
   const tasks = ev.layout === "empty" ? [] : ev.tasks.list;
@@ -23,8 +29,7 @@ export function TimelineTab({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (
       title="Timeline"
       aside={
         <span className="text-sm text-body">
-          {done} of {plural(tasks.length, "task")} done ·{" "}
-          {left > 0 ? `${plural(left, "day")} to go` : left === 0 ? "it's today" : "the day has passed"}
+          {done} of {plural(tasks.length, "task")} done · {countdownText(left)}
         </span>
       }
     >
@@ -121,6 +126,12 @@ function Phases({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (id: string) 
   );
 }
 
+/** " · late", " · done" (functions are never "done"), or nothing. */
+function entryState(e: TimelineEntry): string {
+  if (e.late) return " · late";
+  return e.done && e.kind !== "function" ? " · done" : "";
+}
+
 function EntryRow({ ev, entry: e }: { ev: PlannrEvent; entry: TimelineEntry }) {
   const tab = e.kind === "task" ? "timeline" : KIND_TAB[e.kind];
   return (
@@ -136,7 +147,7 @@ function EntryRow({ ev, entry: e }: { ev: PlannrEvent; entry: TimelineEntry }) {
         </Link>
         <span className={`text-xs ${e.late ? "text-rust-ink" : "text-muted"}`}>
           {KIND_LABEL[e.kind]}
-          {e.late ? " · late" : e.done && e.kind !== "function" ? " · done" : ""}
+          {entryState(e)}
         </span>
       </span>
     </li>
@@ -144,6 +155,14 @@ function EntryRow({ ev, entry: e }: { ev: PlannrEvent; entry: TimelineEntry }) {
 }
 
 type Show = "open" | "done" | "all";
+
+const SHOW_LABEL: Record<Show, string> = { open: "Open", done: "Done", all: "All" };
+/** Which tasks each view lists; `open` counts a task ticked off in this visit as still open. */
+const SHOWS: Record<Show, (t: Task, open: boolean) => boolean> = {
+  open: (_, open) => open,
+  done: (t) => t.done,
+  all: () => true,
+};
 
 /** Every task, grouped by urgency, with filters by state and by person. */
 function TaskList({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (id: string) => void }) {
@@ -157,7 +176,7 @@ function TaskList({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (id: string
   const people = [...new Set(tasks.map((t) => t.who))].sort();
   const open = (t: Task) => !t.done || ticked.includes(t.id);
   const shown = tasks
-    .filter((t) => (show === "all" ? true : show === "open" ? open(t) : t.done))
+    .filter((t) => SHOWS[show](t, open(t)))
     .filter((t) => !who || t.who === who)
     .sort((a, b) => a.due.localeCompare(b.due));
   const week = addDays(TODAY, 7);
@@ -202,7 +221,7 @@ function TaskList({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (id: string
               className="chip chip-sm"
               onClick={() => setShow(s)}
             >
-              {s === "open" ? "Open" : s === "done" ? "Done" : "All"}
+              {SHOW_LABEL[s]}
             </button>
           ))}
         </fieldset>

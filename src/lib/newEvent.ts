@@ -1,8 +1,17 @@
-import type { FunctionDay, Hue, Kind, PersonalEvent, Profile, Task } from "../data/types";
+import type {
+  BudgetPlan,
+  Category,
+  FunctionDay,
+  Hue,
+  Kind,
+  PersonalEvent,
+  Profile,
+  Task,
+} from "../data/types";
 import { addDays, longDate, shortDate, TODAY } from "./dates";
 import { slug } from "./format";
 import { KIND_LABEL } from "./intake";
-import type { PlanDraft } from "./plan";
+import { draftDate, type PlanDraft } from "./plan";
 
 const HUE: Record<Kind, Hue> = {
   wedding: "marigold",
@@ -58,6 +67,52 @@ export function eventName(p: Profile): string {
   return p.names ?? "New event";
 }
 
+/** Where the functions happen: the one named venue, else the city until a venue is chosen. */
+function mainPlace(p: Profile): string {
+  const oneVenue = p.venues && p.venues !== "Home" && !p.venues.includes(" or ");
+  return oneVenue && p.venues ? p.venues : (p.city ?? "Venue to be chosen");
+}
+
+/** A ceremony on the same day as the reception is in the morning; the reception is in the evening. */
+function functionPart(name: string, all: string[]): FunctionDay["part"] {
+  if (name === "Reception") return "PM";
+  return name === "Ceremony" && all.includes("Reception") ? "AM" : undefined;
+}
+
+/** One function per name the family gave, dated around the main day. A single function needs none. */
+function draftFunctions(p: Profile, date: string, place: string): FunctionDay[] {
+  if (p.functions.length < 2) return [];
+  return p.functions.map((f) => ({
+    id: f.toLowerCase(),
+    label: f,
+    date: addDays(date, FUNCTION_OFFSET[f] ?? 0),
+    part: functionPart(f, p.functions),
+    place,
+  }));
+}
+
+/** The first tasks for this kind of event, each due by its week but never after the day. */
+function firstTasks(kind: Kind, date: string): Task[] {
+  return FIRST_TASKS[kind].map(([title, week], i) => {
+    const due = addDays(TODAY, week * 7);
+    return { id: `t${i + 1}`, title, who: "You", due: due < date ? due : addDays(date, -1), done: false };
+  });
+}
+
+/** The what-if slider's range around the planned headcount. */
+const WHAT_IF_RANGE = { min: 10, low: 0.4, high: 1.6 };
+
+/** The what-if headcount slider, priced from the first (catering) line. */
+function whatIfFor(guests: number | undefined, catering: Category | undefined): BudgetPlan["whatIf"] {
+  if (!catering || !guests) return undefined;
+  return {
+    baseGuests: guests,
+    min: Math.max(WHAT_IF_RANGE.min, Math.round(guests * WHAT_IF_RANGE.low)),
+    max: Math.round(guests * WHAT_IF_RANGE.high),
+    rates: [{ category: catering.name, perGuest: Math.round(catering.planned / guests) }],
+  };
+}
+
 /**
  * The accepted draft becomes a live event with an empty ledger and its first tasks. The family's
  * needs and traditions become standing notes every later suggestion respects, and the ideas
@@ -71,46 +126,21 @@ export function eventFromDraft(
   ideas: string[] = [],
 ): PersonalEvent {
   const kind = p.kind ?? "other";
-  const date = p.date ?? addDays(TODAY, 90);
+  const date = draftDate(p);
   const name = existing?.name ?? eventName(p);
-  const place =
-    p.venues && p.venues !== "Home" && !p.venues.includes(" or ")
-      ? p.venues
-      : (p.city ?? "Venue to be chosen");
-  const functions: FunctionDay[] =
-    p.functions.length > 1
-      ? p.functions.map((f) => ({
-          id: f.toLowerCase(),
-          label: f,
-          date: addDays(date, FUNCTION_OFFSET[f] ?? 0),
-          part:
-            f === "Ceremony" && p.functions.includes("Reception")
-              ? "AM"
-              : f === "Reception"
-                ? "PM"
-                : undefined,
-          place,
-        }))
-      : [];
-  const tasks: Task[] = FIRST_TASKS[kind].map(([title, week], i) => {
-    const due = addDays(TODAY, week * 7);
-    return { id: `t${i + 1}`, title, who: "You", due: due < date ? due : addDays(date, -1), done: false };
-  });
+  const place = mainPlace(p);
+  const functions = draftFunctions(p, date, place);
+  const tasks = firstTasks(kind, date);
   const venueBooked = p.venueStatus === "Booked";
-  const categories = plan.budget.lines.map((l) => ({
+  const categories: Category[] = plan.budget.lines.map((l) => ({
     id: slug(l.name),
     name: l.name,
     planned: l.amount,
     spent: 0,
     status: "Not started",
-    tone: "idle" as const,
+    tone: "idle",
     items: [],
   }));
-  const catering = categories[0];
-  const whatIfRates =
-    catering && p.guests
-      ? [{ category: catering.name, perGuest: Math.round(catering.planned / p.guests) }]
-      : [];
   const where = p.venues === "Home" ? "at home" : (p.city ?? "");
   const meta = [KIND_LABEL[kind], where, shortDate(date)].filter(Boolean).join(" · ");
   return {
@@ -155,14 +185,7 @@ export function eventFromDraft(
       categories,
       payments: [],
       savings: [],
-      whatIf: whatIfRates.length
-        ? {
-            baseGuests: p.guests ?? 0,
-            min: Math.max(10, Math.round((p.guests ?? 0) * 0.4)),
-            max: Math.round((p.guests ?? 0) * 1.6),
-            rates: whatIfRates,
-          }
-        : undefined,
+      whatIf: whatIfFor(p.guests, categories[0]),
       source: `Split suggested by Plannr. ${plan.basis}`,
     },
     tasks: { total: plan.tasks, doneBefore: 0, list: tasks },

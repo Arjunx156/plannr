@@ -55,7 +55,7 @@ export function Personal({ ev, onOpenTask }: { ev: PersonalEvent; onOpenTask: (i
                 <span className="font-semibold">{f.label}</span>
                 <span className="text-xs text-body">
                   {shortDate(f.date)}
-                  {f.time ? ` · ${f.time}` : f.part ? ` · ${f.part}` : ""}
+                  {f.time || f.part ? ` · ${f.time || f.part}` : ""}
                 </span>
                 {f.place && <span className="text-xs text-muted">{f.place}</span>}
               </li>

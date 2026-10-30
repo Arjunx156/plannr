@@ -253,24 +253,32 @@ export interface AssistantAnswer {
   actions?: AiProposal[];
 }
 
+/** Earlier messages sent with a question, for context. */
+const HISTORY_TURNS = 12;
+/** How long the browser waits for an answer, streamed or not. */
+const ANSWER_TIMEOUT_MS = 20000;
+const STREAM_TIMEOUT_MS = 25000;
+
+/** What the assistant routes receive: the question, the live plan, its computed facts and recent turns. */
+function assistantBody(ev: PlannrEvent, thread: Message[], text: string, lang: string | undefined) {
+  return {
+    text,
+    lang,
+    today: TODAY,
+    event: compactEvent(ev),
+    facts: eventFacts(ev),
+    history: thread.slice(-HISTORY_TURNS).map((m) => ({ role: m.role, text: m.text })),
+  };
+}
+
+/** The assistant's whole answer in one response. */
 export function askAssistant(
   ev: PlannrEvent,
   thread: Message[],
   text: string,
   lang?: string,
 ): Promise<AssistantAnswer | undefined> {
-  return post<AssistantAnswer>(
-    "assistant",
-    {
-      text,
-      lang,
-      today: TODAY,
-      event: compactEvent(ev),
-      facts: eventFacts(ev),
-      history: thread.slice(-12).map((m) => ({ role: m.role, text: m.text })),
-    },
-    20000,
-  );
+  return post<AssistantAnswer>("assistant", assistantBody(ev, thread, text, lang), ANSWER_TIMEOUT_MS);
 }
 
 /** One server-sent event out of a buffer, or undefined when it isn't complete yet. */
@@ -286,6 +294,55 @@ function nextEvent(buffer: string): { event: string; data: string; rest: string 
   return { event, data: data.join("\n"), rest: buffer.slice(end + 2) };
 }
 
+/** How a streamed answer ended: finished, or failed after showing some text or none. */
+type StreamOutcome = { kind: "done"; answer: AssistantAnswer } | { kind: "failed"; shown: boolean };
+
+/** Opens the streamed route; undefined when the server or a proxy can't stream. */
+async function openAssistantStream(body: unknown): Promise<ReadableStream<Uint8Array> | undefined> {
+  try {
+    const res = await fetch("/api/ai/assistant/stream", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "text/event-stream" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
+    });
+    const streams = res.ok && res.headers.get("content-type")?.includes("text/event-stream");
+    return streams ? (res.body ?? undefined) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Reads server-sent events: "text" carries the answer so far, then "done" or "error". */
+async function readAssistantStream(
+  stream: ReadableStream<Uint8Array>,
+  onText: (soFar: string) => void,
+): Promise<StreamOutcome> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let shown = false;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      for (let e = nextEvent(buffer); e; e = nextEvent(buffer)) {
+        buffer = e.rest;
+        if (e.event === "done") return { kind: "done", answer: JSON.parse(e.data) as AssistantAnswer };
+        if (e.event === "error") return { kind: "failed", shown };
+        if (e.event === "text") {
+          shown = true;
+          onText((JSON.parse(e.data) as { text: string }).text);
+        }
+      }
+    }
+  } catch {
+    // The connection dropped part-way.
+  }
+  return { kind: "failed", shown };
+}
+
 /**
  * The assistant's answer as it's written: `onText` gets the answer so far, word by word.
  * When streaming isn't available (an older server, a proxy that buffers), it asks the
@@ -299,49 +356,12 @@ export async function streamAssistantAnswer(
   onText: (soFar: string) => void,
 ): Promise<AssistantAnswer | undefined> {
   if (typeof window === "undefined" || !(await aiEnabled())) return undefined;
-  const body = {
-    text,
-    lang,
-    today: TODAY,
-    event: compactEvent(ev),
-    facts: eventFacts(ev),
-    history: thread.slice(-12).map((m) => ({ role: m.role, text: m.text })),
-  };
-  let res: Response | undefined;
-  try {
-    res = await fetch("/api/ai/assistant/stream", {
-      method: "POST",
-      headers: { "content-type": "application/json", accept: "text/event-stream" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(25000),
-    });
-  } catch {
-    res = undefined;
-  }
-  if (!res?.ok || !res.body || !res.headers.get("content-type")?.includes("text/event-stream"))
-    return askAssistant(ev, thread, text, lang);
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let shown = false;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      for (let e = nextEvent(buffer); e; e = nextEvent(buffer)) {
-        buffer = e.rest;
-        if (e.event === "text") {
-          shown = true;
-          onText((JSON.parse(e.data) as { text: string }).text);
-        } else if (e.event === "done") return JSON.parse(e.data) as AssistantAnswer;
-        else if (e.event === "error") return shown ? undefined : askAssistant(ev, thread, text, lang);
-      }
-    }
-  } catch {
-    // The connection dropped part-way; fall through.
-  }
-  return shown ? undefined : askAssistant(ev, thread, text, lang);
+  const stream = await openAssistantStream(assistantBody(ev, thread, text, lang));
+  if (!stream) return askAssistant(ev, thread, text, lang);
+  const outcome = await readAssistantStream(stream, onText);
+  if (outcome.kind === "done") return outcome.answer;
+  // Once words are on screen, asking again would replace them mid-sentence.
+  return outcome.shown ? undefined : askAssistant(ev, thread, text, lang);
 }
 
 // ---------------------------------------------------------------- plan notes

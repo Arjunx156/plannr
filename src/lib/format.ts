@@ -68,6 +68,13 @@ export function timeAgo(iso: string, now = Date.now()): string {
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
+/** "l"/"lakh" → 1,00,000; "cr"/"crore" → 1,00,00,000; "k"/"thousand" → 1,000; nothing → 1. */
+function unitMultiplier(unit: string): number {
+  if (unit.startsWith("l")) return 100_000;
+  if (unit.startsWith("c")) return 10_000_000;
+  return unit ? 1000 : 1;
+}
+
 /**
  * "2,40,000", "2.4L", "2.4 lakh", "85k" → rupees. Families write amounts every way; all of
  * them should work. Returns 0 for anything that isn't an amount.
@@ -78,6 +85,5 @@ export function parseAmount(text: string): number {
   if (!m) return 0;
   const n = Number(m[1]);
   const unit = m[2] ?? "";
-  const mult = unit.startsWith("l") ? 100000 : unit.startsWith("c") ? 10000000 : unit ? 1000 : 1;
-  return Math.round(n * mult);
+  return Math.round(n * unitMultiplier(unit));
 }
