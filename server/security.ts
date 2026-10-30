@@ -9,7 +9,9 @@ import type { Plugin } from "vite";
 export const CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
+  // Stylesheets only from Plannr; inline style attributes (bar widths, colours) are allowed, <style> blocks are not.
+  "style-src 'self'",
+  "style-src-attr 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
   "font-src 'self' data:",
   "connect-src 'self' https://api.open-meteo.com https://geocoding-api.open-meteo.com",

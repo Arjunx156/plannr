@@ -1,4 +1,5 @@
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -78,6 +79,14 @@ export const verification = pgTable(
   },
   (t) => [index("verification_identifier_idx").on(t.identifier)],
 );
+
+/** Better Auth's rate-limit counters, kept in the database so every server instance shares them. */
+export const rateLimit = pgTable("rate_limit", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});
 
 // ---------------------------------------------------------------- plans
 
@@ -289,6 +298,7 @@ export const schema = {
   session,
   account,
   verification,
+  rateLimit,
   events,
   members,
   invites,

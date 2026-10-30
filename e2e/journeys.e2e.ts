@@ -463,6 +463,17 @@ test.describe("accessibility and layout", () => {
     ).toBe(true);
   });
 
+  test("moving between screens is announced, and focus starts at the new content", async ({ page }) => {
+    await signInDemo(page);
+    await page.goto("/events/aarav-6");
+    await page.getByRole("link", { name: "Vendors", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Vendors", level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Vendors · Aarav's 6th birthday" }),
+    ).toBeAttached();
+    await expect(page.locator("#main")).toBeFocused();
+  });
+
   test("a shared page in another language says so, for screen readers", async ({ page }) => {
     await signInDemo(page);
     await page.goto("/preview/shifts/green-valley-mela");

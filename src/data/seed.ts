@@ -2,20 +2,10 @@ import { addDays, dateRange, dayMonth, demoShift, longDate, monthName, shortDate
 import { birthday } from "./demo/birthday";
 import { mela } from "./demo/mela";
 import { wedding } from "./demo/wedding";
+import { DEMO_USER, SEED_IDS, SEED_REVISION } from "./demoMeta";
 import type { EmptyEvent, NotificationItem, PastEvent, PlannrEvent } from "./types";
 
-/**
- * One signed-in planner, three live events in three roles: Ananya's elder sister and
- * co-planner on the wedding, Aarav's mother, and cultural secretary of Green Valley Society.
- */
-export const DEMO_USER = {
-  name: "Priya Menon",
-  firstName: "Priya",
-  initials: "PM",
-  plan: "Early access",
-  city: "Kochi, Kerala",
-  language: "English",
-};
+export { DEMO_USER, SEED_IDS, SEED_REVISION };
 
 const anniversary: EmptyEvent = {
   id: "amma-achan-35",
@@ -60,10 +50,6 @@ export function freshen<T>(value: T, days: number): T {
 export function seedEvents(today = TODAY): PlannrEvent[] {
   return freshen([wedding, birthday, mela, anniversary], demoShift(today));
 }
-
-export const SEED_IDS = [wedding.id, birthday.id, mela.id, anniversary.id];
-/** Bump when the sample events change, so returning demo visitors see the new ones. */
-export const SEED_REVISION = 5;
 
 /** Past events keep their real dates: they're history, and festivals happen when they happen. */
 export function pastEvents(): PastEvent[] {

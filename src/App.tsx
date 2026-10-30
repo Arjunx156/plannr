@@ -1,19 +1,17 @@
 import { lazy, type ReactNode, Suspense } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { RouteAnnouncer } from "./components/RouteAnnouncer";
 import { Logo, Spinner, Toasts } from "./components/ui";
 import { Landing } from "./pages/Landing";
 import { Birthdays, Community as CommunityGuide, HowItWorks, Pricing, Weddings } from "./pages/site/Guides";
 import { Privacy, Terms } from "./pages/site/Legal";
-import {
-  BudgetCalculator,
-  FestivalChecklist,
-  KeralaChecklist,
-  ShagunRegister,
-  ToolsIndex,
-} from "./pages/site/Tools";
+import { ToolsIndex } from "./pages/site/Tools";
+import { BudgetCalculator } from "./pages/site/tools/BudgetCalculator";
+import { FestivalChecklist, KeralaChecklist } from "./pages/site/tools/Checklists";
+import { ShagunRegister } from "./pages/site/tools/ShagunRegister";
 import { AccountSync } from "./store/account";
-import { useStore } from "./store/store";
+import { demoLoading, useStore } from "./store/store";
 
 // The landing page ships in the first bundle; every other screen loads when it is opened.
 const Intake = lazy(() => import("./pages/Intake").then((m) => ({ default: m.Intake })));
@@ -84,6 +82,7 @@ export function App() {
         </Routes>
       </Suspense>
       <Toasts />
+      <RouteAnnouncer />
       <AccountSync />
     </ErrorBoundary>
   );
@@ -93,7 +92,8 @@ export function App() {
 function Private({ children }: { children: ReactNode }) {
   const { state } = useStore();
   const { pathname } = useLocation();
-  if (state.session.signedIn) return children;
+  // The demo's sample events load when it opens; wait for them rather than show an empty plan.
+  if (state.session.signedIn) return demoLoading(state) ? <Loading /> : children;
   // A returning visitor may still have a session cookie; wait for the check before sending them away.
   if (state.account.status === "unknown") return <Loading />;
   return <Navigate to={`/signin?next=${pathname}`} replace />;

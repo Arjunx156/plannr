@@ -152,14 +152,18 @@ describe("readiness", () => {
 
   test("ticking a task moves it", () => {
     const before = personalReadiness(wedding, "2026-09-27");
-    const s = reducer(initialState(), { type: "toggleTask", eventId: wedding.id, taskId: "w1" });
+    const s = reducer(initialState(seedEvents()), { type: "toggleTask", eventId: wedding.id, taskId: "w1" });
     const after = personalReadiness(s.events[0] as PersonalEvent, "2026-09-27");
     expect(after.tasksDone).toBe(before.tasksDone + 1);
     expect(after.overdue).toBe(before.overdue - 1);
   });
 
   test("cutting décor drops the projection to ₹18,14,000", () => {
-    const s = reducer(initialState(), { type: "applyChange", eventId: wedding.id, change: "cut-decor" });
+    const s = reducer(initialState(seedEvents()), {
+      type: "applyChange",
+      eventId: wedding.id,
+      change: "cut-decor",
+    });
     expect(budgetTotals((s.events[0] as PersonalEvent).budget).projected).toBe(1814000);
   });
 });

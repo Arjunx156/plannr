@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { type App, createApp, spendAi } from "../server/app";
 import { signInMethods } from "../server/auth";
 import { createLocalDb } from "../server/db/local";
+import { rateLimit } from "../server/db/schema";
 import { seedEvents } from "../src/data/seed";
 import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 
@@ -542,6 +543,27 @@ describe("email codes", () => {
     expect(signInMethods({ ...live }).email).toBe(false);
     // Development keeps codes on, printed to the server log.
     expect(signInMethods({}).email).toBe(true);
+  });
+
+  test("in production, guest sign-ins are rate-limited through counters in the database", async () => {
+    const db = await createLocalDb();
+    const live = createApp({
+      db,
+      env: { PLANNR_ENV: "production", BETTER_AUTH_SECRET: "x".repeat(32), BETTER_AUTH_URL: ORIGIN },
+    });
+    const statuses: number[] = [];
+    for (let i = 0; i < 21; i++) {
+      const res = await live.request("/api/auth/sign-in/anonymous", {
+        method: "POST",
+        headers: { origin: ORIGIN, "content-type": "application/json", "x-forwarded-for": "203.0.113.7" },
+        body: "{}",
+      });
+      statuses.push(res.status);
+    }
+    expect(statuses.slice(0, 20).every((s) => s === 200)).toBe(true);
+    expect(statuses[20]).toBe(429);
+    // Shared by every server instance, because it lives in the database rather than in memory.
+    expect((await db.select().from(rateLimit)).length).toBeGreaterThan(0);
   });
 
   test("an address the mail service won't deliver to gets a clear message", async () => {

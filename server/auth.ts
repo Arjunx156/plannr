@@ -124,6 +124,8 @@ export function createAuth(db: Db, env: AuthEnv) {
     // a password-style sign-in; sending codes keeps the email plugin's own stricter limit.
     rateLimit: {
       enabled: isProduction(env),
+      // In the database, not in memory: serverless instances come and go, and each would start at zero.
+      storage: "database",
       window: 60,
       max: 200,
       customRules: { "/sign-in/anonymous": { window: 60, max: 20 } },

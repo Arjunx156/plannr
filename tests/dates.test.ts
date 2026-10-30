@@ -68,7 +68,7 @@ describe("a fresh demo", () => {
 
   test("assistant changes use the event's own dates", () => {
     setToday("2026-10-23");
-    const state = initialState();
+    const state = initialState(seedEvents());
     const ev = state.events[0] as PersonalEvent;
     const haldi = ev.functions.find((f) => f.id === "haldi");
     const msg = reply(ev, "Move the haldi to Friday", "dashboard");
@@ -83,13 +83,17 @@ describe("a fresh demo", () => {
 
 describe("saved state", () => {
   test("an older save keeps the planner's own events and reseeds the demo", () => {
-    const old = initialState();
+    const old = initialState(seedEvents());
     const mine = { ...old.events[3], id: "my-own-event", name: "Mine" } as (typeof old.events)[number];
     const saved = { ...old, version: 1, events: [...old.events, mine] } as unknown as Parameters<
       typeof migrate
     >[0];
     setToday("2026-10-23");
-    const next = migrate(saved);
+    const migrated = migrate(saved);
+    // The old samples are dropped and fetched afresh; the planner's own event stays meanwhile.
+    expect(migrated.seed).toBe(0);
+    expect(migrated.events.map((e) => e.id)).toEqual(["my-own-event"]);
+    const next = reducer(migrated, { type: "seedDemo", events: seedEvents() });
     expect(next.version).toBe(2);
     expect(next.demoShift).toBe(28);
     expect(next.events.find((e) => e.id === "my-own-event")?.name).toBe("Mine");
@@ -97,7 +101,7 @@ describe("saved state", () => {
   });
 
   test("a save from this week is kept as is", () => {
-    const state = reducer(initialState(), { type: "signIn" });
+    const state = reducer(initialState(seedEvents()), { type: "signIn" });
     expect(migrate(state)).toEqual({ ...state, toasts: [] });
   });
 });

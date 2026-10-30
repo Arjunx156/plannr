@@ -108,7 +108,7 @@ function Volunteers({ ev }: { ev: CommunityEvent }) {
                               {editable && (
                                 <button
                                   type="button"
-                                  className="text-xs text-muted hover:text-rust-ink"
+                                  className="icon-btn hover:text-rust-ink"
                                   aria-label={`Take ${n} off ${label}`}
                                   onClick={() => unassign(r.role, i, n)}
                                 >
@@ -122,7 +122,7 @@ function Volunteers({ ev }: { ev: CommunityEvent }) {
                             <span className="flex items-center gap-1">
                               {gap > 0 && free.length > 0 && (
                                 <select
-                                  className="rounded-md border border-line bg-surface px-1 py-0.5 text-xs"
+                                  className="min-h-6 rounded-md border border-line bg-surface px-1 py-0.5 text-xs"
                                   value=""
                                   aria-label={`Assign a volunteer to ${label}`}
                                   onChange={(e) =>
@@ -146,7 +146,7 @@ function Volunteers({ ev }: { ev: CommunityEvent }) {
                               )}
                               <button
                                 type="button"
-                                className="text-xs text-muted"
+                                className="icon-btn"
                                 aria-label={`Need one fewer for ${label}`}
                                 onClick={() => setNeed(r.role, i, slot.need - 1)}
                               >
@@ -155,7 +155,7 @@ function Volunteers({ ev }: { ev: CommunityEvent }) {
                               <span className="text-xs tabular text-muted">{slot.need}</span>
                               <button
                                 type="button"
-                                className="text-xs text-muted"
+                                className="icon-btn"
                                 aria-label={`Need one more for ${label}`}
                                 onClick={() => setNeed(r.role, i, slot.need + 1)}
                               >

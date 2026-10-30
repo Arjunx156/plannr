@@ -4,7 +4,7 @@ import { Logo, Spinner, usePageMeta } from "../../components/ui";
 import { ApiError, api } from "../../lib/api";
 import { shrinkImage } from "../../lib/images";
 import { type PublicKind, type PublicView, projectView } from "../../shared/public";
-import { useStore } from "../../store/store";
+import { demoLoading, useStore } from "../../store/store";
 import { viewPage } from "./views";
 
 /** /r/:token and friends: a shared page, loaded from the link's token. No account needed. */
@@ -86,6 +86,12 @@ export function PreviewPage() {
         }
       }
     : undefined;
+  if (!view && demoLoading(state))
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-paper">
+        <Spinner label="Loading" />
+      </div>
+    );
   if (!view)
     return (
       <Broken

@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# The workflow only reads the repository; nothing it runs can write to it.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -20,6 +24,8 @@ jobs:
         with:
           bun-version: 1.4.2
       - run: bun install --frozen-lockfile
+      # Fails on any known advisory of moderate severity or worse in the installed packages.
+      - run: bun audit --audit-level=moderate
       - run: bun x biome ci .
       - run: bun x tsc -b
       - run: bun run coverage

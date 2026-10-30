@@ -87,6 +87,19 @@
   ::selection {
     background: var(--color-cream);
   }
+  /* Focus moved to a screen's content on navigation; the content itself needs no ring. */
+  #main:focus {
+    outline: none;
+  }
+  /* People who ask their system for more contrast get darker secondary text and borders. */
+  @media (prefers-contrast: more) {
+    :root {
+      --color-muted: var(--color-body);
+      --color-faint: var(--color-body);
+      --color-line: var(--color-line-2);
+      --color-line-2: var(--color-muted);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -331,6 +344,21 @@
     min-height: 32px;
     padding: 0 12px;
     font-size: 13px;
+  }
+
+  /* a one-glyph button (✕, −, +) inside dense rows, still a 24px target (WCAG 2.2 target size) */
+  .icon-btn {
+    display: inline-grid;
+    place-items: center;
+    min-width: 24px;
+    min-height: 24px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+  .icon-btn:hover {
+    background: var(--color-sand-2);
+    color: var(--color-ink);
   }
 
   /* status pill: informs, never decorates */

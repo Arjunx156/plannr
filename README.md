@@ -47,7 +47,7 @@ history all work locally.
 | --- | --- |
 | `bun run dev` | App and API on http://localhost:5173 |
 | `bun test` | Unit and API tests, with the clock pinned to the demo story's day |
-| `bun run coverage` | The same tests with coverage; fails below 80% of lines or functions |
+| `bun run coverage` | The same tests with coverage; fails below 85% of lines or 80% of functions |
 | `bun run e2e` | Browser journeys and accessibility checks on desktop and phone sizes; Gemini is mocked |
 | `bun run ai:eval` | Checks the AI against real cases in English, Malayalam, Hindi and Tamil (needs a key) |
 | `bun run size` | Fails if the built JavaScript grows past its budget (run after a build) |
@@ -60,7 +60,8 @@ history all work locally.
 - **Browser**: React 19, React Router and Tailwind 4, built with Vite. Each tab and page is its own chunk.
   Plans are kept in a reducer that applies typed actions (`src/shared/engine.ts`); the same pure function runs
   on the server, which keeps the history.
-- **Server**: one Hono app (`server/app.ts`) on a Vercel function next to the Neon Postgres database, with
+- **Server**: one Hono app (`server/app.ts`, routes in `server/routes/`) on a Vercel function next to the Neon
+  Postgres database, with
   Drizzle for queries and Better Auth for Google and guest sign-in.
 - **AI**: Gemini through Plannr's own `/api/ai/*` routes. The key never reaches the browser; each route has a
   JSON response schema, a time budget, a fallback model and a daily allowance per person.
@@ -74,7 +75,7 @@ src/
   components/ shell, assistant, scanner, shared UI
   lib/        dates, money, intake parsing, ideas, CSV, the AI client
   data/       types and the demo events
-server/       API routes, prompts and sanitizers, auth, links, backups
+server/       API (routes/ by audience: public, AI, account, events), prompts and sanitizers, auth, links, backups
 tests/        unit and API tests (bun test)
 e2e/          browser journeys and accessibility checks (Playwright + axe)
 ```
@@ -83,15 +84,16 @@ e2e/          browser journeys and accessibility checks (Playwright + axe)
 
 | | |
 | --- | --- |
-| Tests | 174 unit and API tests; 140+ browser journeys on desktop and phone, including every brief requirement above |
-| Coverage | 86% of lines and 83% of functions in the code the unit tests load; CI fails below 80% |
-| Accessibility | axe checks for WCAG 2.1 AA on every main page in CI; skip link; keyboard paths for drag and drop; reduced motion respected; pages in four languages carry their `lang` |
-| Security | See [SECURITY.md](SECURITY.md): CSP and security headers, role checks on every write, cross-site write protection, expiring shared links, prompt-injection handling, encrypted backups |
-| Efficiency | Per-route code splitting with a size budget in CI; pre-rendered public pages; streamed AI answers; the server sits in the same region as the database |
+| Tests | 195 unit and API tests (`tests/`); 142 browser journeys on desktop and phone (`e2e/`), including every brief requirement above |
+| Coverage | 90% of lines and 86% of functions in the code the unit tests load; CI fails below 85% of lines or 80% of functions (`scripts/coverage-gate.ts`) |
+| Accessibility | axe checks for WCAG 2.2 AA and axe best practices on every main page, desktop and phone; every journey also fails on a console error. Skip links; screen changes announced, with focus moved to the new content; 24px touch targets; keyboard paths for drag and drop; reduced motion and higher contrast honoured; pages in four languages carry their `lang`. Lighthouse accessibility 100 |
+| Security | See [SECURITY.md](SECURITY.md): CSP and security headers (no inline scripts or `<style>`), role checks on every write, cross-site write protection, expiring shared links, sign-in rate limits shared across servers, prompt-injection handling, encrypted backups. `bun audit` and CodeQL run in CI |
+| Efficiency | Per-route code splitting with a size budget in CI; the demo's sample data loads only when the demo opens; weight-only font cuts, preloaded; pre-rendered public pages (Lighthouse best practices and SEO 100, total blocking time around 100 ms); streamed AI answers; the server sits in the same region as the database; queries are indexed and a plan list is one join |
 | Lint and types | Biome and strict TypeScript, both clean, both in CI |
 
-CI (`.github/workflows/ci.yml`) runs lint, types, coverage, the build, the size budget, pre-rendering and the
-browser journeys on every push to `main`. Every Monday `.github/workflows/dependencies.yml` posts outdated
+CI (`.github/workflows/ci.yml`) runs the dependency audit, lint, types, coverage, the build, the size budget,
+pre-rendering and the browser journeys on every push to `main`; `.github/workflows/codeql.yml` scans the code for
+security problems. Every Monday `.github/workflows/dependencies.yml` posts outdated
 packages and the security audit to one issue ("Weekly dependency report"); updates are made on `main`.
 
 ## How AI is wired

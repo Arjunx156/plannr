@@ -8,7 +8,7 @@ import {
   useReducer,
   useRef,
 } from "react";
-import { DEMO_USER, SEED_IDS, SEED_REVISION, seedEvents } from "../data/seed";
+import { DEMO_USER, SEED_IDS, SEED_REVISION } from "../data/demoMeta";
 import type { PlannrEvent, Profile } from "../data/types";
 import { demoShift } from "../lib/dates";
 import { initials } from "../lib/format";
@@ -74,7 +74,10 @@ export interface AppState {
   version: 2;
   /** Days the demo story was moved when it was seeded; a new week reseeds it. */
   demoShift: number;
-  /** Which sample data the demo events were made from; new samples replace old ones. */
+  /**
+   * Which sample data the demo events were made from; new samples replace old ones. 0 until the
+   * samples have loaded: they're fetched only when someone opens the demo.
+   */
   seed?: number;
   /** "demo": everything stays in this browser. "account": plans live on the server and sync. */
   mode: "demo" | "account";
@@ -101,6 +104,8 @@ export type Action =
   | { type: "updateSession"; patch: Partial<Session> }
   | { type: "signOut" }
   | { type: "resetDemo" }
+  /** The demo's sample events, once they've loaded. */
+  | { type: "seedDemo"; events: PlannrEvent[] }
   | { type: "addEvent"; event: PlannrEvent; remote?: RemoteMeta }
   | { type: "methods"; methods: SignInMethods }
   | { type: "accountStatus"; status: Account["status"] }
@@ -136,18 +141,19 @@ export function sessionFromUser(user: AccountUser): Omit<Session, "city" | "lang
   };
 }
 
-export function initialState(): AppState {
+/** A fresh state. The demo's sample events are passed in once loaded; tests pass them directly. */
+export function initialState(demo: PlannrEvent[] = []): AppState {
   return {
     version: 2,
     demoShift: demoShift(),
-    seed: SEED_REVISION,
+    seed: demo.length ? SEED_REVISION : 0,
     mode: "demo",
     account: { status: "unknown" },
     remote: {},
     sync: { pending: 0, offline: false },
     localImports: [],
     session: { signedIn: false, ...DEMO_USER },
-    events: seedEvents(),
+    events: demo,
     draft: freshDraft(),
     notificationsRead: false,
     activity: [],
@@ -187,8 +193,14 @@ export function migrate(saved: SavedState): AppState {
   if (state.mode === "account") return { ...state, demoShift: fresh.demoShift };
   if (saved.version === 2 && saved.demoShift === fresh.demoShift && saved.seed === SEED_REVISION)
     return state;
+  // Older samples, or an earlier week: keep the planner's own events and load the samples afresh.
   const own = saved.events.filter((e) => !SEED_IDS.includes(e.id));
-  return { ...state, demoShift: fresh.demoShift, seed: SEED_REVISION, events: [...fresh.events, ...own] };
+  return { ...state, demoShift: fresh.demoShift, seed: 0, events: own };
+}
+
+/** The demo is open but its sample events haven't arrived yet. */
+export function demoLoading(state: AppState): boolean {
+  return state.mode === "demo" && state.session.signedIn && state.seed !== SEED_REVISION;
 }
 
 function mapEvent(state: AppState, id: string, fn: (ev: PlannrEvent) => PlannrEvent): AppState {
@@ -206,6 +218,11 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, session: { ...state.session, signedIn: false } };
     case "resetDemo":
       return { ...initialState(), account: state.account, session: { ...DEMO_USER, signedIn: true } };
+    case "seedDemo": {
+      if (state.mode !== "demo") return state;
+      const own = state.events.filter((e) => !SEED_IDS.includes(e.id));
+      return { ...state, seed: SEED_REVISION, demoShift: demoShift(), events: [...action.events, ...own] };
+    }
     case "addEvent":
       return {
         ...state,
@@ -337,6 +354,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     [sync],
   );
+
+  // The demo's sample events load when someone opens the demo, never for a visitor who doesn't.
+  const loadDemo = demoLoading(state);
+  useEffect(() => {
+    if (!loadDemo) return;
+    let live = true;
+    import("../data/seed").then((m) => live && raw({ type: "seedDemo", events: m.seedEvents() }));
+    return () => {
+      live = false;
+    };
+  }, [loadDemo]);
 
   useEffect(() => {
     const online = () => sync.flushAll();

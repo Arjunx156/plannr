@@ -35,10 +35,10 @@ export async function signInGuest(page: Page, name: string) {
   await expect(page).toHaveURL(/\/events$/);
 }
 
-/** Fails on serious or critical WCAG A/AA problems. */
+/** Fails on serious or critical WCAG 2.2 A/AA problems, and on serious breaches of axe's best practices. */
 export async function expectAccessible(page: Page) {
   const { violations } = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa", "best-practice"])
     .analyze();
   const serious = violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(
@@ -51,6 +51,10 @@ export async function expectNoSideScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0);
 }
 
+/**
+ * Every test fails on a page error or a console error. That includes content security policy
+ * violations, which the browser reports as console errors, so the built pages' CSP is checked too.
+ */
 export const test = base.extend<{ errors: string[] }>({
   errors: [
     async ({ page }, use) => {
