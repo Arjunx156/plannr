@@ -1,18 +1,18 @@
 import { type FormEvent, useState } from "react";
-import { Field, Modal } from "../../../components/ui";
-import type { PayMethod, Payment, PersonalEvent } from "../../../data/types";
+import { Field, Modal, TextField } from "../../../components/ui";
+import type { PayMethod, Payment, PersonalEvent, Vendor } from "../../../data/types";
 import { addDays, shortDate, TODAY } from "../../../lib/dates";
 import { inr } from "../../../lib/format";
 import { list } from "../../../shared/records";
 import { toast, useStore } from "../../../store/store";
-import { newId, parseAmount, QrCode, Section, upiLink } from "../common";
+import { CategorySelect, newId, parseAmount, QrCode, Section, upiLink, WhatForAmount } from "../common";
 import { METHOD_LABEL } from "./shared";
 
 /** The payment schedule: what is due when, with UPI links and marking as paid. */
 export function Payments({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
   const { dispatch } = useStore();
   const [paying, setPaying] = useState<Payment | null>(null);
-  const [qr, setQr] = useState<{ link: string; label: string } | null>(null);
+  const [qr, setQr] = useState<UpiQr | null>(null);
   const [adding, setAdding] = useState(false);
   const [showPaid, setShowPaid] = useState(false);
   const payments = list(ev, "payments")
@@ -41,78 +41,17 @@ export function Payments({ ev, editable }: { ev: PersonalEvent; editable: boolea
       }
     >
       <ul className="m-0 flex list-none flex-col p-0">
-        {[...open, ...(showPaid ? paid : [])].map((p) => {
-          const v = vendor(p);
-          const lateBy = !p.paid && p.date < TODAY;
-          return (
-            <li
-              key={p.id}
-              className="flex flex-wrap items-center gap-3 border-t border-sand-2 py-2.5 text-sm first:border-0"
-            >
-              <span
-                className={`w-16 shrink-0 text-xs tabular ${lateBy ? "font-semibold text-rust-ink" : "text-muted"}`}
-              >
-                {shortDate(p.date)}
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="font-medium">{p.label}</span>
-                <span className="text-xs text-muted">
-                  {p.paid
-                    ? `Paid${p.paidOn ? ` ${shortDate(p.paidOn)}` : ""}${p.method ? ` · ${METHOD_LABEL[p.method]}` : ""}${p.by ? ` · ${p.by}` : ""}`
-                    : lateBy
-                      ? "Overdue"
-                      : p.estimate
-                        ? "Estimate"
-                        : (p.by ?? "")}
-                </span>
-              </span>
-              <span className="tabular font-semibold">{inr(p.amount)}</span>
-              {p.paid ? (
-                editable && (
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() =>
-                      dispatch({ type: "markPaid", eventId: ev.id, paymentId: p.id, paid: false })
-                    }
-                  >
-                    Not paid
-                  </button>
-                )
-              ) : (
-                <span className="flex flex-wrap gap-1.5">
-                  {v?.upi && (
-                    <>
-                      <a
-                        href={upiLink(v.upi, v.name || v.category, p.amount, p.label)}
-                        className="btn btn-ghost btn-sm md:hidden"
-                      >
-                        Pay with UPI
-                      </a>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm max-md:hidden"
-                        onClick={() =>
-                          setQr({
-                            link: upiLink(v.upi ?? "", v.name || v.category, p.amount, p.label),
-                            label: `${p.label} · ${inr(p.amount)} to ${v.name || v.upi}`,
-                          })
-                        }
-                      >
-                        UPI QR
-                      </button>
-                    </>
-                  )}
-                  {editable && (
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPaying(p)}>
-                      Mark paid
-                    </button>
-                  )}
-                </span>
-              )}
-            </li>
-          );
-        })}
+        {[...open, ...(showPaid ? paid : [])].map((p) => (
+          <PaymentRow
+            key={p.id}
+            payment={p}
+            vendor={vendor(p)}
+            editable={editable}
+            onPay={() => setPaying(p)}
+            onUnpay={() => dispatch({ type: "markPaid", eventId: ev.id, paymentId: p.id, paid: false })}
+            onQr={setQr}
+          />
+        ))}
         {!open.length && !showPaid && (
           <li className="text-sm text-muted">Nothing due. Everything scheduled is paid.</li>
         )}
@@ -133,6 +72,96 @@ export function Payments({ ev, editable }: { ev: PersonalEvent; editable: boolea
         <AddPayment ev={ev} onDone={() => setAdding(false)} />
       </Modal>
     </Section>
+  );
+}
+
+/** The line under a payment's name: when and how it was paid, or that it's overdue or an estimate. */
+function paymentNote(p: Payment, late: boolean): string {
+  if (p.paid) {
+    const on = p.paidOn ? ` ${shortDate(p.paidOn)}` : "";
+    const how = p.method ? ` · ${METHOD_LABEL[p.method]}` : "";
+    return `Paid${on}${how}${p.by ? ` · ${p.by}` : ""}`;
+  }
+  if (late) return "Overdue";
+  return p.estimate ? "Estimate" : (p.by ?? "");
+}
+
+type UpiQr = { link: string; label: string };
+
+/** One scheduled payment: its date, what it's for, and paying it by UPI or marking it paid. */
+function PaymentRow({
+  payment: p,
+  vendor: v,
+  editable,
+  onPay,
+  onUnpay,
+  onQr,
+}: {
+  payment: Payment;
+  vendor: Vendor | undefined;
+  editable: boolean;
+  onPay: () => void;
+  onUnpay: () => void;
+  onQr: (qr: UpiQr) => void;
+}) {
+  const late = !p.paid && p.date < TODAY;
+  return (
+    <li className="flex flex-wrap items-center gap-3 border-t border-sand-2 py-2.5 text-sm first:border-0">
+      <span
+        className={`w-16 shrink-0 text-xs tabular ${late ? "font-semibold text-rust-ink" : "text-muted"}`}
+      >
+        {shortDate(p.date)}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="font-medium">{p.label}</span>
+        <span className="text-xs text-muted">{paymentNote(p, late)}</span>
+      </span>
+      <span className="tabular font-semibold">{inr(p.amount)}</span>
+      {p.paid && editable && (
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onUnpay}>
+          Not paid
+        </button>
+      )}
+      {!p.paid && (
+        <span className="flex flex-wrap gap-1.5">
+          {v?.upi && <UpiButtons upi={v.upi} vendor={v} payment={p} onQr={onQr} />}
+          {editable && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onPay}>
+              Mark paid
+            </button>
+          )}
+        </span>
+      )}
+    </li>
+  );
+}
+
+/** A UPI deep link on phones; a QR to scan with a phone on larger screens. */
+function UpiButtons({
+  upi,
+  vendor: v,
+  payment: p,
+  onQr,
+}: {
+  upi: string;
+  vendor: Vendor;
+  payment: Payment;
+  onQr: (qr: UpiQr) => void;
+}) {
+  const link = upiLink(upi, v.name || v.category, p.amount, p.label);
+  return (
+    <>
+      <a href={link} className="btn btn-ghost btn-sm md:hidden">
+        Pay with UPI
+      </a>
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm max-md:hidden"
+        onClick={() => onQr({ link, label: `${p.label} · ${inr(p.amount)} to ${v.name || upi}` })}
+      >
+        UPI QR
+      </button>
+    </>
   );
 }
 
@@ -249,35 +278,22 @@ function AddPayment({ ev, onDone }: { ev: PersonalEvent; onDone: () => void }) {
   };
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
-      <Field label="What for" htmlFor="pay-label">
-        <input
-          id="pay-label"
-          className="field"
-          value={form.label}
-          onChange={(e) => setForm({ ...form, label: e.target.value })}
-          placeholder="Florist advance"
-        />
-      </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Amount (₹)" htmlFor="pay-amount">
-          <input
-            id="pay-amount"
-            className="field"
-            inputMode="decimal"
-            value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
-          />
-        </Field>
-        <Field label="Due" htmlFor="pay-date">
-          <input
+      <WhatForAmount
+        id="pay"
+        label={form.label}
+        amount={form.amount}
+        placeholder="Florist advance"
+        onChange={(patch) => setForm({ ...form, ...patch })}
+        beside={
+          <TextField
             id="pay-date"
-            type="date"
-            className="field"
+            label="Due"
             value={form.date}
-            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            onChange={(date) => setForm({ ...form, date })}
+            type="date"
           />
-        </Field>
-      </div>
+        }
+      />
       <Field label="Vendor" htmlFor="pay-vendor">
         <select
           id="pay-vendor"
@@ -293,25 +309,14 @@ function AddPayment({ ev, onDone }: { ev: PersonalEvent; onDone: () => void }) {
           ))}
         </select>
       </Field>
-      <Field
-        label="Budget category"
-        htmlFor="pay-cat"
+      <CategorySelect
+        id="pay-cat"
+        categories={ev.budget.categories}
+        value={form.categoryId}
+        onChange={(categoryId) => setForm({ ...form, categoryId })}
+        none={form.vendorId ? "The vendor's category" : "None"}
         hint="Marking it paid adds it to this category's spending."
-      >
-        <select
-          id="pay-cat"
-          className="field"
-          value={form.categoryId}
-          onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-        >
-          <option value="">{form.vendorId ? "The vendor's category" : "None"}</option>
-          {ev.budget.categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </Field>
+      />
       <button type="submit" className="btn btn-primary self-start" disabled={!form.label.trim() || !amount}>
         Schedule {amount ? inr(amount) : ""}
       </button>

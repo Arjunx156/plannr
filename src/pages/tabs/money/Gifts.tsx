@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Field, Modal, Pill } from "../../../components/ui";
+import { Field, Modal, Pill, TextField } from "../../../components/ui";
 import type { Gift, PersonalEvent } from "../../../data/types";
 import { inr, plural } from "../../../lib/format";
 import { giftTotals } from "../../../shared/derive";
@@ -100,15 +100,13 @@ export function Gifts({ ev, editable }: { ev: PersonalEvent; editable: boolean }
       {editable &&
         (adding ? (
           <form onSubmit={add} className="grid gap-2 sm:grid-cols-[1fr_1fr_120px_1fr_auto] sm:items-end">
-            <Field label="From" htmlFor="gift-from">
-              <input
-                id="gift-from"
-                className="field"
-                value={form.from}
-                onChange={(e) => setForm({ ...form, from: e.target.value })}
-                placeholder="Name"
-              />
-            </Field>
+            <TextField
+              id="gift-from"
+              label="From"
+              value={form.from}
+              onChange={(from) => setForm({ ...form, from })}
+              placeholder="Name"
+            />
             <Field label="Household" htmlFor="gift-hh">
               <select
                 id="gift-hh"
@@ -124,24 +122,20 @@ export function Gifts({ ev, editable }: { ev: PersonalEvent; editable: boolean }
                 ))}
               </select>
             </Field>
-            <Field label="Cash (₹)" htmlFor="gift-amount">
-              <input
-                id="gift-amount"
-                className="field"
-                inputMode="decimal"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-              />
-            </Field>
-            <Field label="Gift" htmlFor="gift-item">
-              <input
-                id="gift-item"
-                className="field"
-                value={form.item}
-                onChange={(e) => setForm({ ...form, item: e.target.value })}
-                placeholder="Silver lamp"
-              />
-            </Field>
+            <TextField
+              id="gift-amount"
+              label="Cash (₹)"
+              value={form.amount}
+              onChange={(amount) => setForm({ ...form, amount })}
+              inputMode="decimal"
+            />
+            <TextField
+              id="gift-item"
+              label="Gift"
+              value={form.item}
+              onChange={(item) => setForm({ ...form, item })}
+              placeholder="Silver lamp"
+            />
             <button
               type="submit"
               className="btn btn-primary btn-sm h-10"

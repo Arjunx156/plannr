@@ -6,7 +6,7 @@ import { plural } from "../../../lib/format";
 import { functionsOf, list } from "../../../shared/records";
 import { toast, useStore } from "../../../store/store";
 import { newId, ShareLink } from "../common";
-import { FunctionPicker, inviteMessage, phoneDigits } from "./shared";
+import { FunctionPicker, inviteMessage, PeopleAndSide, phoneDigits } from "./shared";
 
 /** Adds one household by hand. */
 const MEAL_LABEL: Record<Meal, string> = { veg: "Vegetarian", nonveg: "Non-veg", jain: "Jain" };
@@ -71,31 +71,15 @@ export function AddHousehold({
             placeholder="Menon family, Thrissur"
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="People" htmlFor="hh-count">
-            <input
-              id="hh-count"
-              className="field"
-              inputMode="numeric"
-              value={count}
-              onChange={(e) => setCount(e.target.value.replace(/\D/g, ""))}
-            />
-          </Field>
-          <Field label="Side" htmlFor="hh-side">
-            <input
-              id="hh-side"
-              className="field"
-              list="hh-sides"
-              value={side}
-              onChange={(e) => setSide(e.target.value)}
-            />
-            <datalist id="hh-sides">
-              {sides.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
-          </Field>
-        </div>
+        <PeopleAndSide
+          id="hh"
+          label="People"
+          count={count}
+          onCount={setCount}
+          side={side}
+          onSide={setSide}
+          sides={sides}
+        />
         <Field label="WhatsApp number (optional)" htmlFor="hh-phone">
           <input
             id="hh-phone"
@@ -287,31 +271,15 @@ function HouseholdForm({
         <Field label="Name" htmlFor="hs-name">
           <input id="hs-name" className="field" value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="People invited" htmlFor="hs-expected">
-            <input
-              id="hs-expected"
-              className="field"
-              inputMode="numeric"
-              value={expected}
-              onChange={(e) => setExpected(e.target.value.replace(/\D/g, ""))}
-            />
-          </Field>
-          <Field label="Side" htmlFor="hs-side">
-            <input
-              id="hs-side"
-              className="field"
-              list="hs-sides"
-              value={side}
-              onChange={(e) => setSide(e.target.value)}
-            />
-            <datalist id="hs-sides">
-              {sides.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
-          </Field>
-        </div>
+        <PeopleAndSide
+          id="hs"
+          label="People invited"
+          count={expected}
+          onCount={setExpected}
+          side={side}
+          onSide={setSide}
+          sides={sides}
+        />
         <Field label="WhatsApp number" htmlFor="hs-phone">
           <input
             id="hs-phone"

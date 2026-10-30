@@ -1,3 +1,4 @@
+import { Field } from "../../../components/ui";
 import type { FunctionDay, Household, PlannrEvent } from "../../../data/types";
 
 /** The WhatsApp invitation for one household, with their RSVP link. */
@@ -52,3 +53,53 @@ export const phoneDigits = (raw: string) => {
   if (!d) return undefined;
   return d.length === 10 ? `91${d}` : d;
 };
+
+/**
+ * How many people a household brings and which side they're from, with the sides already in
+ * use offered as suggestions. Ids are prefixed with `id` so two forms can share a page.
+ */
+export function PeopleAndSide({
+  id,
+  label,
+  count,
+  onCount,
+  side,
+  onSide,
+  sides,
+}: {
+  id: string;
+  label: string;
+  count: string;
+  onCount: (count: string) => void;
+  side: string;
+  onSide: (side: string) => void;
+  sides: string[];
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <Field label={label} htmlFor={`${id}-count`}>
+        <input
+          id={`${id}-count`}
+          className="field"
+          inputMode="numeric"
+          value={count}
+          onChange={(e) => onCount(e.target.value.replace(/\D/g, ""))}
+        />
+      </Field>
+      <Field label="Side" htmlFor={`${id}-side`}>
+        <input
+          id={`${id}-side`}
+          className="field"
+          list={`${id}-sides`}
+          value={side}
+          onChange={(e) => onSide(e.target.value)}
+        />
+        <datalist id={`${id}-sides`}>
+          {sides.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+      </Field>
+    </div>
+  );
+}

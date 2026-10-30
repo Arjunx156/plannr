@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Field, Modal } from "../../../components/ui";
+import { Modal, TextField } from "../../../components/ui";
 import type { FunctionDay, PlannrEvent, RunItem } from "../../../data/types";
 import { clock, nowAndNext, runsheetFor } from "../../../shared/derive";
 import { toast, useStore } from "../../../store/store";
@@ -80,54 +80,16 @@ export function RunSheet({
         </div>
       )}
       <ol className="m-0 flex list-none flex-col p-0">
-        {items.map((r) => {
-          const isNow = live && r.id === current?.id;
-          return (
-            <li
-              key={r.id}
-              className={`grid grid-cols-[24px_64px_minmax(0,1fr)_auto] items-start gap-2 border-t border-sand-2 py-2.5 text-sm first:border-0 ${isNow ? "bg-peacock-tint" : ""}`}
-            >
-              <input
-                type="checkbox"
-                aria-label={`${r.title} done`}
-                checked={!!r.done}
-                disabled={!editable}
-                onChange={(e) => done(r, e.target.checked)}
-                className="mt-0.5 h-4 w-4"
-              />
-              <span className={`tabular ${r.done ? "text-muted line-through" : "font-semibold"}`}>
-                {clock(r.time)}
-              </span>
-              <span className="flex min-w-0 flex-col">
-                <span className={r.done ? "text-muted line-through" : ""}>{r.title}</span>
-                {(r.owner || r.note) && (
-                  <span className="text-xs text-muted">
-                    {r.owner}
-                    {r.owner && r.phone && (
-                      <>
-                        {" · "}
-                        <a href={`tel:${r.phone}`} className="link">
-                          call
-                        </a>
-                      </>
-                    )}
-                    {r.note ? `${r.owner ? " · " : ""}${r.note}` : ""}
-                  </span>
-                )}
-              </span>
-              {editable && (
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  aria-label={`Edit ${r.title}`}
-                  onClick={() => setEditing(r)}
-                >
-                  Edit
-                </button>
-              )}
-            </li>
-          );
-        })}
+        {items.map((r) => (
+          <RunRow
+            key={r.id}
+            item={r}
+            now={live && r.id === current?.id}
+            editable={editable}
+            onDone={(checked) => done(r, checked)}
+            onEdit={() => setEditing(r)}
+          />
+        ))}
         {!items.length && (
           <li className="text-sm text-muted">
             Nothing on the run sheet for {fn.label} yet. Add the timings and who's in charge of each.
@@ -150,6 +112,72 @@ export function RunSheet({
         )}
       </Modal>
     </Section>
+  );
+}
+
+/** Who's in charge (with a call link when there's a number), and any note. */
+function RunOwner({ item: r }: { item: RunItem }) {
+  if (!r.owner && !r.note) return null;
+  return (
+    <span className="text-xs text-muted">
+      {r.owner}
+      {r.owner && r.phone && (
+        <>
+          {" · "}
+          <a href={`tel:${r.phone}`} className="link">
+            call
+          </a>
+        </>
+      )}
+      {r.note ? `${r.owner ? " · " : ""}${r.note}` : ""}
+    </span>
+  );
+}
+
+/** One run-sheet item: tick it off, see who runs it; the one happening now is highlighted. */
+function RunRow({
+  item: r,
+  now,
+  editable,
+  onDone,
+  onEdit,
+}: {
+  item: RunItem;
+  now: boolean;
+  editable: boolean;
+  onDone: (done: boolean) => void;
+  onEdit: () => void;
+}) {
+  return (
+    <li
+      className={`grid grid-cols-[24px_64px_minmax(0,1fr)_auto] items-start gap-2 border-t border-sand-2 py-2.5 text-sm first:border-0 ${now ? "bg-peacock-tint" : ""}`}
+    >
+      <input
+        type="checkbox"
+        aria-label={`${r.title} done`}
+        checked={!!r.done}
+        disabled={!editable}
+        onChange={(e) => onDone(e.target.checked)}
+        className="mt-0.5 h-4 w-4"
+      />
+      <span className={`tabular ${r.done ? "text-muted line-through" : "font-semibold"}`}>
+        {clock(r.time)}
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className={r.done ? "text-muted line-through" : ""}>{r.title}</span>
+        <RunOwner item={r} />
+      </span>
+      {editable && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          aria-label={`Edit ${r.title}`}
+          onClick={onEdit}
+        >
+          Edit
+        </button>
+      )}
+    </li>
   );
 }
 
@@ -191,52 +219,42 @@ function RunItemForm({
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
       <div className="grid grid-cols-[120px_1fr] gap-3">
-        <Field label="Time" htmlFor="ri-time">
-          <input
-            id="ri-time"
-            type="time"
-            className="field"
-            value={form.time}
-            onChange={(e) => setForm({ ...form, time: e.target.value })}
-          />
-        </Field>
-        <Field label="What happens" htmlFor="ri-title">
-          <input
-            id="ri-title"
-            className="field"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="Baraat arrives"
-          />
-        </Field>
+        <TextField
+          id="ri-time"
+          label="Time"
+          value={form.time}
+          onChange={(time) => setForm({ ...form, time })}
+          type="time"
+        />
+        <TextField
+          id="ri-title"
+          label="What happens"
+          value={form.title}
+          onChange={(title) => setForm({ ...form, title })}
+          placeholder="Baraat arrives"
+        />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Who's in charge" htmlFor="ri-owner">
-          <input
-            id="ri-owner"
-            className="field"
-            value={form.owner}
-            onChange={(e) => setForm({ ...form, owner: e.target.value })}
-          />
-        </Field>
-        <Field label="Their phone" htmlFor="ri-phone">
-          <input
-            id="ri-phone"
-            className="field"
-            inputMode="tel"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          />
-        </Field>
-      </div>
-      <Field label="Note" htmlFor="ri-note">
-        <input
-          id="ri-note"
-          className="field"
-          value={form.note}
-          onChange={(e) => setForm({ ...form, note: e.target.value })}
+        <TextField
+          id="ri-owner"
+          label="Who's in charge"
+          value={form.owner}
+          onChange={(owner) => setForm({ ...form, owner })}
         />
-      </Field>
+        <TextField
+          id="ri-phone"
+          label="Their phone"
+          value={form.phone}
+          onChange={(phone) => setForm({ ...form, phone })}
+          inputMode="tel"
+        />
+      </div>
+      <TextField
+        id="ri-note"
+        label="Note"
+        value={form.note}
+        onChange={(note) => setForm({ ...form, note })}
+      />
       <span className="flex gap-2">
         <button type="submit" className="btn btn-primary" disabled={!form.title.trim()}>
           Save

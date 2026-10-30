@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Field } from "../../../components/ui";
+import { TextField } from "../../../components/ui";
 import { toCsv } from "../../../lib/csv";
 import { inr, parseAmount } from "../../../lib/format";
 import { CallToAction, SitePage } from "../Layout";
@@ -59,43 +59,35 @@ export function ShagunRegister() {
         onSubmit={add}
         className="grid gap-3 rounded-2xl border border-line bg-surface p-5 sm:grid-cols-[1.4fr_1fr_1.2fr_1fr_auto] sm:items-end"
       >
-        <Field label="From" htmlFor="sg-from">
-          <input
-            id="sg-from"
-            className="field"
-            value={form.from}
-            onChange={(e) => setForm({ ...form, from: e.target.value })}
-            placeholder="Menon family"
-          />
-        </Field>
-        <Field label="Amount" htmlFor="sg-amount">
-          <input
-            id="sg-amount"
-            className="field"
-            inputMode="decimal"
-            value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
-            placeholder="1,001"
-          />
-        </Field>
-        <Field label="Gift" htmlFor="sg-gift">
-          <input
-            id="sg-gift"
-            className="field"
-            value={form.gift}
-            onChange={(e) => setForm({ ...form, gift: e.target.value })}
-            placeholder="Silver lamp"
-          />
-        </Field>
-        <Field label="Side" htmlFor="sg-side">
-          <input
-            id="sg-side"
-            className="field"
-            value={form.side}
-            onChange={(e) => setForm({ ...form, side: e.target.value })}
-            placeholder="Bride's side"
-          />
-        </Field>
+        <TextField
+          id="sg-from"
+          label="From"
+          value={form.from}
+          onChange={(from) => setForm({ ...form, from })}
+          placeholder="Menon family"
+        />
+        <TextField
+          id="sg-amount"
+          label="Amount"
+          value={form.amount}
+          onChange={(amount) => setForm({ ...form, amount })}
+          inputMode="decimal"
+          placeholder="1,001"
+        />
+        <TextField
+          id="sg-gift"
+          label="Gift"
+          value={form.gift}
+          onChange={(gift) => setForm({ ...form, gift })}
+          placeholder="Silver lamp"
+        />
+        <TextField
+          id="sg-side"
+          label="Side"
+          value={form.side}
+          onChange={(side) => setForm({ ...form, side })}
+          placeholder="Bride's side"
+        />
         <button type="submit" className="btn btn-primary h-10" disabled={!form.from.trim()}>
           Add
         </button>

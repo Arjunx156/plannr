@@ -2,9 +2,10 @@ import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router";
 import { useEditable } from "../../components/tasks";
 import { Field, Modal, Pill } from "../../components/ui";
-import type { FunctionDay, PlannrEvent } from "../../data/types";
+import type { FunctionDay, PlannrEvent, Task } from "../../data/types";
 import { addDays, daysBetween, longDate } from "../../lib/dates";
 import { plural } from "../../lib/format";
+import type { EventAction } from "../../shared/engine";
 import { functionsOf, list } from "../../shared/records";
 import { toast, useStore } from "../../store/store";
 import { newId, Section, TabPage } from "./common";
@@ -122,6 +123,85 @@ function Functions({ ev, editable }: { ev: PlannrEvent; editable: boolean }) {
   );
 }
 
+type FunctionFields = Omit<FunctionDay, "id" | "capacity" | "private"> & {
+  capacity: number;
+  private: boolean;
+};
+
+/** The function as saved: text trimmed, and blank optional fields left out rather than stored empty. */
+function functionRecord(id: string, f: FunctionFields): FunctionDay {
+  const optional = (value: string | undefined) => value?.trim() || undefined;
+  const record: FunctionDay = { id, label: f.label.trim(), date: f.date };
+  const time = optional(f.time);
+  const place = optional(f.place);
+  const address = optional(f.address);
+  const dress = optional(f.dress);
+  return {
+    ...record,
+    ...(time && { time }),
+    ...(place && { place }),
+    ...(address && { address }),
+    ...(dress && { dress }),
+    ...(f.capacity > 0 && { capacity: f.capacity }),
+    ...(f.private && { private: true }),
+  };
+}
+
+/** Saving a function: the record itself, and its open tasks moved by `moveBy` days. */
+function saveFunctionActions(
+  eventId: string,
+  fn: FunctionDay | undefined,
+  record: FunctionDay,
+  tasks: Task[],
+  moveBy: number,
+): EventAction[] {
+  const saved: EventAction = fn
+    ? {
+        type: "updateRecord",
+        eventId,
+        coll: "functions",
+        id: fn.id,
+        // An edit that unticks "family only" has to clear the flag, not just leave it out.
+        patch: { ...record, private: !!record.private },
+      }
+    : { type: "addRecord", eventId, coll: "functions", record };
+  if (!moveBy) return [saved];
+  return [
+    saved,
+    ...tasks.map(
+      (t): EventAction => ({
+        type: "updateTask",
+        eventId,
+        taskId: t.id,
+        patch: { due: addDays(t.due, moveBy) },
+      }),
+    ),
+  ];
+}
+
+/** Removing a function also takes it off every household's invitation. */
+function removeFunctionActions(ev: PlannrEvent, fn: FunctionDay): EventAction[] {
+  const invited = list(ev, "households").filter((h) => h.functions.includes(fn.id));
+  return [
+    { type: "removeRecord", eventId: ev.id, coll: "functions", id: fn.id },
+    ...invited.map(
+      (h): EventAction => ({
+        type: "updateRecord",
+        eventId: ev.id,
+        coll: "households",
+        id: h.id,
+        patch: { functions: h.functions.filter((f) => f !== fn.id) },
+      }),
+    ),
+  ];
+}
+
+/** "3 days later", "1 day earlier". */
+function shiftText(days: number): string {
+  const n = Math.abs(days);
+  return `${n} ${n === 1 ? "day" : "days"} ${days > 0 ? "later" : "earlier"}`;
+}
+
 function FunctionForm({ ev, fn, onClose }: { ev: PlannrEvent; fn?: FunctionDay; onClose: () => void }) {
   const { dispatch } = useStore();
   const [label, setLabel] = useState(fn?.label ?? "");
@@ -139,46 +219,26 @@ function FunctionForm({ ev, fn, onClose }: { ev: PlannrEvent; fn?: FunctionDay; 
   const save = (e: FormEvent) => {
     e.preventDefault();
     if (!label.trim() || !date) return;
-    const record: FunctionDay = {
-      id: fn?.id ?? newId("fn"),
-      label: label.trim(),
+    const record = functionRecord(fn?.id ?? newId("fn"), {
+      label,
       date,
-      ...(time.trim() ? { time: time.trim() } : {}),
-      ...(place.trim() ? { place: place.trim() } : {}),
-      ...(address.trim() ? { address: address.trim() } : {}),
-      ...(dress.trim() ? { dress: dress.trim() } : {}),
-      ...(Number(capacity) > 0 ? { capacity: Number(capacity) } : {}),
-      ...(priv ? { private: true } : {}),
-    };
-    if (fn)
-      dispatch({
-        type: "updateRecord",
-        eventId: ev.id,
-        coll: "functions",
-        id: fn.id,
-        patch: { ...record, ...(priv ? {} : { private: false }) },
-      });
-    else dispatch({ type: "addRecord", eventId: ev.id, coll: "functions", record });
+      time,
+      place,
+      address,
+      dress,
+      capacity: Number(capacity),
+      private: priv,
+    });
     // The tasks for a function move with it, so nothing is left due on the wrong day.
-    if (fn && shift && moveTasks)
-      for (const t of tasks)
-        dispatch({ type: "updateTask", eventId: ev.id, taskId: t.id, patch: { due: addDays(t.due, shift) } });
+    const moveBy = fn && moveTasks ? shift : 0;
+    for (const action of saveFunctionActions(ev.id, fn, record, tasks, moveBy)) dispatch(action);
     dispatch(toast(fn ? `Saved ${record.label}.` : `Added ${record.label}.`));
     onClose();
   };
 
   const remove = () => {
     if (!fn) return;
-    const invited = list(ev, "households").filter((h) => h.functions.includes(fn.id));
-    dispatch({ type: "removeRecord", eventId: ev.id, coll: "functions", id: fn.id });
-    for (const h of invited)
-      dispatch({
-        type: "updateRecord",
-        eventId: ev.id,
-        coll: "households",
-        id: h.id,
-        patch: { functions: h.functions.filter((f) => f !== fn.id) },
-      });
+    for (const action of removeFunctionActions(ev, fn)) dispatch(action);
     dispatch(toast(`Removed ${fn.label}.`));
     onClose();
   };
@@ -222,8 +282,7 @@ function FunctionForm({ ev, fn, onClose }: { ev: PlannrEvent; fn?: FunctionDay; 
             onChange={(e) => setMoveTasks(e.target.checked)}
             className="h-4 w-4 accent-[var(--color-peacock)]"
           />
-          Move its {plural(tasks.length, "open task")} {Math.abs(shift)}{" "}
-          {Math.abs(shift) === 1 ? "day" : "days"} {shift > 0 ? "later" : "earlier"} too
+          Move its {plural(tasks.length, "open task")} {shiftText(shift)} too
         </label>
       )}
       <Field label="Venue" htmlFor="fn-place">

@@ -21,5 +21,6 @@ export async function createLocalDb(dataDir?: string): Promise<Db> {
   const db = drizzle(client, { schema });
   if (!MIGRATIONS) throw new Error("Can't find server/db/migrations");
   await migrate(db, { migrationsFolder: MIGRATIONS });
+  // Each driver brands its database with its own result type; Plannr's queries only use the shared Postgres API.
   return db as unknown as Db;
 }

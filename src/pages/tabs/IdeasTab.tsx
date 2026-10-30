@@ -144,32 +144,7 @@ function Board({ ev, editable }: { ev: PlannedEvent; editable: boolean }) {
                 .join(" · ")}
             </span>
             <span className="mt-auto flex flex-wrap items-center gap-2 pt-1">
-              {i.status === "planned" ? (
-                <Pill tone="ok">in the plan</Pill>
-              ) : i.status === "dropped" ? (
-                <Pill tone="idle">dropped</Pill>
-              ) : (
-                editable && (
-                  <>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      aria-label={`Plan it: ${i.title}`}
-                      onClick={() => plan(i)}
-                    >
-                      Plan it
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      aria-label={`Drop: ${i.title}`}
-                      onClick={() => drop(i)}
-                    >
-                      Drop
-                    </button>
-                  </>
-                )
-              )}
+              <IdeaStatus idea={i} editable={editable} onPlan={() => plan(i)} onDrop={() => drop(i)} />
             </span>
           </li>
         ))}
@@ -180,6 +155,43 @@ function Board({ ev, editable }: { ev: PlannedEvent; editable: boolean }) {
         )}
       </ul>
     </Section>
+  );
+}
+
+/** Planned or dropped, or (for planners) the buttons that decide it. */
+function IdeaStatus({
+  idea,
+  editable,
+  onPlan,
+  onDrop,
+}: {
+  idea: Idea;
+  editable: boolean;
+  onPlan: () => void;
+  onDrop: () => void;
+}) {
+  if (idea.status === "planned") return <Pill tone="ok">in the plan</Pill>;
+  if (idea.status === "dropped") return <Pill tone="idle">dropped</Pill>;
+  if (!editable) return null;
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn-primary btn-sm"
+        aria-label={`Plan it: ${idea.title}`}
+        onClick={onPlan}
+      >
+        Plan it
+      </button>
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        aria-label={`Drop: ${idea.title}`}
+        onClick={onDrop}
+      >
+        Drop
+      </button>
+    </>
   );
 }
 

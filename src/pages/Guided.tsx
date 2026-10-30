@@ -73,37 +73,16 @@ export function Guided() {
           <Logo />
         </div>
         <ol className="m-0 flex list-none gap-1 overflow-x-auto p-0 lg:flex-col">
-          {STEPS.map((label, i) => {
-            const answer = summary(p, i);
-            const done = !!answer && i !== step;
-            const current = i === step;
-            return (
-              <li key={label} className="shrink-0 lg:shrink">
-                <button
-                  type="button"
-                  onClick={() => go(i)}
-                  aria-current={current ? "step" : undefined}
-                  className={`grid w-full grid-cols-[24px_minmax(0,1fr)] gap-2.5 rounded-[9px] px-2.5 py-2 text-left ${current ? "bg-surface" : "hover:bg-surface/60"}`}
-                >
-                  <span
-                    className={`flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] text-[11px] font-semibold ${done ? "border-ink bg-ink text-paper" : current ? "border-ink bg-surface" : "border-line-2 bg-surface"}`}
-                  >
-                    {done ? "✓" : i + 1}
-                  </span>
-                  <span className="flex flex-col gap-[3px]">
-                    <span
-                      className={`text-sm leading-[1.3] font-semibold ${done || current ? "text-ink" : "text-muted"}`}
-                    >
-                      {label}
-                    </span>
-                    <span className="hidden max-w-[220px] truncate text-xs leading-[1.35] text-muted lg:block">
-                      {current ? "In progress" : answer}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
+          {STEPS.map((label, i) => (
+            <StepLink
+              key={label}
+              number={i + 1}
+              label={label}
+              answer={summary(p, i)}
+              current={i === step}
+              onClick={() => go(i)}
+            />
+          ))}
         </ol>
       </nav>
 
@@ -184,3 +163,52 @@ const STEP_HINTS = [
   "Pick up to three, and anything you'd cut first if money gets tight.",
   "They can see the plan and approve changes. Add them now or later.",
 ];
+
+/** The step's dot: ticked when answered, outlined while it's the current step. */
+function dotClass(done: boolean, current: boolean): string {
+  if (done) return "border-ink bg-ink text-paper";
+  return current ? "border-ink bg-surface" : "border-line-2 bg-surface";
+}
+
+/** One step in the side list: its number (or a tick), its name, and the answer so far. */
+function StepLink({
+  number,
+  label,
+  answer,
+  current,
+  onClick,
+}: {
+  number: number;
+  label: string;
+  answer: string | undefined;
+  current: boolean;
+  onClick: () => void;
+}) {
+  const done = !!answer && !current;
+  return (
+    <li className="shrink-0 lg:shrink">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-current={current ? "step" : undefined}
+        className={`grid w-full grid-cols-[24px_minmax(0,1fr)] gap-2.5 rounded-[9px] px-2.5 py-2 text-left ${current ? "bg-surface" : "hover:bg-surface/60"}`}
+      >
+        <span
+          className={`flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] text-[11px] font-semibold ${dotClass(done, current)}`}
+        >
+          {done ? "✓" : number}
+        </span>
+        <span className="flex flex-col gap-[3px]">
+          <span
+            className={`text-sm leading-[1.3] font-semibold ${done || current ? "text-ink" : "text-muted"}`}
+          >
+            {label}
+          </span>
+          <span className="hidden max-w-[220px] truncate text-xs leading-[1.35] text-muted lg:block">
+            {current ? "In progress" : answer}
+          </span>
+        </span>
+      </button>
+    </li>
+  );
+}

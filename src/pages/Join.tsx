@@ -90,87 +90,28 @@ export function Join() {
       </div>
       <main id="main" className="flex flex-1 items-start justify-center px-4 pb-12 sm:items-center">
         <section className="flex w-full max-w-[560px] flex-col gap-5 rounded-xl bg-paper p-6 shadow-[0_1px_2px_rgba(0,0,0,.06),0_16px_48px_rgba(60,40,20,.10)] sm:px-12 sm:py-10">
-          {invite === undefined ? (
+          {invite === undefined && (
             <div className="flex min-h-[220px] items-center justify-center">
               <Spinner label="Opening the invite" />
             </div>
-          ) : invite === null || !invite.valid ? (
+          )}
+          {invite !== undefined && !invite?.valid && <InviteGone invite={invite} problem={problem} />}
+          {invite?.valid && (
             <>
-              <span className="eyebrow text-muted">Invitation</span>
-              <h1 className="font-serif text-[34px] leading-[1.1]">
-                {invite ? `${invite.reason ?? "This invite can't be used"}.` : problem}
-              </h1>
-              <p className="m-0 text-body">
-                {invite
-                  ? `Ask ${invite.invitedBy} to send you a new link for ${invite.eventName}.`
-                  : "Check that you opened the whole link, or ask for a new one."}
-              </p>
-              <Link to="/" className="btn btn-outline self-start">
-                Go to Plannr
-              </Link>
-            </>
-          ) : (
-            <>
-              <span className="eyebrow text-peacock">◆ Invitation</span>
-              <h1 className="font-serif text-[34px] leading-[1.1]">
-                {invite.invitedBy} invited you to plan {invite.eventName}
-              </h1>
-              <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
-                <dt className="text-muted">Event</dt>
-                <dd className="m-0">
-                  {KIND_LABEL[invite.kind]} · {longDate(invite.date)}
-                </dd>
-                <dt className="text-muted">You'll join as</dt>
-                <dd className="m-0 font-medium">
-                  {ROLE_LABEL[invite.role]}
-                  {invite.side ? ` · ${invite.side}` : ""}
-                </dd>
-              </dl>
-              <p className="m-0 text-[15px] leading-normal text-body">{CAN[invite.role]}</p>
-
-              {member ? (
-                <Link to={`/events/${invite.eventId}`} className="btn btn-primary btn-lg">
-                  You're already in. Open the plan
-                </Link>
-              ) : account ? (
-                <button
-                  type="button"
-                  className="btn btn-primary btn-lg"
-                  disabled={busy}
-                  onClick={() => run(accept)}
-                >
-                  {busy ? "Joining…" : `Join as ${state.session.name}`}
-                </button>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  {methods?.guest && (
-                    <form onSubmit={joinAsGuest} className="flex flex-col gap-3" noValidate>
-                      <Field label="Your name" htmlFor="join-name" hint="So the others know who joined.">
-                        <input
-                          id="join-name"
-                          className="field"
-                          autoComplete="name"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                        />
-                      </Field>
-                      <button type="submit" className="btn btn-primary btn-lg" disabled={busy}>
-                        {busy ? "Joining…" : "Join the plan"}
-                      </button>
-                    </form>
-                  )}
-                  <span className="text-sm text-body">
-                    Have an account?{" "}
-                    <Link to={`/signin${next}`} className="link">
-                      Log in to join
-                    </Link>
-                    {" · "}
-                    <Link to={`/signup${next}`} className="link">
-                      Create one
-                    </Link>
-                  </span>
-                </div>
-              )}
+              <InviteDetails invite={invite} />
+              <JoinChoice
+                invite={invite}
+                member={!!member}
+                account={account}
+                guestAllowed={!!methods?.guest}
+                yourName={state.session.name}
+                busy={busy}
+                name={name}
+                setName={setName}
+                next={next}
+                onJoin={() => run(accept)}
+                onJoinAsGuest={joinAsGuest}
+              />
               {error && (
                 <p role="alert" className="m-0 text-[13px] font-medium text-rust-ink">
                   {error}
@@ -180,6 +121,121 @@ export function Join() {
           )}
         </section>
       </main>
+    </div>
+  );
+}
+
+/** An invite that can't be used: expired, revoked, already used, or not a real link. */
+function InviteGone({ invite, problem }: { invite: InvitePreview | null; problem: string }) {
+  return (
+    <>
+      <span className="eyebrow text-muted">Invitation</span>
+      <h1 className="font-serif text-[34px] leading-[1.1]">
+        {invite ? `${invite.reason ?? "This invite can't be used"}.` : problem}
+      </h1>
+      <p className="m-0 text-body">
+        {invite
+          ? `Ask ${invite.invitedBy} to send you a new link for ${invite.eventName}.`
+          : "Check that you opened the whole link, or ask for a new one."}
+      </p>
+      <Link to="/" className="btn btn-outline self-start">
+        Go to Plannr
+      </Link>
+    </>
+  );
+}
+
+/** Who invited them, to what, and what they'll be able to do. */
+function InviteDetails({ invite }: { invite: InvitePreview }) {
+  return (
+    <>
+      <span className="eyebrow text-peacock">◆ Invitation</span>
+      <h1 className="font-serif text-[34px] leading-[1.1]">
+        {invite.invitedBy} invited you to plan {invite.eventName}
+      </h1>
+      <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
+        <dt className="text-muted">Event</dt>
+        <dd className="m-0">
+          {KIND_LABEL[invite.kind]} · {longDate(invite.date)}
+        </dd>
+        <dt className="text-muted">You'll join as</dt>
+        <dd className="m-0 font-medium">
+          {ROLE_LABEL[invite.role]}
+          {invite.side ? ` · ${invite.side}` : ""}
+        </dd>
+      </dl>
+      <p className="m-0 text-[15px] leading-normal text-body">{CAN[invite.role]}</p>
+    </>
+  );
+}
+
+/** Open the plan if they're already in; join with their account; or join as a guest by name. */
+function JoinChoice({
+  invite,
+  member,
+  account,
+  guestAllowed,
+  yourName,
+  busy,
+  name,
+  setName,
+  next,
+  onJoin,
+  onJoinAsGuest,
+}: {
+  invite: InvitePreview;
+  member: boolean;
+  account: boolean;
+  guestAllowed: boolean;
+  yourName: string;
+  busy: boolean;
+  name: string;
+  setName: (name: string) => void;
+  /** The query that brings them back here after signing in. */
+  next: string;
+  onJoin: () => void;
+  onJoinAsGuest: (e: FormEvent) => void;
+}) {
+  if (member)
+    return (
+      <Link to={`/events/${invite.eventId}`} className="btn btn-primary btn-lg">
+        You're already in. Open the plan
+      </Link>
+    );
+  if (account)
+    return (
+      <button type="button" className="btn btn-primary btn-lg" disabled={busy} onClick={onJoin}>
+        {busy ? "Joining…" : `Join as ${yourName}`}
+      </button>
+    );
+  return (
+    <div className="flex flex-col gap-4">
+      {guestAllowed && (
+        <form onSubmit={onJoinAsGuest} className="flex flex-col gap-3" noValidate>
+          <Field label="Your name" htmlFor="join-name" hint="So the others know who joined.">
+            <input
+              id="join-name"
+              className="field"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </Field>
+          <button type="submit" className="btn btn-primary btn-lg" disabled={busy}>
+            {busy ? "Joining…" : "Join the plan"}
+          </button>
+        </form>
+      )}
+      <span className="text-sm text-body">
+        Have an account?{" "}
+        <Link to={`/signin${next}`} className="link">
+          Log in to join
+        </Link>
+        {" · "}
+        <Link to={`/signup${next}`} className="link">
+          Create one
+        </Link>
+      </span>
     </div>
   );
 }

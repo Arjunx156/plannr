@@ -333,6 +333,13 @@ const legacy = z
   })
   .passthrough();
 
+/**
+ * The one place a checked change becomes an EventAction. Every field was just validated by a
+ * zod shape built from the same types, but zod's inferred union doesn't line up with the
+ * EventAction union structurally, so the value is re-typed here rather than at each return.
+ */
+const checked = (value: unknown) => value as EventAction;
+
 /** Checks one change; returns it cleaned, or an error message a person can read. */
 export function parseAction(raw: unknown): { ok: true; action: EventAction } | { ok: false; error: string } {
   const type = (raw as { type?: unknown } | null)?.type;
@@ -340,7 +347,7 @@ export function parseAction(raw: unknown): { ok: true; action: EventAction } | {
   if (!shape) {
     const parsed = legacy.safeParse(raw);
     return parsed.success
-      ? { ok: true, action: parsed.data as unknown as EventAction }
+      ? { ok: true, action: checked(parsed.data) }
       : { ok: false, error: parsed.error.issues[0]?.message ?? "Unknown change" };
   }
   const parsed = shape.safeParse(raw);
@@ -357,7 +364,7 @@ export function parseAction(raw: unknown): { ok: true; action: EventAction } | {
     if (!patch.success) return { ok: false, error: describe(patch.error) };
     action.patch = patch.data;
   }
-  return { ok: true, action: action as unknown as EventAction };
+  return { ok: true, action: checked(action) };
 }
 
 function describe(error: z.ZodError): string {

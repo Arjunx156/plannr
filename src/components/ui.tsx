@@ -1,6 +1,7 @@
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type InputHTMLAttributes, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { Hue, Person, Tone } from "../data/types";
+import { inr } from "../lib/format";
 import { useStore } from "../store/store";
 
 export function Logo({
@@ -101,6 +102,15 @@ export function SkipLink() {
     >
       Skip to content
     </a>
+  );
+}
+
+/** "₹40,000 / ₹60,000": money in against money expected. */
+export function FundProgress({ received, expected }: { received: number; expected: number }) {
+  return (
+    <span className="tabular">
+      {inr(received)} <span className="text-muted">/ {inr(expected)}</span>
+    </span>
   );
 }
 
@@ -350,6 +360,28 @@ export function Field({
       {children}
       {typeof hint === "string" ? <span className="text-xs leading-[1.4] text-muted">{hint}</span> : hint}
     </div>
+  );
+}
+
+/** A labelled text input. Other input attributes (type, inputMode, placeholder…) pass through. */
+export function TextField({
+  id,
+  label,
+  value,
+  onChange,
+  hint,
+  ...input
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  hint?: ReactNode;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "value" | "onChange" | "className">) {
+  return (
+    <Field label={label} htmlFor={id} hint={hint}>
+      <input id={id} className="field" value={value} onChange={(e) => onChange(e.target.value)} {...input} />
+    </Field>
   );
 }
 

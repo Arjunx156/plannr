@@ -3,7 +3,23 @@
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": { "ignoreUnknown": false, "includes": ["**", "!public/favicon.svg"] },
   "formatter": { "enabled": true, "indentStyle": "space", "lineWidth": 110 },
-  "linter": { "enabled": true, "rules": { "preset": "recommended" } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "complexity": {
+        "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } }
+      },
+      "style": { "noNestedTernary": "error", "noNonNullAssertion": "error" },
+      "suspicious": { "noConsole": { "level": "error", "options": { "allow": ["error", "warn", "info"] } } }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["scripts/**"],
+      "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+    }
+  ],
   "css": { "parser": { "tailwindDirectives": true } },
   "javascript": { "formatter": { "quoteStyle": "double" } },
   "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } }

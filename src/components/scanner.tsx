@@ -11,8 +11,11 @@ interface Detector {
 }
 type DetectorClass = new (opts: { formats: string[] }) => Detector;
 
+/** The browser's QR reader, where it has one (Chrome on Android does; Safari and Firefox don't). */
 export function detectorClass(): DetectorClass | undefined {
-  return (globalThis as unknown as { BarcodeDetector?: DetectorClass }).BarcodeDetector;
+  // BarcodeDetector isn't in TypeScript's DOM types yet, so it's read by name.
+  const found: unknown = Reflect.get(globalThis, "BarcodeDetector");
+  return typeof found === "function" ? (found as DetectorClass) : undefined;
 }
 
 /** The camera view; calls `onCode` with the first QR code it reads. */

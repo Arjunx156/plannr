@@ -6,6 +6,77 @@ import { list } from "../../../shared/records";
 import { Section } from "../common";
 import { guestsOf } from "./shared";
 
+/** Whether this quote is the one the vendor was booked on (a booking with no quote chosen counts for all). */
+function isBookedQuote(v: Vendor, quoteId: string): boolean {
+  return v.stage === "booked" && (!v.chosenQuote || v.chosenQuote === quoteId);
+}
+
+/** A shortlisted quote from another firm reads "Firm · package"; otherwise the firm is the vendor. */
+function quoteParts(label: string, vendor: Vendor): { firm: string; pkg: string } {
+  if (!label.includes("·")) return { firm: vendor.name || vendor.category, pkg: label };
+  const [firm = "", ...rest] = label.split("·");
+  return { firm: firm.trim(), pkg: rest.join("·").trim() };
+}
+
+/** One quote: firm and package, price, total against the cheapest, what it includes, and booking it. */
+function QuoteRow({
+  vendor: v,
+  quote: q,
+  total,
+  cheapest,
+  canBook,
+  onBook,
+  onOpen,
+}: {
+  vendor: Vendor;
+  quote: Quote;
+  total: number;
+  cheapest: number;
+  canBook: boolean;
+  onBook: () => void;
+  onOpen: () => void;
+}) {
+  const { firm, pkg } = quoteParts(q.label, v);
+  const isBooked = isBookedQuote(v, q.id);
+  return (
+    <tr className="border-t border-sand-2 align-top">
+      <td className="py-2.5 pr-3">
+        <button type="button" className="link text-left font-medium" onClick={onOpen}>
+          {firm}
+        </button>
+        {pkg && pkg !== firm && <span className="block text-xs text-muted">{pkg}</span>}
+      </td>
+      <td className="py-2.5 pl-3 text-right tabular whitespace-nowrap">
+        {inr(q.amount)}
+        {q.perGuest ? <span className="block text-xs text-muted">a plate</span> : null}
+      </td>
+      <td
+        className={`py-2.5 pl-4 text-right tabular font-semibold whitespace-nowrap ${total === cheapest ? "text-leaf-ink" : ""}`}
+      >
+        {inr(total)}
+        {total !== cheapest && (
+          <span className="block text-xs font-normal text-muted">+{inr(total - cheapest)}</span>
+        )}
+      </td>
+      <td className="max-w-[220px] py-2.5 pl-4 text-xs text-body">{q.inclusions ?? "—"}</td>
+      <td className="max-w-[200px] py-2.5 text-xs text-body">{q.terms ?? "—"}</td>
+      <td className="py-2.5 pl-2 text-right">
+        {isBooked && <Pill tone="ok">booked</Pill>}
+        {!isBooked && canBook && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            aria-label={`Book ${firm}`}
+            onClick={onBook}
+          >
+            Book…
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
 /** Quotes for one category side by side, totalled for this guest count. */
 export function Compare({
   ev,
@@ -26,9 +97,7 @@ export function Compare({
     .flatMap((v) => v.quotes.map((q) => ({ v, b: { q, total: quoteTotal(q.amount, q.perGuest, guests) } })))
     .sort((a, b) => a.b.total - b.b.total);
   const cheapest = rows[0]?.b.total ?? 0;
-  const booked = rows.find(
-    (r) => r.v.stage === "booked" && (!r.v.chosenQuote || r.v.chosenQuote === r.b.q.id),
-  );
+  const booked = rows.find((r) => isBookedQuote(r.v, r.b.q.id));
   return (
     <Section
       title={`${category}: side by side`}
@@ -54,56 +123,18 @@ export function Compare({
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ v, b }) => {
-              const firm = b.q.label.includes("·")
-                ? (b.q.label.split("·")[0]?.trim() ?? "")
-                : v.name || v.category;
-              const pkg = b.q.label.includes("·")
-                ? b.q.label.split("·").slice(1).join("·").trim()
-                : b.q.label;
-              const isBooked = v.stage === "booked" && (!v.chosenQuote || v.chosenQuote === b.q.id);
-              return (
-                <tr key={`${v.id}-${b.q.id}`} className="border-t border-sand-2 align-top">
-                  <td className="py-2.5 pr-3">
-                    <button type="button" className="link text-left font-medium" onClick={() => onOpen(v.id)}>
-                      {firm}
-                    </button>
-                    {pkg && pkg !== firm && <span className="block text-xs text-muted">{pkg}</span>}
-                  </td>
-                  <td className="py-2.5 pl-3 text-right tabular whitespace-nowrap">
-                    {inr(b.q.amount)}
-                    {b.q.perGuest ? <span className="block text-xs text-muted">a plate</span> : null}
-                  </td>
-                  <td
-                    className={`py-2.5 pl-4 text-right tabular font-semibold whitespace-nowrap ${b.total === cheapest ? "text-leaf-ink" : ""}`}
-                  >
-                    {inr(b.total)}
-                    {b.total !== cheapest && (
-                      <span className="block text-xs font-normal text-muted">+{inr(b.total - cheapest)}</span>
-                    )}
-                  </td>
-                  <td className="max-w-[220px] py-2.5 pl-4 text-xs text-body">{b.q.inclusions ?? "—"}</td>
-                  <td className="max-w-[200px] py-2.5 text-xs text-body">{b.q.terms ?? "—"}</td>
-                  <td className="py-2.5 pl-2 text-right">
-                    {isBooked ? (
-                      <Pill tone="ok">booked</Pill>
-                    ) : (
-                      editable &&
-                      !booked && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          aria-label={`Book ${firm}`}
-                          onClick={() => onBook(v, b.q)}
-                        >
-                          Book…
-                        </button>
-                      )
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+            {rows.map(({ v, b }) => (
+              <QuoteRow
+                key={`${v.id}-${b.q.id}`}
+                vendor={v}
+                quote={b.q}
+                total={b.total}
+                cheapest={cheapest}
+                canBook={editable && !booked}
+                onBook={() => onBook(v, b.q)}
+                onOpen={() => onOpen(v.id)}
+              />
+            ))}
           </tbody>
         </table>
       </section>

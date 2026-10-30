@@ -57,6 +57,8 @@ export function eventRoutes(app: Api, { db, store }: RouteDeps): void {
     if (Number(c.req.header("content-length") ?? 0) > MAX_EVENT_BYTES)
       throw new HttpError(413, "That plan is too large");
     const { event } = await body(c, z.object({ event: eventShape }));
+    // eventShape checks the plan's outline (id, kind, layout, name, date) and passes the rest
+    // through; the size limit above bounds it, and every later change is validated action by action.
     return c.json(await createPlan(db, c.get("userId"), event as unknown as PlannrEvent), 201);
   });
   app.get("/events/:id", async (c) => c.json(await getPlan(db, c.req.param("id"), c.get("userId"))));

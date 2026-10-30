@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { seedEvents } from "../src/data/seed";
-import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../src/data/types";
+import type { CommunityEvent, Message, PersonalEvent, PlannrEvent } from "../src/data/types";
 import { budgetTotals } from "../src/lib/metrics";
 import {
   applyEventAction,
@@ -86,24 +86,22 @@ describe("notices", () => {
 
 describe("the assistant thread", () => {
   test("messages are added once, and previews and actions are marked", () => {
-    const message = {
+    const message: Message = {
       id: "m-x",
-      role: "ai" as const,
+      role: "ai",
       text: "Here's a preview",
-      action: { label: "Do it", done: false },
-      preview: { title: "Move", status: "pending" as const, rows: [] },
+      action: { label: "Do it", id: "add-tip", done: false },
+      preview: { id: "p-x", title: "Move", tag: "Haldi", status: "pending", rows: [], change: "move-haldi" },
     };
     const pushed = applyEventAction(wedding, {
       type: "pushMessage",
       eventId: wedding.id,
-      // biome-ignore lint/suspicious/noExplicitAny: a minimal message for the reducer
-      message: message as any,
+      message,
     });
     const again = applyEventAction(pushed, {
       type: "pushMessage",
       eventId: wedding.id,
-      // biome-ignore lint/suspicious/noExplicitAny: a minimal message for the reducer
-      message: message as any,
+      message,
     }) as PersonalEvent;
     expect(again.assistant.thread.filter((m) => m.id === "m-x")).toHaveLength(1);
     const applied = applyEventAction(again, {

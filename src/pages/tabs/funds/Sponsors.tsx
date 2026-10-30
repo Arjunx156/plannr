@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Field, Pill } from "../../../components/ui";
+import { Pill, TextField } from "../../../components/ui";
 import type { CommunityEvent, Sponsor } from "../../../data/types";
 import { inr } from "../../../lib/format";
 import { list } from "../../../shared/records";
@@ -60,32 +60,26 @@ export function Sponsors({ ev, editable }: { ev: CommunityEvent; editable: boole
       </ul>
       {editable && (
         <form onSubmit={add} className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[1fr_110px_110px_auto]">
-          <Field label="Sponsor" htmlFor="sp-name">
-            <input
-              id="sp-name"
-              className="field"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </Field>
-          <Field label="Tier" htmlFor="sp-tier">
-            <input
-              id="sp-tier"
-              className="field"
-              value={form.tier}
-              onChange={(e) => setForm({ ...form, tier: e.target.value })}
-              placeholder="Gold"
-            />
-          </Field>
-          <Field label="Amount" htmlFor="sp-amount">
-            <input
-              id="sp-amount"
-              className="field"
-              inputMode="decimal"
-              value={form.amount}
-              onChange={(e) => setForm({ ...form, amount: e.target.value })}
-            />
-          </Field>
+          <TextField
+            id="sp-name"
+            label="Sponsor"
+            value={form.name}
+            onChange={(name) => setForm({ ...form, name })}
+          />
+          <TextField
+            id="sp-tier"
+            label="Tier"
+            value={form.tier}
+            onChange={(tier) => setForm({ ...form, tier })}
+            placeholder="Gold"
+          />
+          <TextField
+            id="sp-amount"
+            label="Amount"
+            value={form.amount}
+            onChange={(amount) => setForm({ ...form, amount })}
+            inputMode="decimal"
+          />
           <button
             type="submit"
             className="btn btn-secondary btn-sm h-10"
