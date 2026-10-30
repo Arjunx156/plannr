@@ -32,3 +32,6 @@ blob-report
 .data
 .vercel
 coverage
+
+# Demo video and screenshots: kept locally, never committed
+demo/

@@ -6,8 +6,6 @@ that event, then helps the family and volunteers run it.
 
 Live: https://plannr-sepia.vercel.app (choose "Explore the demo" to skip sign-in)
 
-Demo: a captioned walkthrough of every feature and 51 screenshots are in [`demo/`](demo/README.md).
-
 ## The brief, and where each part lives
 
 > Create a GenAI-powered planning assistant that helps users organize weddings, birthdays, and community
