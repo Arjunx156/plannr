@@ -174,51 +174,71 @@ export function detectBudget(text: string): number | undefined {
   return Math.round(n * (unit ?? 1));
 }
 
-/** Turns "end of April next year", "December", "in 3 weeks", "17 Oct" into a date and a readable label. */
-export function detectDate(text: string, today = TODAY): { date: string; label: string } | undefined {
-  const base = parseDate(today);
+type DateGuess = { date: string; label: string };
+
+const UNIT_DAYS: Record<string, number> = { day: 1, week: 7, month: 30 };
+
+/** Where a cue puts the date in its month, and how the label says it. No cue means mid-month. */
+const MONTH_PART: Record<string, { day: number; prefix: string }> = {
+  "end of": { day: 25, prefix: "Late " },
+  late: { day: 25, prefix: "Late " },
+  mid: { day: 15, prefix: "Mid " },
+  early: { day: 5, prefix: "Early " },
+  "start of": { day: 5, prefix: "Early " },
+  "beginning of": { day: 5, prefix: "Early " },
+};
+const MID_MONTH = { day: 15, prefix: "" };
+
+/** "in 3 weeks" → the Saturday nearest three weeks from today. */
+function relativeDate(text: string, today: string): DateGuess | undefined {
   const rel = text.match(/\bin (\d+|a|one|two|three|four|five|six) (day|week|month)s?\b/i);
-  if (rel?.[1] && rel[2]) {
-    const n = toNumber(rel[1]) ?? 1;
-    const days = rel[2].toLowerCase() === "day" ? n : rel[2].toLowerCase() === "week" ? n * 7 : n * 30;
-    const iso = nearestSaturday(addDays(today, days));
-    return { date: iso, label: `In ${n} ${rel[2].toLowerCase()}${n === 1 ? "" : "s"}` };
-  }
+  if (!rel?.[1] || !rel[2]) return undefined;
+  const n = toNumber(rel[1]) ?? 1;
+  const unit = rel[2].toLowerCase();
+  const iso = nearestSaturday(addDays(today, n * (UNIT_DAYS[unit] ?? 1)));
+  return { date: iso, label: `In ${n} ${unit}${n === 1 ? "" : "s"}` };
+}
+
+/** "17 Oct", "3rd December 2027". */
+function exactDate(text: string, base: Date): DateGuess | undefined {
   const exact = text.match(
     new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+${MONTH_RE}\\b(?:\\s+(\\d{4}))?`, "i"),
   );
-  if (exact?.[1] && exact[2]) {
-    const month = monthIndex(exact[2]);
-    const year = exact[3] ? Number(exact[3]) : nextYearFor(month, base);
-    const iso = toISO(new Date(year, month, Number(exact[1])));
-    return { date: iso, label: longDate(iso) };
-  }
+  if (!exact?.[1] || !exact[2]) return undefined;
+  const month = monthIndex(exact[2]);
+  const year = exact[3] ? Number(exact[3]) : nextYearFor(month, base);
+  const iso = toISO(new Date(year, month, Number(exact[1])));
+  return { date: iso, label: longDate(iso) };
+}
+
+/** The year a month falls in: "next year", an explicit year, or the next time that month comes round. */
+function yearFor(token: string | undefined, month: number, base: Date): number {
+  if (token?.toLowerCase() === "next year") return base.getFullYear() + 1;
+  return token ? Number(token) : nextYearFor(month, base);
+}
+
+/** "end of April next year", "December", "mid March 2027". */
+function monthDate(text: string, base: Date): DateGuess | undefined {
   const loose = text.match(
     new RegExp(
       `\\b(end of|late|early|mid|start of|beginning of|in|by)?\\s*${MONTH_RE}\\b(?:\\s+(next year|\\d{4}))?`,
       "i",
     ),
   );
+  const [, cue, monthToken, yearToken] = loose ?? [];
   // "may" is usually the verb; only read it as May with a cue like "in May" or "May 2027".
-  const verbMay = loose?.[2]?.toLowerCase() === "may" && !loose[1] && !loose[3];
-  if (loose?.[2] && !verbMay) {
-    const month = monthIndex(loose[2]);
-    const cue = loose[1]?.toLowerCase();
-    const when = cue === "in" || cue === "by" ? undefined : cue;
-    const year =
-      loose[3]?.toLowerCase() === "next year"
-        ? base.getFullYear() + 1
-        : loose[3]
-          ? Number(loose[3])
-          : nextYearFor(month, base);
-    const day = when === "end of" || when === "late" ? 25 : when === "mid" ? 15 : when ? 5 : 15;
-    const iso = toISO(new Date(year, month, day));
-    const prefix =
-      when === "end of" || when === "late" ? "Late " : when === "mid" ? "Mid " : when ? "Early " : "";
-    const label = `${prefix}${cap(MONTH_NAMES[month]?.slice(0, 3) ?? "")} ${year}`;
-    return { date: iso, label };
-  }
-  return undefined;
+  if (!monthToken || (monthToken.toLowerCase() === "may" && !cue && !yearToken)) return undefined;
+  const month = monthIndex(monthToken);
+  const year = yearFor(yearToken, month, base);
+  const part = MONTH_PART[cue?.toLowerCase() ?? ""] ?? MID_MONTH;
+  const iso = toISO(new Date(year, month, part.day));
+  return { date: iso, label: `${part.prefix}${cap(MONTH_NAMES[month]?.slice(0, 3) ?? "")} ${year}` };
+}
+
+/** Turns "end of April next year", "December", "in 3 weeks", "17 Oct" into a date and a readable label. */
+export function detectDate(text: string, today = TODAY): DateGuess | undefined {
+  const base = parseDate(today);
+  return relativeDate(text, today) ?? exactDate(text, base) ?? monthDate(text, base);
 }
 
 function monthIndex(token: string): number {
@@ -258,22 +278,29 @@ function detectVenue(text: string): Pick<Profile, "venueStatus" | "venues"> {
   return out;
 }
 
-function detectNeeds(text: string, current: string[]): string[] {
-  const needs = new Set(current);
+/** "my parents use wheelchairs" → "2 wheelchair users"; a bare mention → "Wheelchair access". */
+function wheelchairNeed(text: string): string | undefined {
   const wheel = text.match(/\b(\w+)\s+(?:\w+\s+){0,2}(?:use|uses|need|needs|in)\s+(?:a\s+)?wheelchairs?\b/i);
-  if (wheel) {
-    const n = wheel[1] ? toNumber(wheel[1]) : undefined;
-    needs.add(n && n > 1 ? `${n} wheelchair users` : "Wheelchair access");
-  } else if (/wheelchair/i.test(text)) needs.add("Wheelchair access");
-  if (/\b(veg|vegetarian|sadhya)\b/i.test(text) && !/\bnon[- ]?veg/i.test(text)) needs.add("Vegetarian");
+  const n = wheel?.[1] ? toNumber(wheel[1]) : undefined;
+  if (n && n > 1) return `${n} wheelchair users`;
+  return wheel || /wheelchair/i.test(text) ? "Wheelchair access" : undefined;
+}
+
+/** "3 kids have nut allergies" → "3 nut allergies"; a bare mention → "Allergies to note". */
+function allergyNeed(text: string): string | undefined {
   const allergy = text.match(
     /\b(\w+)\s+(?:kids?|guests?|children)\s+(?:have|with)\s+(nut|peanut|gluten|dairy|egg)?\s*allerg/i,
   );
-  if (allergy) {
-    const n = allergy[1] ? toNumber(allergy[1]) : undefined;
-    needs.add(`${n ? `${n} ` : ""}${allergy[2] ? `${allergy[2].toLowerCase()} ` : ""}allergies`.trim());
-  } else if (/allerg/i.test(text)) needs.add("Allergies to note");
-  return [...needs];
+  if (!allergy) return /allerg/i.test(text) ? "Allergies to note" : undefined;
+  const n = allergy[1] ? toNumber(allergy[1]) : undefined;
+  const what = allergy[2]?.toLowerCase();
+  return [n, what, "allergies"].filter(Boolean).join(" ");
+}
+
+function detectNeeds(text: string, current: string[]): string[] {
+  const vegetarian = /\b(veg|vegetarian|sadhya)\b/i.test(text) && !/\bnon[- ]?veg/i.test(text);
+  const found = [wheelchairNeed(text), vegetarian ? "Vegetarian" : undefined, allergyNeed(text)];
+  return [...new Set([...current, ...found.filter((n): n is string => !!n)])];
 }
 
 function detectTraditions(
@@ -350,6 +377,14 @@ export const PRIORITY_OPTIONS: Record<Kind, { most: string[]; cut: string[] }> =
   },
 };
 
+const OTHER_EXTRAS = "Anything else: segments of the day, permits you know about, or accessibility needs?";
+const EXTRAS_PROMPT: Record<Kind, string> = {
+  wedding: "Any other functions, traditions or accessibility needs I should plan around?",
+  birthday: "Any allergies, a theme, or anything the kids will remember?",
+  community: OTHER_EXTRAS,
+  other: OTHER_EXTRAS,
+};
+
 /** The single next thing Plannr still needs, or null when it can draft. */
 export function nextQuestion(p: Profile, asked: ReadonlySet<QuestionField>): Question | null {
   if (!p.kind)
@@ -371,12 +406,7 @@ export function nextQuestion(p: Profile, asked: ReadonlySet<QuestionField>): Que
   if (!asked.has("extras"))
     return {
       field: "extras",
-      prompt:
-        p.kind === "wedding"
-          ? "Any other functions, traditions or accessibility needs I should plan around?"
-          : p.kind === "birthday"
-            ? "Any allergies, a theme, or anything the kids will remember?"
-            : "Anything else: segments of the day, permits you know about, or accessibility needs?",
+      prompt: EXTRAS_PROMPT[p.kind],
     };
   if (!asked.has("priorities"))
     return {
@@ -400,6 +430,17 @@ export interface ProfileRow {
   state: "ok" | "ask" | "todo";
 }
 
+/** "Kochi · 2 shortlisted", "Kochi · Grand Hyatt", or just the city while the venue is open. */
+function venueLine(p: Profile): string | undefined {
+  if (!p.venueStatus) return p.city;
+  const twoShortlisted = p.venueStatus === "Shortlisted" && p.venues?.includes(" or ");
+  const venue = twoShortlisted ? "2 shortlisted" : (p.venues ?? p.venueStatus.toLowerCase());
+  return p.city ? `${p.city} · ${venue}` : venue;
+}
+
+/** A list as one line, or undefined when it's empty. */
+const joined = (items: string[], sep: string) => (items.length ? items.join(sep) : undefined);
+
 /** The ten lines of "What I've understood". */
 export function profileRows(p: Profile, asking?: QuestionField): ProfileRow[] {
   const row = (
@@ -413,30 +454,17 @@ export function profileRows(p: Profile, asking?: QuestionField): ProfileRow[] {
     if (field && asking === field) return { key, label, value: "Answering now…", state: "ask" };
     return { key, label, value: hint, state: "todo" };
   };
-  const venue = p.venueStatus
-    ? `${p.city ?? ""}${p.city ? " · " : ""}${p.venueStatus === "Shortlisted" && p.venues?.includes(" or ") ? "2 shortlisted" : (p.venues ?? p.venueStatus.toLowerCase())}`
-    : p.city;
+  const event = p.kind ? [KIND_LABEL[p.kind], p.style].filter(Boolean).join(" · ") : undefined;
   return [
-    row(
-      "event",
-      "Event",
-      p.kind ? [KIND_LABEL[p.kind], p.style].filter(Boolean).join(" · ") : undefined,
-      "kind",
-    ),
-    row("functions", "Functions", p.functions.length ? p.functions.join(", ") : undefined, "extras"),
+    row("event", "Event", event, "kind"),
+    row("functions", "Functions", joined(p.functions, ", "), "extras"),
     row("date", "Date", p.dateText, "date"),
-    row("city", "City & venue", venue, p.city ? "venue" : "city"),
+    row("city", "City & venue", venueLine(p), p.city ? "venue" : "city"),
     row("guests", "Guests", p.guests ? `About ${p.guests}` : undefined, "guests"),
     row("budget", "Budget", p.budget ? `₹${p.budget.toLocaleString("en-IN")}` : undefined, "budget"),
     row("traditions", "Traditions", p.traditions, "extras"),
-    row("needs", "Needs", p.needs.length ? p.needs.join(" · ") : undefined, "extras"),
-    row("priorities", "Priorities", p.priorities.length ? p.priorities.join(" · ") : undefined, "priorities"),
-    row(
-      "co",
-      "Co-planners",
-      p.coPlanners.length ? p.coPlanners.join(", ") : undefined,
-      undefined,
-      "Next: who's planning with you",
-    ),
+    row("needs", "Needs", joined(p.needs, " · "), "extras"),
+    row("priorities", "Priorities", joined(p.priorities, " · "), "priorities"),
+    row("co", "Co-planners", joined(p.coPlanners, ", "), undefined, "Next: who's planning with you"),
   ];
 }

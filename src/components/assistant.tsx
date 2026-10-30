@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import type { CommunityEvent, Message, PersonalEvent, Preview } from "../data/types";
-import { aiEnabled, streamAssistantAnswer } from "../lib/ai";
+import { type AssistantAnswer, aiEnabled, streamAssistantAnswer } from "../lib/ai";
 import { type AssistantContext, introFor, msgId, reply } from "../lib/assistant";
 import { TODAY } from "../lib/dates";
 import type { SpeechCode } from "../lib/voice";
@@ -8,6 +8,40 @@ import { proposalRipple } from "../shared/proposals";
 import { toast, useStore } from "../store/store";
 import { RipplePreview } from "./ripple";
 import { HoldToSpeak, LangSelect } from "./voice";
+
+/** Shortest time before an answer appears. */
+const MIN_ANSWER_MS = 450;
+
+const pause = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, Math.max(0, ms)));
+
+/** Gemini's answer as a thread message; proposed changes wait for the planner's yes. */
+function fromModel(res: AssistantAnswer, lang: SpeechCode): Message {
+  return {
+    id: msgId(),
+    role: "ai",
+    text: res.text,
+    source: res.source,
+    translation: res.translation,
+    lang: res.translation ? lang.toLowerCase() : undefined,
+    ...(res.actions?.length ? { proposals: res.actions, proposalStatus: "pending" as const } : {}),
+  };
+}
+
+/**
+ * The on-device answer when it previews a change or offers an action; otherwise Gemini's,
+ * streamed into `onDraft`, with the on-device answer as the fallback.
+ */
+async function answerFor(
+  ev: PersonalEvent | CommunityEvent,
+  thread: Message[],
+  question: string,
+  opts: { context: AssistantContext; lang: SpeechCode; onDraft: (soFar: string) => void },
+): Promise<Message> {
+  const local = reply(ev, question, opts.context);
+  if (local.preview || local.action) return local;
+  const res = await streamAssistantAnswer(ev, thread, question, opts.lang, opts.onDraft);
+  return res ? fromModel(res, opts.lang) : local;
+}
 
 /**
  * The event's assistant. Requests that change the plan (move a function, cut a
@@ -48,22 +82,9 @@ export function AssistantPanel({
     setText("");
     setBusy(true);
     const started = Date.now();
-    const local = reply(ev, message, context);
-    let answer: Message = local;
-    if (!local.preview && !local.action) {
-      const res = await streamAssistantAnswer(ev, thread, message, lang, setDraft);
-      if (res)
-        answer = {
-          id: msgId(),
-          role: "ai",
-          text: res.text,
-          source: res.source,
-          translation: res.translation,
-          lang: res.translation ? lang.toLowerCase() : undefined,
-          ...(res.actions?.length ? { proposals: res.actions, proposalStatus: "pending" as const } : {}),
-        };
-    }
-    await new Promise((r) => window.setTimeout(r, Math.max(0, 450 - (Date.now() - started))));
+    const answer = await answerFor(ev, thread, message, { context, lang, onDraft: setDraft });
+    // An instant answer reads as canned; a short beat reads as considered.
+    await pause(MIN_ANSWER_MS - (Date.now() - started));
     dispatch({ type: "pushMessage", eventId: ev.id, message: answer });
     setDraft("");
     setBusy(false);

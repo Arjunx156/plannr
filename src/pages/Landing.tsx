@@ -19,6 +19,9 @@ import {
 const PAD = "px-5 sm:px-10 lg:px-[72px]";
 const H2 = "font-serif text-[clamp(34px,4.6vw,48px)] leading-[1.05] tracking-[-0.015em]";
 
+/** The three "how it works" columns: rules between them on wide screens. */
+const STEP_COLUMN = ["md:pr-7", "border-line md:border-l md:px-7", "border-line md:border-l md:pl-7"];
+
 export function Landing() {
   usePageMeta("Plannr");
   const navigate = useNavigate();
@@ -250,7 +253,7 @@ export function Landing() {
             {STEPS.map((step, i) => (
               <li
                 key={step.title}
-                className={`flex flex-col gap-3 pt-6 pb-4 md:pb-0 ${i === 0 ? "md:pr-7" : i === 1 ? "border-line md:border-l md:px-7" : "border-line md:border-l md:pl-7"} ${i > 0 ? "border-t md:border-t-0" : ""}`}
+                className={`flex flex-col gap-3 pt-6 pb-4 md:pb-0 ${STEP_COLUMN[Math.min(i, STEP_COLUMN.length - 1)]} ${i > 0 ? "border-t md:border-t-0" : ""}`}
               >
                 <span className="font-serif text-[64px] leading-none text-marigold italic">{i + 1}</span>
                 <span className="text-[19px] leading-[1.3] font-semibold">{step.title}</span>

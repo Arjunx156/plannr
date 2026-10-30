@@ -119,14 +119,14 @@ export function TemplatePicker({ open, onClose }: { open: boolean; onClose: () =
 
   return (
     <Modal open={open} onClose={onClose} title="Start from a template" width={520}>
-      {list === null ? (
-        <p className="m-0 text-sm text-muted">Loading…</p>
-      ) : !list.length ? (
+      {list === null && <p className="m-0 text-sm text-muted">Loading…</p>}
+      {list?.length === 0 && (
         <p className="m-0 text-sm text-body">
           No templates yet. Open a past event's Settings and choose “Save as a template”: next year's plan
           starts there.
         </p>
-      ) : chosen ? (
+      )}
+      {!!list?.length && chosen && (
         <form onSubmit={start} className="flex flex-col gap-3">
           <p className="m-0 text-sm text-body">
             From <strong>{chosen.name}</strong>, last held on {longDate(chosen.date)}. Every date moves to the
@@ -158,7 +158,8 @@ export function TemplatePicker({ open, onClose }: { open: boolean; onClose: () =
             </button>
           </div>
         </form>
-      ) : (
+      )}
+      {!!list?.length && !chosen && (
         <ul className="m-0 flex list-none flex-col p-0">
           {list.map((t) => (
             <li

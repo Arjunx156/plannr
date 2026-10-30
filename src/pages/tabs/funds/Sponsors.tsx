@@ -38,30 +38,22 @@ export function Sponsors({ ev, editable }: { ev: CommunityEvent; editable: boole
               <span className="text-xs text-muted">{s.tier}</span>
             </span>
             <span className="tabular">{inr(s.amount)}</span>
-            {s.received >= s.amount ? (
-              <Pill tone="ok">paid</Pill>
-            ) : editable ? (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  dispatch({
-                    type: "updateRecord",
-                    eventId: ev.id,
-                    coll: "sponsors",
-                    id: s.id,
-                    patch: { received: s.amount },
-                  });
-                  dispatch(
-                    toast(`${s.name}'s ${inr(s.amount)} is in. Their name now shows on the fund report.`),
-                  );
-                }}
-              >
-                Received
-              </button>
-            ) : (
-              <Pill tone="due">due</Pill>
-            )}
+            <SponsorStatus
+              sponsor={s}
+              editable={editable}
+              onReceived={() => {
+                dispatch({
+                  type: "updateRecord",
+                  eventId: ev.id,
+                  coll: "sponsors",
+                  id: s.id,
+                  patch: { received: s.amount },
+                });
+                dispatch(
+                  toast(`${s.name}'s ${inr(s.amount)} is in. Their name now shows on the fund report.`),
+                );
+              }}
+            />
           </li>
         ))}
         {!sponsors.length && <li className="text-sm text-muted">No sponsors yet.</li>}
@@ -104,5 +96,24 @@ export function Sponsors({ ev, editable }: { ev: CommunityEvent; editable: boole
         </form>
       )}
     </Section>
+  );
+}
+
+/** Paid, due, or (for planners) a button to mark the money received. */
+function SponsorStatus({
+  sponsor,
+  editable,
+  onReceived,
+}: {
+  sponsor: Sponsor;
+  editable: boolean;
+  onReceived: () => void;
+}) {
+  if (sponsor.received >= sponsor.amount) return <Pill tone="ok">paid</Pill>;
+  if (!editable) return <Pill tone="due">due</Pill>;
+  return (
+    <button type="button" className="btn btn-secondary btn-sm" onClick={onReceived}>
+      Received
+    </button>
   );
 }

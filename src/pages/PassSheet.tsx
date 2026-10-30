@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router";
 import { QrCode } from "../components/qr";
 import { usePageMeta } from "../components/ui";
+import type { Pass, PlannrEvent } from "../data/types";
 import { longDate } from "../lib/dates";
 import { passCode } from "../shared/public";
 import { list } from "../shared/records";
@@ -36,28 +37,32 @@ export function PassSheet() {
             </button>
           )}
         </div>
-        {!ev ? (
-          <p className="m-0 text-body">This event isn't on this device.</p>
-        ) : !passes.length ? (
-          <p className="m-0 text-body">No passes issued yet. Issue them on the Stalls & passes page.</p>
-        ) : (
-          <ul className="m-0 grid list-none grid-cols-2 gap-0 p-0 sm:grid-cols-3 print:grid-cols-3">
-            {passes.map((p) => (
-              <li
-                key={p.id}
-                className="flex break-inside-avoid flex-col items-center gap-1.5 border border-dashed border-line-2 p-4 text-center"
-              >
-                <span className="eyebrow text-muted">{ev.name}</span>
-                <QrCode text={passCode(p.id)} size={132} label={`Pass for ${p.name}`} />
-                <span className="font-serif text-[20px] leading-tight">{p.name}</span>
-                <span className="text-sm text-body">
-                  Admits {p.count} · {longDate(ev.date)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <PassGrid ev={ev} passes={passes} />
       </div>
     </div>
+  );
+}
+
+/** A printable grid of passes, each with its QR for the gate. */
+function PassGrid({ ev, passes }: { ev: PlannrEvent | undefined; passes: Pass[] }) {
+  if (!ev) return <p className="m-0 text-body">This event isn't on this device.</p>;
+  if (!passes.length)
+    return <p className="m-0 text-body">No passes issued yet. Issue them on the Stalls & passes page.</p>;
+  return (
+    <ul className="m-0 grid list-none grid-cols-2 gap-0 p-0 sm:grid-cols-3 print:grid-cols-3">
+      {passes.map((p) => (
+        <li
+          key={p.id}
+          className="flex break-inside-avoid flex-col items-center gap-1.5 border border-dashed border-line-2 p-4 text-center"
+        >
+          <span className="eyebrow text-muted">{ev.name}</span>
+          <QrCode text={passCode(p.id)} size={132} label={`Pass for ${p.name}`} />
+          <span className="font-serif text-[20px] leading-tight">{p.name}</span>
+          <span className="text-sm text-body">
+            Admits {p.count} · {longDate(ev.date)}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }

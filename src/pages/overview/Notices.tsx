@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useEditable } from "../../components/tasks";
-import { Pill } from "../../components/ui";
+import { NOTICE_CARD, Pill } from "../../components/ui";
 import type { ActionId, CommunityEvent, Notice, PersonalEvent } from "../../data/types";
 import { toast, useStore } from "../../store/store";
 import { BookPhotographer, Savings } from "./NoticeDialogs";
@@ -83,7 +83,7 @@ export function Notices({ ev }: { ev: PersonalEvent | CommunityEvent }) {
           {open.map((n) => (
             <article
               key={n.id}
-              className={`flex flex-col gap-2 rounded-2xl border p-4 ${n.tone === "ai" ? "card-ai" : n.tone === "warn" ? "border-rust-line bg-surface" : "border-line bg-surface"}`}
+              className={`flex flex-col gap-2 rounded-2xl border p-4 ${NOTICE_CARD[n.tone]}`}
             >
               <Pill tone={n.tone === "info" ? "idle" : n.tone}>{n.label}</Pill>
               <span className="text-[15px] leading-[1.4] font-medium">{n.text}</span>

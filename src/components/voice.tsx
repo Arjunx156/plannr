@@ -57,6 +57,12 @@ export function useVoice(code: SpeechCode, onText: (t: string) => void) {
   return { listening, error, supported, start, stop };
 }
 
+/** What the button says to a screen reader. */
+function voiceLabel(v: { supported: boolean; listening: boolean }): string {
+  if (!v.supported) return "Voice input isn't available in this browser";
+  return v.listening ? "Listening, release to stop" : "Hold to speak";
+}
+
 export function HoldToSpeak({
   code,
   onText,
@@ -67,11 +73,8 @@ export function HoldToSpeak({
   compact?: boolean;
 }) {
   const v = useVoice(code, onText);
-  const label = v.supported
-    ? v.listening
-      ? "Listening, release to stop"
-      : "Hold to speak"
-    : "Voice input isn't available in this browser";
+  const label = voiceLabel(v);
+  const words = v.listening ? "Listening…" : "Hold to speak";
   return (
     <>
       <button
@@ -99,7 +102,7 @@ export function HoldToSpeak({
             : `btn btn-sm ${v.listening ? "border-peacock bg-peacock-tint text-peacock" : "border-line bg-transparent"} font-medium`
         }
       >
-        {compact ? <MicGlyph /> : v.listening ? "Listening…" : "Hold to speak"}
+        {compact ? <MicGlyph /> : words}
       </button>
       {v.error && (
         <span role="alert" className="text-xs text-rust-ink">

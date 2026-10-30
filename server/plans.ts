@@ -38,10 +38,7 @@ export class HttpError extends Error {
 const RANK: Record<Role, number> = { viewer: 0, planner: 1, owner: 2 };
 const MAX_RETRIES = 5;
 
-export function canEdit(role: Role | undefined): boolean {
-  return role === "owner" || role === "planner";
-}
-
+/** The caller's role on a plan, or undefined when they aren't a member. */
 export async function roleOf(db: Db, eventId: string, userId: string): Promise<Role | undefined> {
   const [row] = await db
     .select({ role: members.role })
@@ -50,6 +47,7 @@ export async function roleOf(db: Db, eventId: string, userId: string): Promise<R
   return row?.role;
 }
 
+/** Refuses unless the caller holds at least `min` on the plan; a non-member sees "not found". */
 export async function requireRole(db: Db, eventId: string, userId: string, min: Role): Promise<Role> {
   const role = await roleOf(db, eventId, userId);
   if (!role) throw new HttpError(404, "Event not found");

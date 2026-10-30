@@ -8,7 +8,8 @@ import { rainWatch, type Watch, type WatchAction, watchPlan } from "../shared/wa
 import { toast, useStore } from "../store/store";
 import { RippleDialog } from "./ripple";
 import { useEditable } from "./tasks";
-import { Pill } from "./ui";
+
+import { NOTICE_CARD, Pill } from "./ui";
 
 const KEY = "plannr:watch-hidden";
 
@@ -68,7 +69,7 @@ export function WatchList({ ev }: { ev: PersonalEvent | CommunityEvent }) {
           return (
             <article
               key={w.id}
-              className={`flex flex-col gap-2 rounded-2xl border p-4 ${w.tone === "ai" ? "card-ai" : w.tone === "warn" ? "border-rust-line bg-surface" : "border-line bg-surface"}`}
+              className={`flex flex-col gap-2 rounded-2xl border p-4 ${NOTICE_CARD[w.tone]}`}
             >
               <Pill tone={w.tone === "info" ? "idle" : w.tone}>{w.label}</Pill>
               <span className="text-[15px] leading-[1.4] font-medium">{w.text}</span>

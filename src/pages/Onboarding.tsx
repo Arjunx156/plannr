@@ -30,6 +30,12 @@ const DISTRICTS: Record<string, string> = {
   chennai: "Chennai district",
 };
 
+/** The button names where it leads: the waiting draft, an invite being joined, or their events. */
+function continueLabel(next: string | null, draftReady: boolean): string {
+  if (next === "accept" && draftReady) return "Continue to my plan";
+  return next?.startsWith("/join/") ? "Continue to the invite" : "Continue to my events";
+}
+
 export function Onboarding() {
   usePageMeta("Almost there", { private: true });
   const { state, dispatch } = useStore();
@@ -178,11 +184,7 @@ export function Onboarding() {
             </select>
           </div>
           <button type="submit" className="btn btn-primary btn-lg mt-2 min-h-[50px]">
-            {next === "accept" && state.draft.generated
-              ? "Continue to my plan"
-              : next?.startsWith("/join/")
-                ? "Continue to the invite"
-                : "Continue to my events"}
+            {continueLabel(next, state.draft.generated)}
           </button>
         </form>
       </main>

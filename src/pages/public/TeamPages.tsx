@@ -4,10 +4,17 @@ import { dueLabel, longDate } from "../../lib/dates";
 import { inr } from "../../lib/format";
 import { fill } from "../../lib/guestText";
 import { mapLink } from "../../lib/ics";
+import type { LinkText } from "../../lib/linkText";
 import type { HelperView, ShiftsView, VendorView } from "../../shared/public";
 import { type Act, Card, PublicShell, useLinkLang } from "./shell";
 
 /** A helper's page: their tasks and the day's run sheet, in their language. */
+/** "Two things for you", "One thing for you", or "All done" in the helper's language. */
+function helperStatus(open: number, t: LinkText): string {
+  if (!open) return t.helperDone;
+  return open === 1 ? t.helperOne : fill(t.helperMany, { n: open });
+}
+
 export function HelperPage({ view, act, preview }: { view: HelperView; act?: Act; preview?: ReactNode }) {
   const [busy, setBusy] = useState("");
   const toggle = async (actions: unknown[], key: string) => {
@@ -29,12 +36,7 @@ export function HelperPage({ view, act, preview }: { view: HelperView; act?: Act
       {...shell}
     >
       <p className="m-0 text-[17px]">
-        {fill(t.helperHello, { name: view.helper })}{" "}
-        {open.length
-          ? open.length === 1
-            ? t.helperOne
-            : fill(t.helperMany, { n: open.length })
-          : t.helperDone}
+        {fill(t.helperHello, { name: view.helper })} {helperStatus(open.length, t)}
       </p>
       <Card label={t.tasks}>
         <ul className="m-0 flex list-none flex-col p-0">

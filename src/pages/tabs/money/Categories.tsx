@@ -1,13 +1,16 @@
 import { type FormEvent, useState } from "react";
 import { Link } from "react-router";
 import { Field, Modal, Pill, toneText } from "../../../components/ui";
-import type { Category, PersonalEvent } from "../../../data/types";
+import type { Category, PayStatus, PersonalEvent, Tone } from "../../../data/types";
 import { inr } from "../../../lib/format";
 import { list } from "../../../shared/records";
 import { useStore } from "../../../store/store";
 import { newId, parseAmount, Section } from "../common";
 
 /** Budget lines: planned, projected and spent, with each line's items and payments. */
+/** Paid lines read as settled, part-paid ones as due; the rest are quiet. */
+const PAY_TONE: Partial<Record<PayStatus, Tone>> = { paid: "ok", advance: "due" };
+
 export function Categories({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
   const { dispatch } = useStore();
   const [open, setOpen] = useState<string | null>(null);
@@ -214,9 +217,7 @@ function CategoryDetail({ ev, c, editable }: { ev: PersonalEvent; c: Category; e
             </span>
             <span className="flex items-center gap-2">
               <span className="tabular">{inr(i.amount)}</span>
-              <Pill tone={i.status === "paid" ? "ok" : i.status === "advance" ? "due" : "idle"}>
-                {i.estimate ? "estimate" : i.status}
-              </Pill>
+              <Pill tone={PAY_TONE[i.status] ?? "idle"}>{i.estimate ? "estimate" : i.status}</Pill>
             </span>
           </li>
         ))}

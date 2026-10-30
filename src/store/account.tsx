@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { ApiError, api } from "../lib/api";
-import type { AccountUser } from "../shared/types";
+import type { AccountUser, PlanSummary } from "../shared/types";
 import { toast, useStore } from "./store";
 
 /** How often an open plan checks the server for changes made by co-planners. */
@@ -100,6 +100,37 @@ export function AccountSync() {
   return null;
 }
 
+/** The plan from the server when it has moved past `known`; nothing while local changes are still syncing. */
+async function newerPlan(id: string, known: number, syncing: () => boolean) {
+  const latest = await api.version(id);
+  if (latest <= known || syncing()) return undefined;
+  return api.plan(id);
+}
+
+/** The server answers 404 for a plan the caller is no longer a member of. */
+const noLongerShared = (e: unknown) => e instanceof ApiError && e.status === 404;
+
+interface FreshnessCheck {
+  id: string;
+  /** The version this device has. */
+  known: () => number;
+  /** Whether local changes to the plan are still on their way to the server. */
+  syncing: () => boolean;
+  onPlan: (plan: PlanSummary) => void;
+  onGone: () => void;
+}
+
+/** One look at the server, skipped while the tab is hidden or local changes are syncing. */
+async function checkFreshness(c: FreshnessCheck): Promise<void> {
+  if (document.hidden || c.syncing()) return;
+  try {
+    const plan = await newerPlan(c.id, c.known(), c.syncing);
+    if (plan && !c.syncing()) c.onPlan(plan);
+  } catch (e) {
+    if (noLongerShared(e)) c.onGone();
+  }
+}
+
 /** While a shared plan is open, picks up co-planners' changes within a few seconds. */
 export function usePlanFreshness(id: string | undefined) {
   const { state, dispatch, sync } = useStore();
@@ -111,20 +142,20 @@ export function usePlanFreshness(id: string | undefined) {
   useEffect(() => {
     if (!account || !id) return;
     let live = true;
-    const check = async () => {
-      if (document.hidden || sync.has(id)) return;
-      try {
-        const latest = await api.version(id);
-        if (latest <= version.current || sync.has(id)) return;
-        const plan = await api.plan(id);
-        if (live && !sync.has(id)) dispatch({ type: "syncPlan", plan });
-      } catch (e) {
-        if (live && e instanceof ApiError && e.status === 404) {
+    const check = () =>
+      checkFreshness({
+        id,
+        known: () => version.current,
+        syncing: () => sync.has(id),
+        onPlan: (plan) => {
+          if (live) dispatch({ type: "syncPlan", plan });
+        },
+        onGone: () => {
+          if (!live) return;
           dispatch(toast("This plan is no longer shared with you."));
           void refreshPlans();
-        }
-      }
-    };
+        },
+      });
     const timer = window.setInterval(check, FRESHNESS_MS);
     window.addEventListener("focus", check);
     return () => {

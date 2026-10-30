@@ -104,6 +104,11 @@ export interface TemplateRow {
   date: string;
 }
 
+/** Owners and co-planners can change a plan; viewers can only read it. */
+export function canEdit(role: Role | undefined): boolean {
+  return role === "owner" || role === "planner";
+}
+
 export const ROLE_LABEL: Record<Role, string> = {
   owner: "Owner",
   planner: "Co-planner",
