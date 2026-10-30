@@ -179,8 +179,11 @@ export function ShareLink({
       </span>
     );
   const whatsapp = async () => {
-    // Open the window first, synchronously, so the browser doesn't block it as a popup.
-    const win = window.open("", "_blank", "noopener");
+    // Open the tab first, synchronously, so the browser doesn't block it as a popup. Passing
+    // "noopener" would make window.open return null and lose the tab, so instead its link back
+    // to Plannr is cut here, before it loads anything.
+    const win = window.open("", "_blank");
+    if (win) win.opener = null;
     setBusy(true);
     const url = await share.get();
     setBusy(false);

@@ -109,11 +109,12 @@ export function Join() {
                 name={name}
                 setName={setName}
                 next={next}
+                error={error}
                 onJoin={() => run(accept)}
                 onJoinAsGuest={joinAsGuest}
               />
               {error && (
-                <p role="alert" className="m-0 text-[13px] font-medium text-rust-ink">
+                <p id="join-error" role="alert" className="m-0 text-[13px] font-medium text-rust-ink">
                   {error}
                 </p>
               )}
@@ -180,6 +181,7 @@ function JoinChoice({
   name,
   setName,
   next,
+  error,
   onJoin,
   onJoinAsGuest,
 }: {
@@ -193,6 +195,8 @@ function JoinChoice({
   setName: (name: string) => void;
   /** The query that brings them back here after signing in. */
   next: string;
+  /** Shown below the form; the name field points at it. */
+  error: string;
   onJoin: () => void;
   onJoinAsGuest: (e: FormEvent) => void;
 }) {
@@ -219,6 +223,8 @@ function JoinChoice({
               autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              aria-invalid={!!error && !name.trim()}
+              aria-describedby={error ? "join-error" : undefined}
             />
           </Field>
           <button type="submit" className="btn btn-primary btn-lg" disabled={busy}>

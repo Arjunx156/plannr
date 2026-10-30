@@ -123,7 +123,12 @@ export function VendorPage({ view, preview }: { view: VendorView; preview?: Reac
                 <span className="font-semibold">{fill(t.arriveAt, { label: a.label, time: a.time })}</span>
                 <span className="text-sm text-body">{longDate(a.date)}</span>
                 {a.place && (
-                  <a href={mapLink(a.place)} target="_blank" rel="noreferrer" className="link text-sm">
+                  <a
+                    href={mapLink(a.place)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="link text-sm"
+                  >
                     {a.place} · {t.map}
                   </a>
                 )}

@@ -432,7 +432,7 @@ function Invite({ ev }: { ev: PlannrEvent }) {
               className="btn btn-outline btn-sm"
               href={`https://wa.me/?text=${encodeURIComponent(message)}`}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
             >
               Share on WhatsApp
             </a>
