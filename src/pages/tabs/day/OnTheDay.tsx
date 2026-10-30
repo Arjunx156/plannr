@@ -30,9 +30,7 @@ export function Checklist({ ev, fn, editable }: { ev: PlannrEvent; fn: FunctionD
   return (
     <Section
       title="Don't forget"
-      aside={
-        <span className="text-sm text-muted">{left ? `${left} left` : items.length ? "all packed" : ""}</span>
-      }
+      aside={<span className="text-sm text-muted">{packedText(left, items.length)}</span>}
     >
       <ul className="m-0 flex list-none flex-col p-0">
         {items.map((c) => (
@@ -117,15 +115,31 @@ export function Arrivals({ ev, fn }: { ev: PlannrEvent; fn: FunctionDay }) {
   );
 }
 
-export function Helpers({ ev, fn }: { ev: PlannrEvent; fn: FunctionDay }) {
+/** "3 left", "all packed", or nothing on an empty list. */
+function packedText(left: number, total: number): string {
+  if (left) return `${left} left`;
+  return total ? "all packed" : "";
+}
+
+/**
+ * Everyone with a job at this function, with a phone number when the run sheet has one:
+ * run-sheet owners first, then checklist owners, then whoever has an open task for it.
+ */
+function helpersFor(ev: PlannrEvent, fnId: string): Map<string, string | undefined> {
   const owners = new Map<string, string | undefined>();
-  for (const r of runsheetFor(ev, fn.id)) if (r.owner && !owners.has(r.owner)) owners.set(r.owner, r.phone);
-  for (const c of list(ev, "checklist"))
-    if (c.owner && (!c.fnId || c.fnId === fn.id) && !owners.has(c.owner)) owners.set(c.owner, undefined);
-  if (ev.layout !== "empty")
-    for (const t of ev.tasks.list)
-      if (!t.done && t.who && t.who !== "You" && t.fn === fn.id && !owners.has(t.who))
-        owners.set(t.who, undefined);
+  const add = (name: string | undefined, phone?: string) => {
+    if (name && !owners.has(name)) owners.set(name, phone);
+  };
+  for (const r of runsheetFor(ev, fnId)) add(r.owner, r.phone);
+  for (const c of list(ev, "checklist")) if (!c.fnId || c.fnId === fnId) add(c.owner);
+  // "You" is the planner, who doesn't need a helper page.
+  const tasks = ev.layout === "empty" ? [] : ev.tasks.list;
+  for (const t of tasks) if (!t.done && t.fn === fnId && t.who !== "You") add(t.who);
+  return owners;
+}
+
+export function Helpers({ ev, fn }: { ev: PlannrEvent; fn: FunctionDay }) {
+  const owners = helpersFor(ev, fn.id);
   if (!owners.size) return null;
   return (
     <Section title="Helpers">

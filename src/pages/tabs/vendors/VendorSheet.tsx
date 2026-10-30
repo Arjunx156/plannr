@@ -1,9 +1,9 @@
 import { type FormEvent, useState } from "react";
-import { Field, Modal, Pill } from "../../../components/ui";
+import { Field, Modal, Pill, TextField } from "../../../components/ui";
 import type { PlannrEvent, Quote, Vendor } from "../../../data/types";
 import { STAGE_LABEL } from "../../../shared/derive";
 import { useStore } from "../../../store/store";
-import { newId } from "../common";
+import { CategorySelect, newId } from "../common";
 import { STAGE_TONE, STAGES } from "./shared";
 import { AskForQuote, OnTheDay, type PatchVendor, Quotes, VendorDetails } from "./VendorSections";
 
@@ -27,15 +27,13 @@ export function AddVendor({ ev, onAdd }: { ev: PlannrEvent; onAdd: (v: Vendor) =
   };
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
-      <Field label="What for" htmlFor="v-cat">
-        <input
-          id="v-cat"
-          className="field"
-          value={form.category}
-          onChange={(e) => setForm({ ...form, category: e.target.value })}
-          placeholder="Mehendi artist"
-        />
-      </Field>
+      <TextField
+        id="v-cat"
+        label="What for"
+        value={form.category}
+        onChange={(category) => setForm({ ...form, category })}
+        placeholder="Mehendi artist"
+      />
       <Field label="Name" htmlFor="v-name" hint="Leave empty while you're still looking.">
         <input
           id="v-name"
@@ -44,32 +42,21 @@ export function AddVendor({ ev, onAdd }: { ev: PlannrEvent; onAdd: (v: Vendor) =
           onChange={(e) => setForm({ ...form, name: e.target.value })}
         />
       </Field>
-      <Field label="WhatsApp number" htmlFor="v-phone">
-        <input
-          id="v-phone"
-          className="field"
-          inputMode="tel"
-          value={form.phone}
-          onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          placeholder="+91 98470 12345"
-        />
-      </Field>
+      <TextField
+        id="v-phone"
+        label="WhatsApp number"
+        value={form.phone}
+        onChange={(phone) => setForm({ ...form, phone })}
+        inputMode="tel"
+        placeholder="+91 98470 12345"
+      />
       {cats.length > 0 && (
-        <Field label="Budget category" htmlFor="v-budget">
-          <select
-            id="v-budget"
-            className="field"
-            value={form.categoryId}
-            onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-          >
-            <option value="">None</option>
-            {cats.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <CategorySelect
+          id="v-budget"
+          categories={cats}
+          value={form.categoryId}
+          onChange={(categoryId) => setForm({ ...form, categoryId })}
+        />
       )}
       <button
         type="submit"

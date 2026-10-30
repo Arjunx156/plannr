@@ -7,31 +7,7 @@ import { api, inviteUrl } from "../lib/api";
 import { initials, timeAgo } from "../lib/format";
 import { type HistoryEntry, type Member, ROLE_LABEL, type Role } from "../shared/types";
 import { canEdit, toast, useStore } from "../store/store";
-
-function TabPage({
-  eyebrow,
-  title,
-  aside,
-  children,
-}: {
-  eyebrow: string;
-  title: string;
-  aside?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <main id="main" className="mx-auto flex max-w-[960px] flex-col gap-6 px-4 py-8 sm:px-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-1.5">
-          <span className="eyebrow text-muted">{eyebrow}</span>
-          <h1 className="font-serif text-[40px] leading-none">{title}</h1>
-        </div>
-        {aside}
-      </div>
-      {children}
-    </main>
-  );
-}
+import { TabPage } from "./tabs/common";
 
 /** Shown in the demo, where nothing is shared and nothing is kept on a server. */
 function NeedsAccount({ ev, title, children }: { ev: PlannrEvent; title: string; children: ReactNode }) {
@@ -56,6 +32,69 @@ function dayHeading(iso: string): string {
   if (d.toDateString() === today.toDateString()) return "Today";
   if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
   return d.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
+}
+
+/** Each entry with the day heading it starts, if it's the first of its day. */
+function withDayHeadings(entries: HistoryEntry[]): { entry: HistoryEntry; heading?: string }[] {
+  return entries.map((entry, i) => {
+    const day = dayHeading(entry.at);
+    const previous = entries[i - 1];
+    return { entry, heading: previous && dayHeading(previous.at) === day ? undefined : day };
+  });
+}
+
+/** One change: who made it and when, with Undo (or Redo) for actions planners can reverse. */
+function HistoryRow({
+  entry: h,
+  heading,
+  first,
+  editable,
+  busy,
+  onUndo,
+}: {
+  entry: HistoryEntry;
+  heading?: string;
+  first: boolean;
+  editable: boolean;
+  /** The entry being undone or redone, if any. */
+  busy: string;
+  onUndo: () => void;
+}) {
+  const verb = h.undone ? "Redo" : "Undo";
+  return (
+    <li className={`flex flex-col ${first ? "" : "border-t border-sand-2"}`}>
+      {heading && <span className="eyebrow px-5 pt-4 text-muted">{heading}</span>}
+      <div className="flex items-start gap-3 px-5 py-3">
+        <span
+          aria-hidden="true"
+          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sand text-[11px] font-semibold"
+        >
+          {initials(h.by ?? "?")}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className={`text-sm font-medium ${h.undone ? "text-muted line-through" : ""}`}>
+            {h.summary}
+          </span>
+          <span className="text-xs text-muted">
+            {h.by ?? "Someone"} · {timeAgo(h.at)}
+            {h.undone && " · undone"}
+          </span>
+        </span>
+        {h.kind !== "action" && <Pill tone="idle">{h.kind}</Pill>}
+        {h.kind === "action" && editable && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            disabled={!!busy}
+            onClick={onUndo}
+            aria-label={`${verb} ${h.summary}`}
+          >
+            {busy === h.id ? "…" : verb}
+          </button>
+        )}
+      </div>
+    </li>
+  );
 }
 
 export function HistoryTab({ ev }: { ev: PlannrEvent }) {
@@ -103,65 +142,35 @@ export function HistoryTab({ ev }: { ev: PlannrEvent }) {
     setBusy("");
   };
 
-  let lastDay = "";
   return (
     <TabPage eyebrow={ev.name} title="History">
       <p className="m-0 max-w-[640px] text-body">
         Every change to the plan, newest first. Undo one and Plannr rebuilds the plan without it, keeping
         everything that came after.
       </p>
-      {list === null ? (
+      {list === null && (
         <div className="flex justify-center py-10">
           <Spinner label="Loading history" />
         </div>
-      ) : !list.length ? (
+      )}
+      {list?.length === 0 && (
         <p className="m-0 rounded-2xl border border-dashed border-line-2 p-8 text-center text-body">
           No changes yet. Tick off a task or adjust the budget and it shows up here.
         </p>
-      ) : (
+      )}
+      {!!list?.length && (
         <ol className="m-0 flex list-none flex-col rounded-2xl border border-line bg-surface p-0">
-          {list.map((h, i) => {
-            const day = dayHeading(h.at);
-            const heading = day !== lastDay;
-            lastDay = day;
-            return (
-              <li key={h.id} className={`flex flex-col ${i ? "border-t border-sand-2" : ""}`}>
-                {heading && <span className="eyebrow px-5 pt-4 text-muted">{day}</span>}
-                <div className="flex items-start gap-3 px-5 py-3">
-                  <span
-                    aria-hidden="true"
-                    className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sand text-[11px] font-semibold"
-                  >
-                    {initials(h.by ?? "?")}
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className={`text-sm font-medium ${h.undone ? "text-muted line-through" : ""}`}>
-                      {h.summary}
-                    </span>
-                    <span className="text-xs text-muted">
-                      {h.by ?? "Someone"} · {timeAgo(h.at)}
-                      {h.undone && " · undone"}
-                    </span>
-                  </span>
-                  {h.kind !== "action" ? (
-                    <Pill tone="idle">{h.kind}</Pill>
-                  ) : (
-                    editable && (
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        disabled={!!busy}
-                        onClick={() => undo(h)}
-                        aria-label={`${h.undone ? "Redo" : "Undo"} ${h.summary}`}
-                      >
-                        {busy === h.id ? "…" : h.undone ? "Redo" : "Undo"}
-                      </button>
-                    )
-                  )}
-                </div>
-              </li>
-            );
-          })}
+          {withDayHeadings(list).map(({ entry, heading }, i) => (
+            <HistoryRow
+              key={entry.id}
+              entry={entry}
+              heading={heading}
+              first={i === 0}
+              editable={editable}
+              busy={busy}
+              onUndo={() => undo(entry)}
+            />
+          ))}
         </ol>
       )}
     </TabPage>
@@ -226,60 +235,20 @@ export function PeopleTab({ ev }: { ev: PlannrEvent }) {
         ) : (
           <ul className="m-0 flex list-none flex-col p-0">
             {members.map((m, i) => (
-              <li
+              <MemberRow
                 key={m.userId}
-                className={`flex flex-wrap items-center gap-3 px-5 py-3.5 ${i ? "border-t border-sand-2" : ""}`}
-              >
-                <span
-                  aria-hidden="true"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-peacock-tint text-xs font-semibold text-peacock-deep"
-                >
-                  {initials(m.name || "?")}
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-sm font-semibold">
-                    {m.name || "Unnamed"}
-                    {m.userId === me && <span className="font-normal text-muted"> (you)</span>}
-                  </span>
-                  <span className="truncate text-xs text-muted">
-                    {m.guest ? "Guest" : m.email}
-                    {m.side ? ` · ${m.side}` : ""}
-                  </span>
-                </span>
-                {owner && m.role !== "owner" ? (
-                  <span className="flex items-center gap-2">
-                    <label className="sr-only" htmlFor={`role-${m.userId}`}>
-                      Role for {m.name}
-                    </label>
-                    <select
-                      id={`role-${m.userId}`}
-                      className="field h-9 min-h-0 py-0 text-sm appearance-auto"
-                      value={m.role}
-                      onChange={(e) =>
-                        change(
-                          () =>
-                            api.updateMember(ev.id, m.userId, {
-                              role: e.target.value as Exclude<Role, "owner">,
-                            }),
-                          `${m.name} is now ${ROLE_LABEL[e.target.value as Role].toLowerCase()}.`,
-                        )
-                      }
-                    >
-                      <option value="planner">{ROLE_LABEL.planner}</option>
-                      <option value="viewer">{ROLE_LABEL.viewer}</option>
-                    </select>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm text-rust-ink"
-                      onClick={() => change(() => api.removeMember(ev.id, m.userId), `Removed ${m.name}.`)}
-                    >
-                      Remove
-                    </button>
-                  </span>
-                ) : (
-                  <Pill tone={m.role === "owner" ? "ok" : "idle"}>{ROLE_LABEL[m.role]}</Pill>
-                )}
-              </li>
+                member={m}
+                you={m.userId === me}
+                first={i === 0}
+                manage={owner && m.role !== "owner"}
+                onRole={(next) =>
+                  change(
+                    () => api.updateMember(ev.id, m.userId, { role: next }),
+                    `${m.name} is now ${ROLE_LABEL[next].toLowerCase()}.`,
+                  )
+                }
+                onRemove={() => change(() => api.removeMember(ev.id, m.userId), `Removed ${m.name}.`)}
+              />
             ))}
           </ul>
         )}
@@ -292,6 +261,66 @@ export function PeopleTab({ ev }: { ev: PlannrEvent }) {
         </p>
       )}
     </TabPage>
+  );
+}
+
+/** One member: who they are, and for the owner, their role and a way to remove them. */
+function MemberRow({
+  member: m,
+  you,
+  first,
+  manage,
+  onRole,
+  onRemove,
+}: {
+  member: Member;
+  you: boolean;
+  first: boolean;
+  /** The owner sees controls for everyone but themselves. */
+  manage: boolean;
+  onRole: (role: Exclude<Role, "owner">) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <li className={`flex flex-wrap items-center gap-3 px-5 py-3.5 ${first ? "" : "border-t border-sand-2"}`}>
+      <span
+        aria-hidden="true"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-peacock-tint text-xs font-semibold text-peacock-deep"
+      >
+        {initials(m.name || "?")}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="text-sm font-semibold">
+          {m.name || "Unnamed"}
+          {you && <span className="font-normal text-muted"> (you)</span>}
+        </span>
+        <span className="truncate text-xs text-muted">
+          {m.guest ? "Guest" : m.email}
+          {m.side ? ` · ${m.side}` : ""}
+        </span>
+      </span>
+      {manage ? (
+        <span className="flex items-center gap-2">
+          <label className="sr-only" htmlFor={`role-${m.userId}`}>
+            Role for {m.name}
+          </label>
+          <select
+            id={`role-${m.userId}`}
+            className="field h-9 min-h-0 py-0 text-sm appearance-auto"
+            value={m.role}
+            onChange={(e) => onRole(e.target.value as Exclude<Role, "owner">)}
+          >
+            <option value="planner">{ROLE_LABEL.planner}</option>
+            <option value="viewer">{ROLE_LABEL.viewer}</option>
+          </select>
+          <button type="button" className="btn btn-ghost btn-sm text-rust-ink" onClick={onRemove}>
+            Remove
+          </button>
+        </span>
+      ) : (
+        <Pill tone={m.role === "owner" ? "ok" : "idle"}>{ROLE_LABEL[m.role]}</Pill>
+      )}
+    </li>
   );
 }
 

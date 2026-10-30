@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { type ComponentType, lazy, Suspense, useEffect, useRef } from "react";
 import { Link, Navigate, NavLink, useLocation, useParams, useSearchParams } from "react-router";
 import { AssistantPanel } from "../components/assistant";
 import { AppShell } from "../components/shell";
@@ -28,6 +28,31 @@ const FundsTab = lazy(() => import("./tabs/FundsTab").then((m) => ({ default: m.
 const VolunteersTab = lazy(() => import("./tabs/VolunteersTab").then((m) => ({ default: m.VolunteersTab })));
 const StallsTab = lazy(() => import("./tabs/StallsTab").then((m) => ({ default: m.StallsTab })));
 
+type TabProps = { ev: PlannrEvent; onOpenTask: (id: string) => void };
+
+/** Each section's screen, loaded when it's first opened. The overview ("") is part of this page. */
+const TAB_SCREENS: Record<string, ComponentType<TabProps>> = {
+  timeline: TimelineTab,
+  guests: GuestsTab,
+  budget: MoneyTab,
+  vendors: VendorsTab,
+  ideas: IdeasTab,
+  day: DayTab,
+  website: SiteTab,
+  funds: FundsTab,
+  volunteers: VolunteersTab,
+  stalls: StallsTab,
+  history: HistoryTab,
+  people: PeopleTab,
+  settings: SettingsTab,
+};
+
+/** "Budget · Priya & Arjun's wedding", the event's name on its overview, or "Event not found". */
+function pageTitle(ev: PlannrEvent | undefined, tab: { id: string; label: string } | undefined): string {
+  if (!ev) return "Event not found";
+  return tab?.id ? `${tab.label} · ${ev.name}` : ev.name;
+}
+
 /** /events/:id/:tab? — one event, with its overview, timeline, budget, vendors, ideas and people. */
 export function EventPage() {
   const { id, tab = "" } = useParams();
@@ -35,9 +60,7 @@ export function EventPage() {
   const [params, setParams] = useSearchParams();
   const ev = state.events.find((e) => e.id === id);
   const current = ev ? tabsFor(ev).find((t) => t.id === tab) : undefined;
-  usePageMeta(ev ? (current?.id ? `${current.label} · ${ev.name}` : ev.name) : "Event not found", {
-    private: true,
-  });
+  usePageMeta(pageTitle(ev, current), { private: true });
   usePlanFreshness(id);
   const openTask = params.get("task");
   const setTask = (taskId: string | null) =>
@@ -59,59 +82,59 @@ export function EventPage() {
   if (tab === "tasks")
     return <Navigate to={`/events/${ev.id}/timeline${params.size ? `?${params}` : ""}`} replace />;
   if (!current) return <Navigate to={`/events/${ev.id}`} replace />;
+  const Screen = TAB_SCREENS[tab];
   return (
     <AppShell>
       <EventBar ev={ev} />
-      {ev.layout === "empty" ? (
-        <EmptyPlan ev={ev} />
-      ) : tab === "" ? (
-        <div className="mx-auto grid max-w-[1440px] gap-6 px-4 pt-6 pb-24 sm:px-8 xl:grid-cols-[minmax(0,1fr)_400px] xl:pb-6">
-          <main id="main" className="flex min-w-0 flex-col gap-6">
-            <Hero ev={ev} />
-            {ev.layout === "personal" ? (
-              <Personal ev={ev} onOpenTask={setTask} />
-            ) : (
-              <Community ev={ev} onOpenTask={setTask} />
-            )}
-          </main>
-          <aside id="assistant" className="scroll-mt-4 xl:sticky xl:top-4 xl:self-start">
-            <AssistantPanel ev={ev} />
-          </aside>
-          {/* On narrower screens the assistant sits below the overview: one tap brings it up. */}
-          <button
-            type="button"
-            className="btn btn-primary fixed right-4 z-30 shadow-[0_8px_24px_rgba(20,10,5,.25)] xl:hidden"
-            style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}
-            onClick={() => {
-              document.getElementById("assistant")?.scrollIntoView({ behavior: "smooth", block: "start" });
-              window.setTimeout(
-                () => document.getElementById(`ask-${ev.id}`)?.focus({ preventScroll: true }),
-                400,
-              );
-            }}
-          >
-            ◆ Ask Plannr
-          </button>
-        </div>
-      ) : (
+      {ev.layout === "empty" && <EmptyPlan ev={ev} />}
+      {ev.layout !== "empty" && tab === "" && <Overview ev={ev} onOpenTask={setTask} />}
+      {ev.layout !== "empty" && Screen && (
         <Suspense fallback={<Loading />}>
-          {tab === "timeline" && <TimelineTab ev={ev} onOpenTask={setTask} />}
-          {tab === "guests" && <GuestsTab ev={ev} />}
-          {tab === "budget" && <MoneyTab ev={ev} />}
-          {tab === "vendors" && <VendorsTab ev={ev} />}
-          {tab === "ideas" && <IdeasTab ev={ev} />}
-          {tab === "day" && <DayTab ev={ev} />}
-          {tab === "website" && <SiteTab ev={ev} />}
-          {tab === "funds" && <FundsTab ev={ev} />}
-          {tab === "volunteers" && <VolunteersTab ev={ev} />}
-          {tab === "stalls" && <StallsTab ev={ev} />}
-          {tab === "history" && <HistoryTab ev={ev} />}
-          {tab === "people" && <PeopleTab ev={ev} />}
-          {tab === "settings" && <SettingsTab ev={ev} />}
+          <Screen ev={ev} onOpenTask={setTask} />
         </Suspense>
       )}
       <TaskSheet ev={ev} taskId={openTask} onClose={() => setTask(null)} />
     </AppShell>
+  );
+}
+
+/** The overview: the plan at a glance beside the assistant. */
+function Overview({
+  ev,
+  onOpenTask,
+}: {
+  ev: PersonalEvent | CommunityEvent;
+  onOpenTask: (id: string) => void;
+}) {
+  return (
+    <div className="mx-auto grid max-w-[1440px] gap-6 px-4 pt-6 pb-24 sm:px-8 xl:grid-cols-[minmax(0,1fr)_400px] xl:pb-6">
+      <main id="main" className="flex min-w-0 flex-col gap-6">
+        <Hero ev={ev} />
+        {ev.layout === "personal" ? (
+          <Personal ev={ev} onOpenTask={onOpenTask} />
+        ) : (
+          <Community ev={ev} onOpenTask={onOpenTask} />
+        )}
+      </main>
+      <aside id="assistant" className="scroll-mt-4 xl:sticky xl:top-4 xl:self-start">
+        <AssistantPanel ev={ev} />
+      </aside>
+      {/* On narrower screens the assistant sits below the overview: one tap brings it up. */}
+      <button
+        type="button"
+        className="btn btn-primary fixed right-4 z-30 shadow-[0_8px_24px_rgba(20,10,5,.25)] xl:hidden"
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}
+        onClick={() => {
+          document.getElementById("assistant")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          window.setTimeout(
+            () => document.getElementById(`ask-${ev.id}`)?.focus({ preventScroll: true }),
+            400,
+          );
+        }}
+      >
+        ◆ Ask Plannr
+      </button>
+    </div>
   );
 }
 

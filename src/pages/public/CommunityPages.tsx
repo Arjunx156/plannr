@@ -1,7 +1,9 @@
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { detectorClass, Scanner } from "../../components/scanner";
+import { FundProgress } from "../../components/ui";
 import { inr } from "../../lib/format";
 import { fill } from "../../lib/guestText";
+import type { LinkText } from "../../lib/linkText";
 import type { FundView, GateView, StallsView } from "../../shared/public";
 import { readPassCode } from "../../shared/public";
 import { type Act, Card, PublicShell, useLinkLang } from "./shell";
@@ -47,9 +49,7 @@ export function FundPage({ view, preview }: { view: FundView; preview?: ReactNod
               className="flex justify-between gap-3 border-t border-sand-2 py-2.5 text-sm first:border-0"
             >
               <span className="font-medium">{s.label}</span>
-              <span className="tabular">
-                {inr(s.received)} <span className="text-muted">/ {inr(s.expected)}</span>
-              </span>
+              <FundProgress received={s.received} expected={s.expected} />
             </li>
           ))}
         </ul>
@@ -87,6 +87,35 @@ export function FundPage({ view, preview }: { view: FundView; preview?: ReactNod
   );
 }
 
+type StallForm = { stall: string; owner: string; phone: string; category: string };
+
+/** Digits in an Indian mobile number, without the country code. */
+const MOBILE_DIGITS = 10;
+
+/** Why the stall request can't be sent yet, in the stallholder's language. */
+function stallProblem(form: StallForm, t: LinkText): string | undefined {
+  if (!form.stall.trim() || !form.owner.trim()) return t.stallNeedNames;
+  const digits = form.phone.replace(/\D/g, "");
+  return digits && digits.length < MOBILE_DIGITS ? t.stallPhone : undefined;
+}
+
+/** The stall request as sent. The server sets the fee and status again, whatever arrives. */
+function stallRequest(form: StallForm, fee: number) {
+  const digits = form.phone.replace(/\D/g, "");
+  // A bare ten-digit number gets India's country code, so WhatsApp links work.
+  const phone = digits.length === MOBILE_DIGITS ? `91${digits}` : digits;
+  return {
+    id: "new",
+    name: form.stall.trim(),
+    owner: form.owner.trim(),
+    ...(phone && { phone }),
+    ...(form.category && { category: form.category }),
+    fee,
+    paid: false,
+    status: "requested" as const,
+  };
+}
+
 export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act; preview?: ReactNode }) {
   const { t, shell } = useLinkLang(view.event);
   const [stall, setStall] = useState("");
@@ -98,35 +127,17 @@ export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act
   const [error, setError] = useState("");
   const send = async (e: FormEvent) => {
     e.preventDefault();
-    const digits = phone.replace(/\D/g, "");
-    if (!stall.trim() || !owner.trim()) {
-      setError(t.stallNeedNames);
-      return;
-    }
-    if (digits && digits.length < 10) {
-      setError(t.stallPhone);
+    const form = { stall, owner, phone, category };
+    const problem = stallProblem(form, t);
+    if (problem) {
+      setError(problem);
       return;
     }
     if (!act) return;
     setBusy(true);
     setError("");
     try {
-      await act([
-        {
-          type: "addRecord",
-          coll: "stalls",
-          record: {
-            id: "new",
-            name: stall.trim(),
-            owner: owner.trim(),
-            ...(digits ? { phone: digits.length === 10 ? `91${digits}` : digits } : {}),
-            ...(category ? { category } : {}),
-            fee: view.fee,
-            paid: false,
-            status: "requested",
-          },
-        },
-      ]);
+      await act([{ type: "addRecord", coll: "stalls", record: stallRequest(form, view.fee) }]);
       setSent(true);
     } catch (err) {
       setError((err as Error).message);

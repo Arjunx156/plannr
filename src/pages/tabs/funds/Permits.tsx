@@ -32,13 +32,76 @@ Yours faithfully,
 For the organising committee`;
 }
 
+type PermitRecord = Permit & { id: string };
+
+/** "Applied, waiting · apply by 12 Oct · letter drafted" */
+function permitNote(p: Permit, late: boolean): string {
+  const due = p.due && p.tone !== "ok" ? ` · ${late ? "was due" : "apply by"} ${shortDate(p.due)}` : "";
+  return `${p.status}${due}${p.letter ? " · letter drafted" : ""}`;
+}
+
+/**
+ * One permit or booking. Until it's cleared, planners can draft its letter, mark it applied,
+ * and mark it cleared (a permit) or booked (anything else).
+ */
+function PermitRow({
+  permit: p,
+  editable,
+  onLetter,
+  onChange,
+}: {
+  permit: PermitRecord;
+  editable: boolean;
+  onLetter: () => void;
+  onChange: (patch: Partial<Permit>) => void;
+}) {
+  const cleared = p.tone === "ok";
+  const late = !cleared && !!p.due && p.due < TODAY;
+  const isPermit = p.permit !== false;
+  const done = isPermit ? "Cleared" : "Booked";
+  return (
+    <li className="flex flex-wrap items-center gap-2 border-t border-sand-2 py-2.5 text-sm first:border-0">
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="font-medium">{p.label}</span>
+        <span className={`text-xs ${late ? "text-rust-ink" : toneText(p.tone)}`}>{permitNote(p, late)}</span>
+      </span>
+      {editable && !cleared && (
+        <span className="flex flex-wrap gap-1.5">
+          {isPermit && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onLetter}>
+              {p.letter ? "Letter" : "Draft letter"}
+            </button>
+          )}
+          {p.tone === "idle" && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => onChange({ status: "Applied, waiting", tone: "due" })}
+            >
+              Applied
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => onChange({ status: done, tone: "ok" })}
+          >
+            {done}
+          </button>
+        </span>
+      )}
+      {cleared && <Pill tone="ok">{p.status}</Pill>}
+    </li>
+  );
+}
+
 /** Permits the event needs, who is filing each, and a drafted application letter. */
 export function Permits({ ev, editable }: { ev: CommunityEvent; editable: boolean }) {
   const { dispatch } = useStore();
   const permits = list(ev, "permits");
-  const [writing, setWriting] = useState<(Permit & { id: string }) | null>(null);
+  const [writing, setWriting] = useState<PermitRecord | null>(null);
   const [label, setLabel] = useState("");
-  const set = (p: Permit & { id: string }, patch: Partial<Permit>) =>
+  const set = (p: PermitRecord, patch: Partial<Permit>) =>
     dispatch({ type: "updateRecord", eventId: ev.id, coll: "permits", id: p.id, patch });
   const add = (e: FormEvent) => {
     e.preventDefault();
@@ -61,51 +124,15 @@ export function Permits({ ev, editable }: { ev: CommunityEvent; editable: boolea
   return (
     <Section title="Permits and bookings">
       <ul className="m-0 flex list-none flex-col p-0">
-        {permits.map((p) => {
-          const cleared = p.tone === "ok";
-          const late = !cleared && p.due && p.due < TODAY;
-          return (
-            <li
-              key={p.id}
-              className="flex flex-wrap items-center gap-2 border-t border-sand-2 py-2.5 text-sm first:border-0"
-            >
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="font-medium">{p.label}</span>
-                <span className={`text-xs ${late ? "text-rust-ink" : toneText(p.tone)}`}>
-                  {p.status}
-                  {p.due && !cleared ? ` · ${late ? "was due" : "apply by"} ${shortDate(p.due)}` : ""}
-                  {p.letter ? " · letter drafted" : ""}
-                </span>
-              </span>
-              {editable && !cleared && (
-                <span className="flex flex-wrap gap-1.5">
-                  {p.permit !== false && (
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setWriting(p)}>
-                      {p.letter ? "Letter" : "Draft letter"}
-                    </button>
-                  )}
-                  {p.tone === "idle" && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => set(p, { status: "Applied, waiting", tone: "due" })}
-                    >
-                      Applied
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => set(p, { status: p.permit === false ? "Booked" : "Cleared", tone: "ok" })}
-                  >
-                    {p.permit === false ? "Booked" : "Cleared"}
-                  </button>
-                </span>
-              )}
-              {cleared && <Pill tone="ok">{p.status}</Pill>}
-            </li>
-          );
-        })}
+        {permits.map((p) => (
+          <PermitRow
+            key={p.id}
+            permit={p}
+            editable={editable}
+            onLetter={() => setWriting(p)}
+            onChange={(patch) => set(p, patch)}
+          />
+        ))}
       </ul>
       {editable && (
         <form onSubmit={add} className="flex gap-2">

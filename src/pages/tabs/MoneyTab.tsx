@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { RippleDialog } from "../../components/ripple";
 import { useEditable } from "../../components/tasks";
 import { Field, Modal } from "../../components/ui";
-import type { PersonalEvent, PlannrEvent } from "../../data/types";
+import type { LineItem, Payment, PayStatus, PersonalEvent, PlannrEvent } from "../../data/types";
 import type { ReadResult } from "../../lib/ai";
 import { addDays, longDate, shortDate, TODAY } from "../../lib/dates";
 import { inr, inrShort, plural } from "../../lib/format";
@@ -164,6 +164,41 @@ function WhatIf({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
 
 // ---------------------------------------------------------------- reading a bill
 
+/** Days until a payment read from a document falls due when the document doesn't say. */
+const DEFAULT_DUE_DAYS = 14;
+
+/** A paid bill, an unpaid one, or a quote (kept as an estimate until it's booked). */
+function itemStatus(paid: boolean, kind: ReadResult["kind"]): PayStatus {
+  if (paid) return "paid";
+  return kind === "quote" ? "quote" : "unpaid";
+}
+
+/** The budget line a read document becomes. */
+function lineItemFrom(result: ReadResult, total: number, paid: boolean): LineItem {
+  return {
+    id: newId("li"),
+    name: result.summary || result.vendor || "From a document",
+    vendor: result.vendor ?? "",
+    amount: total,
+    status: itemStatus(paid, result.kind),
+    ...(result.kind === "quote" ? { estimate: true } : {}),
+  };
+}
+
+/** The instalments a document lists, as payments on the schedule under one category. */
+function paymentsFrom(result: ReadResult, categoryId: string): Payment[] {
+  return result.payments
+    .filter((p) => p.amount > 0)
+    .map((p) => ({
+      id: newId("pay"),
+      label: p.label,
+      amount: p.amount,
+      date: p.date ?? addDays(TODAY, DEFAULT_DUE_DAYS),
+      paid: false,
+      categoryId,
+    }));
+}
+
 function ReadResultDialog({
   ev,
   result,
@@ -187,31 +222,11 @@ function ReadResultDialog({
       type: "addLineItem",
       eventId: ev.id,
       categoryId: chosen,
-      item: {
-        id: newId("li"),
-        name: result.summary || result.vendor || "From a document",
-        vendor: result.vendor ?? "",
-        amount: total,
-        status: paid ? "paid" : result.kind === "quote" ? "quote" : "unpaid",
-        ...(result.kind === "quote" ? { estimate: true } : {}),
-      },
+      item: lineItemFrom(result, total, paid),
       spent: paid ? total : 0,
     });
-    for (const p of result.payments)
-      if (p.amount > 0)
-        dispatch({
-          type: "addRecord",
-          eventId: ev.id,
-          coll: "payments",
-          record: {
-            id: newId("pay"),
-            label: p.label,
-            amount: p.amount,
-            date: p.date ?? addDays(TODAY, 14),
-            paid: false,
-            categoryId: chosen,
-          },
-        });
+    for (const record of paymentsFrom(result, chosen))
+      dispatch({ type: "addRecord", eventId: ev.id, coll: "payments", record });
     dispatch(
       toast(
         result.payments.length

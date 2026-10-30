@@ -34,13 +34,13 @@ interface Recognition {
 
 type RecognitionCtor = new () => Recognition;
 
+/** The browser's speech recogniser: standard where supported, prefixed in Chrome and Safari. */
 function ctor(): RecognitionCtor | undefined {
   if (typeof window === "undefined") return undefined;
-  const w = window as unknown as {
-    SpeechRecognition?: RecognitionCtor;
-    webkitSpeechRecognition?: RecognitionCtor;
-  };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
+  // Neither name is in TypeScript's DOM types yet, so they're read by name.
+  const found: unknown =
+    Reflect.get(window, "SpeechRecognition") ?? Reflect.get(window, "webkitSpeechRecognition");
+  return typeof found === "function" ? (found as RecognitionCtor) : undefined;
 }
 
 export function speechSupported(): boolean {

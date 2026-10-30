@@ -4,7 +4,7 @@
  * floor is on the total rather than per file. Run after `bun test --coverage`.
  */
 /** The least share of lines and of functions the unit tests must run. */
-const FLOOR = { lines: 0.85, functions: 0.8 };
+const FLOOR = { lines: 0.9, functions: 0.87 };
 
 const lcov = await Bun.file(new URL("../coverage/lcov.info", import.meta.url)).text();
 const found = { lines: 0, functions: 0 };

@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { Link } from "react-router";
 import { useEditable } from "../../components/tasks";
-import { Field, Modal, Pill } from "../../components/ui";
+import { Modal, Pill, TextField } from "../../components/ui";
 import type { CommunityEvent, Pass, PlannrEvent, Stall } from "../../data/types";
 import { inr, plural } from "../../lib/format";
 import { fundTotals } from "../../shared/derive";
@@ -169,52 +169,42 @@ function StallForm({ fee, onAdd }: { fee: number; onAdd: (s: Stall) => void }) {
   };
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
-      <Field label="Stall name" htmlFor="st-name">
-        <input
-          id="st-name"
-          className="field"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          placeholder="Ammachi's pickles"
-        />
-      </Field>
+      <TextField
+        id="st-name"
+        label="Stall name"
+        value={form.name}
+        onChange={(name) => setForm({ ...form, name })}
+        placeholder="Ammachi's pickles"
+      />
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Run by" htmlFor="st-owner">
-          <input
-            id="st-owner"
-            className="field"
-            value={form.owner}
-            onChange={(e) => setForm({ ...form, owner: e.target.value })}
-            placeholder="Flat B-204"
-          />
-        </Field>
-        <Field label="Phone" htmlFor="st-phone">
-          <input
-            id="st-phone"
-            className="field"
-            inputMode="tel"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          />
-        </Field>
-        <Field label="Category" htmlFor="st-cat">
-          <input
-            id="st-cat"
-            className="field"
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-            placeholder="Food"
-          />
-        </Field>
-        <Field label="Fee (₹)" htmlFor="st-fee">
-          <input
-            id="st-fee"
-            className="field"
-            inputMode="decimal"
-            value={form.fee}
-            onChange={(e) => setForm({ ...form, fee: e.target.value })}
-          />
-        </Field>
+        <TextField
+          id="st-owner"
+          label="Run by"
+          value={form.owner}
+          onChange={(owner) => setForm({ ...form, owner })}
+          placeholder="Flat B-204"
+        />
+        <TextField
+          id="st-phone"
+          label="Phone"
+          value={form.phone}
+          onChange={(phone) => setForm({ ...form, phone })}
+          inputMode="tel"
+        />
+        <TextField
+          id="st-cat"
+          label="Category"
+          value={form.category}
+          onChange={(category) => setForm({ ...form, category })}
+          placeholder="Food"
+        />
+        <TextField
+          id="st-fee"
+          label="Fee (₹)"
+          value={form.fee}
+          onChange={(fee) => setForm({ ...form, fee })}
+          inputMode="decimal"
+        />
       </div>
       <button
         type="submit"
@@ -323,35 +313,29 @@ function Passes({ ev, editable }: { ev: CommunityEvent; editable: boolean }) {
           onSubmit={add}
           className="grid grid-cols-[1fr_80px] items-end gap-2 sm:grid-cols-[1fr_80px_1fr_auto]"
         >
-          <Field label="Flat or name" htmlFor="ps-name">
-            <input
-              id="ps-name"
-              className="field"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="C-1102 · Iyer"
-            />
-          </Field>
-          <Field label="Passes" htmlFor="ps-count">
-            <input
-              id="ps-count"
-              className="field"
-              type="number"
-              min={1}
-              max={20}
-              value={form.count}
-              onChange={(e) => setForm({ ...form, count: e.target.value })}
-            />
-          </Field>
-          <Field label="Phone" htmlFor="ps-phone">
-            <input
-              id="ps-phone"
-              className="field"
-              inputMode="tel"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-          </Field>
+          <TextField
+            id="ps-name"
+            label="Flat or name"
+            value={form.name}
+            onChange={(name) => setForm({ ...form, name })}
+            placeholder="C-1102 · Iyer"
+          />
+          <TextField
+            id="ps-count"
+            label="Passes"
+            value={form.count}
+            onChange={(count) => setForm({ ...form, count })}
+            type="number"
+            min={1}
+            max={20}
+          />
+          <TextField
+            id="ps-phone"
+            label="Phone"
+            value={form.phone}
+            onChange={(phone) => setForm({ ...form, phone })}
+            inputMode="tel"
+          />
           <button type="submit" className="btn btn-secondary btn-sm h-10" disabled={!form.name.trim()}>
             Issue
           </button>

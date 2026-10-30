@@ -290,25 +290,41 @@ describe("vendors", () => {
 });
 
 describe("every collection", () => {
-  test("round-trips through its store on each layout that can hold it, and is named in history", () => {
-    for (const coll of COLLS)
-      for (const ev of [wedding, birthday, mela, anniversary]) {
-        const items = list(ev, coll);
-        if (!canHold(ev, coll)) {
-          expect(items).toEqual([]);
-          expect(setList(ev, coll, [])).toBe(ev);
-          continue;
-        }
-        // Writing back what was read changes nothing that matters.
-        expect(list(setList(ev, coll, items), coll)).toEqual(items);
-        const first = items[0];
-        if (!first) continue;
-        expect(recordName(coll, first).length).toBeGreaterThan(4);
-        // A one-day event's day is worked out from its date, so it can't be removed.
-        const derived = coll === "functions" && items.length === 1 && first.id === "day";
-        expect(list(remove(ev, coll, first.id), coll)).toHaveLength(derived ? 1 : items.length - 1);
-        expect(remove(ev, coll, "missing")).toBe(ev);
-      }
+  const events = { wedding, birthday, mela, anniversary };
+  const cases = COLLS.flatMap((coll) =>
+    Object.entries(events).map(([name, ev]) => ({ coll, name, ev, holds: canHold(ev, coll) })),
+  );
+
+  test.each(cases.filter((c) => !c.holds))(
+    "$coll is empty on the $name, and can't be written",
+    ({ coll, ev }) => {
+      expect(list(ev, coll)).toEqual([]);
+      expect(setList(ev, coll, [])).toBe(ev);
+    },
+  );
+
+  test.each(cases.filter((c) => c.holds))(
+    "$coll round-trips through its store on the $name",
+    ({ coll, ev }) => {
+      const items = list(ev, coll);
+      // Writing back what was read changes nothing that matters.
+      expect(list(setList(ev, coll, items), coll)).toEqual(items);
+      expect(remove(ev, coll, "missing")).toBe(ev);
+    },
+  );
+
+  const withRecords = cases.filter((c) => c.holds && list(c.ev, c.coll).length > 0);
+  test.each(withRecords)("$coll on the $name is named in history and can lose a record", ({ coll, ev }) => {
+    const items = list(ev, coll);
+    const [first] = items;
+    if (!first) throw new Error("filtered to collections with records");
+    expect(recordName(coll, first).length).toBeGreaterThan(4);
+    // A one-day event's day is worked out from its date, so it can't be removed.
+    const derived = coll === "functions" && items.length === 1 && first.id === "day";
+    expect(list(remove(ev, coll, first.id), coll)).toHaveLength(derived ? 1 : items.length - 1);
+  });
+
+  test("a missing record has a name, and only real collections are recognised", () => {
     expect(recordName("households", undefined)).toBe("an item");
     expect(isColl("households")).toBe(true);
     expect(isColl("users")).toBe(false);

@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Field, Pill } from "../../../components/ui";
+import { Field, Pill, TextField } from "../../../components/ui";
 import type { PlannrEvent, Quote, Vendor } from "../../../data/types";
 import type { ReadResult } from "../../../lib/ai";
 import { longDate, TODAY } from "../../../lib/dates";
@@ -7,13 +7,92 @@ import { inr } from "../../../lib/format";
 import { clock, quoteTotal } from "../../../shared/derive";
 import { functionsOf } from "../../../shared/records";
 import { toast, useStore } from "../../../store/store";
-import { DraftBox, newId, parseAmount, ReadDocument, ShareLink } from "../common";
+import { CategorySelect, DraftBox, newId, parseAmount, ReadDocument, ShareLink } from "../common";
 import { enquiry, guestsOf } from "./shared";
 
 /** Changes some fields of one vendor. */
 export type PatchVendor = (p: Partial<Vendor>) => void;
 
 const NO_QUOTE = { label: "", amount: "", perGuest: false, inclusions: "", terms: "" };
+
+type NewQuote = Omit<Quote, "id">;
+
+/** A typed quote: package name (or "<vendor> quote"), amount, and whatever else was filled in. */
+function quoteFromForm(form: typeof NO_QUOTE, v: Vendor): NewQuote | undefined {
+  const amount = parseAmount(form.amount);
+  if (!amount) return undefined;
+  const inclusions = form.inclusions.trim();
+  const terms = form.terms.trim();
+  return {
+    label: form.label.trim() || `${v.name || v.category} quote`,
+    amount,
+    ...(form.perGuest && { perGuest: true }),
+    ...(inclusions && { inclusions }),
+    ...(terms && { terms }),
+  };
+}
+
+/** A quote read from a photo or PDF; its instalments are folded into the terms. */
+function quoteFromDocument(r: ReadResult, v: Vendor): NewQuote | undefined {
+  const amount = r.total ?? r.items.reduce((s, i) => s + i.amount, 0);
+  if (!amount) return undefined;
+  const instalments = r.payments.map((p) => `${p.label} ${inr(p.amount)}`).join(", ");
+  const terms = [r.terms, instalments].filter(Boolean).join(" · ");
+  return {
+    label: `${r.vendor || v.name || v.category}${r.summary ? ` · ${r.summary}` : ""}`,
+    amount,
+    source: "document",
+    ...(r.perGuest && { perGuest: true }),
+    ...(r.inclusions && { inclusions: r.inclusions }),
+    ...(terms && { terms }),
+  };
+}
+
+/** One quote with its per-plate total, and booking at it or removing it. */
+function QuoteItem({
+  quote: q,
+  guests,
+  chosen,
+  editable,
+  bookable,
+  onBook,
+  onRemove,
+}: {
+  quote: Quote;
+  guests: number;
+  chosen: boolean;
+  editable: boolean;
+  bookable: boolean;
+  onBook: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <li className="flex flex-col gap-0.5 border-t border-sand-2 py-2 first:border-0">
+      <span className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="font-medium">{q.label}</span>
+        <span className="tabular font-semibold">
+          {inr(q.amount)}
+          {q.perGuest ? ` a plate · ${inr(quoteTotal(q.amount, true, guests))} for ${guests}` : ""}
+        </span>
+      </span>
+      {q.inclusions && <span className="text-xs text-body">Includes: {q.inclusions}</span>}
+      {q.terms && <span className="text-xs text-body">Terms: {q.terms}</span>}
+      <span className="flex items-center gap-2">
+        {chosen && <Pill tone="ok">chosen</Pill>}
+        {editable && bookable && (
+          <button type="button" className="link text-xs" onClick={onBook}>
+            Book at this price
+          </button>
+        )}
+        {editable && (
+          <button type="button" className="link text-xs text-muted" onClick={onRemove}>
+            Remove
+          </button>
+        )}
+      </span>
+    </li>
+  );
+}
 
 /** The vendor's quotes, totalled for this guest count, with a form to add one or read one from a photo. */
 export function Quotes({
@@ -40,40 +119,23 @@ export function Quotes({
     });
   const submitQuote = (e: FormEvent) => {
     e.preventDefault();
-    const amount = parseAmount(quote.amount);
-    if (!amount) return;
-    addQuote({
-      label: quote.label.trim() || `${v.name || v.category} quote`,
-      amount,
-      ...(quote.perGuest ? { perGuest: true } : {}),
-      ...(quote.inclusions.trim() ? { inclusions: quote.inclusions.trim() } : {}),
-      ...(quote.terms.trim() ? { terms: quote.terms.trim() } : {}),
-    });
+    const typed = quoteFromForm(quote, v);
+    if (!typed) return;
+    addQuote(typed);
     setQuote(NO_QUOTE);
   };
   const fromDocument = (r: ReadResult) => {
-    const amount = r.total ?? r.items.reduce((s, i) => s + i.amount, 0);
-    if (!amount) {
+    const read = quoteFromDocument(r, v);
+    if (!read) {
       dispatch(toast("Plannr couldn't find an amount in that document."));
       return;
     }
-    addQuote({
-      label: `${r.vendor || v.name || v.category}${r.summary ? ` · ${r.summary}` : ""}`,
-      amount,
-      source: "document",
-      ...(r.perGuest ? { perGuest: true } : {}),
-      ...(r.inclusions ? { inclusions: r.inclusions } : {}),
-      ...(r.terms || r.payments.length
-        ? {
-            terms: [r.terms, r.payments.map((p) => `${p.label} ${inr(p.amount)}`).join(", ")]
-              .filter(Boolean)
-              .join(" · "),
-          }
-        : {}),
-    });
+    addQuote(read);
     if (r.vendor && !v.name) patch({ name: r.vendor });
     dispatch(
-      toast(`Added the quote: ${inr(amount)}${r.perGuest ? " a plate" : ""}. Check it against the paper.`),
+      toast(
+        `Added the quote: ${inr(read.amount)}${r.perGuest ? " a plate" : ""}. Check it against the paper.`,
+      ),
     );
   };
   return (
@@ -91,34 +153,16 @@ export function Quotes({
       </span>
       <ul className="m-0 flex list-none flex-col p-0">
         {v.quotes.map((q) => (
-          <li key={q.id} className="flex flex-col gap-0.5 border-t border-sand-2 py-2 first:border-0">
-            <span className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="font-medium">{q.label}</span>
-              <span className="tabular font-semibold">
-                {inr(q.amount)}
-                {q.perGuest ? ` a plate · ${inr(quoteTotal(q.amount, true, guests))} for ${guests}` : ""}
-              </span>
-            </span>
-            {q.inclusions && <span className="text-xs text-body">Includes: {q.inclusions}</span>}
-            {q.terms && <span className="text-xs text-body">Terms: {q.terms}</span>}
-            <span className="flex items-center gap-2">
-              {v.chosenQuote === q.id && <Pill tone="ok">chosen</Pill>}
-              {editable && v.stage !== "booked" && (
-                <button type="button" className="link text-xs" onClick={() => onBook(v, q)}>
-                  Book at this price
-                </button>
-              )}
-              {editable && (
-                <button
-                  type="button"
-                  className="link text-xs text-muted"
-                  onClick={() => patch({ quotes: v.quotes.filter((x) => x.id !== q.id) })}
-                >
-                  Remove
-                </button>
-              )}
-            </span>
-          </li>
+          <QuoteItem
+            key={q.id}
+            quote={q}
+            guests={guests}
+            chosen={v.chosenQuote === q.id}
+            editable={editable}
+            bookable={v.stage !== "booked"}
+            onBook={() => onBook(v, q)}
+            onRemove={() => patch({ quotes: v.quotes.filter((x) => x.id !== q.id) })}
+          />
         ))}
         {!v.quotes.length && <li className="text-muted">No quotes yet.</li>}
       </ul>
@@ -326,31 +370,25 @@ export function VendorDetails({
     <form onSubmit={save} className="flex flex-col gap-3 border-t border-line pt-4">
       <h3 className="font-semibold">Details</h3>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Name" htmlFor="vd-name">
-          <input
-            id="vd-name"
-            className="field"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-        </Field>
-        <Field label="Contact person" htmlFor="vd-contact">
-          <input
-            id="vd-contact"
-            className="field"
-            value={form.contact}
-            onChange={(e) => setForm({ ...form, contact: e.target.value })}
-          />
-        </Field>
-        <Field label="WhatsApp number" htmlFor="vd-phone">
-          <input
-            id="vd-phone"
-            className="field"
-            inputMode="tel"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-          />
-        </Field>
+        <TextField
+          id="vd-name"
+          label="Name"
+          value={form.name}
+          onChange={(name) => setForm({ ...form, name })}
+        />
+        <TextField
+          id="vd-contact"
+          label="Contact person"
+          value={form.contact}
+          onChange={(contact) => setForm({ ...form, contact })}
+        />
+        <TextField
+          id="vd-phone"
+          label="WhatsApp number"
+          value={form.phone}
+          onChange={(phone) => setForm({ ...form, phone })}
+          inputMode="tel"
+        />
         <Field label="UPI id" htmlFor="vd-upi" hint="For paying them from the budget">
           <input
             id="vd-upi"
@@ -362,31 +400,20 @@ export function VendorDetails({
         </Field>
       </div>
       {cats.length > 0 && (
-        <Field label="Budget category" htmlFor="vd-cat">
-          <select
-            id="vd-cat"
-            className="field"
-            value={form.categoryId}
-            onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-          >
-            <option value="">None</option>
-            {cats.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-      )}
-      <Field label="What they need on the day" htmlFor="vd-needs">
-        <input
-          id="vd-needs"
-          className="field"
-          value={form.needs}
-          onChange={(e) => setForm({ ...form, needs: e.target.value })}
-          placeholder="Two power points, a table near the stage"
+        <CategorySelect
+          id="vd-cat"
+          categories={cats}
+          value={form.categoryId}
+          onChange={(categoryId) => setForm({ ...form, categoryId })}
         />
-      </Field>
+      )}
+      <TextField
+        id="vd-needs"
+        label="What they need on the day"
+        value={form.needs}
+        onChange={(needs) => setForm({ ...form, needs })}
+        placeholder="Two power points, a table near the stage"
+      />
       <Field label="Notes" htmlFor="vd-notes">
         <textarea
           id="vd-notes"

@@ -1,11 +1,11 @@
 import { type FormEvent, useState } from "react";
 import { useEditable } from "../../components/tasks";
-import { Field, Modal } from "../../components/ui";
+import { Field, Modal, TextField } from "../../components/ui";
 import type { Approval, CommunityEvent, PlannrEvent } from "../../data/types";
 import { inr, inrShort, plural } from "../../lib/format";
 import { fundTotals } from "../../shared/derive";
 import { toast, useStore } from "../../store/store";
-import { newId, parseAmount, Section, ShareLink, Stat, TabPage } from "./common";
+import { newId, parseAmount, Section, ShareLink, Stat, TabPage, WhatForAmount } from "./common";
 import { ApprovalDecision, NotCommunity, useDecides } from "./community";
 import { Permits } from "./funds/Permits";
 import { Sources } from "./funds/Sources";
@@ -168,34 +168,16 @@ function ClaimForm({ ev, onDone }: { ev: CommunityEvent; onDone: (a: Approval) =
   };
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
-      <Field label="What for" htmlFor="cl-label">
-        <input
-          id="cl-label"
-          className="field"
-          value={form.label}
-          onChange={(e) => setForm({ ...form, label: e.target.value })}
-          placeholder="Marigold garlands for the stage"
-        />
-      </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Amount (₹)" htmlFor="cl-amount">
-          <input
-            id="cl-amount"
-            className="field"
-            inputMode="decimal"
-            value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
-          />
-        </Field>
-        <Field label="Paid by" htmlFor="cl-by">
-          <input
-            id="cl-by"
-            className="field"
-            value={form.by}
-            onChange={(e) => setForm({ ...form, by: e.target.value })}
-          />
-        </Field>
-      </div>
+      <WhatForAmount
+        id="cl"
+        label={form.label}
+        amount={form.amount}
+        placeholder="Marigold garlands for the stage"
+        onChange={(patch) => setForm({ ...form, ...patch })}
+        beside={
+          <TextField id="cl-by" label="Paid by" value={form.by} onChange={(by) => setForm({ ...form, by })} />
+        }
+      />
       <Field label="Category" htmlFor="cl-cat">
         <input
           id="cl-cat"

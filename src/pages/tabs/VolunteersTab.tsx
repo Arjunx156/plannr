@@ -4,7 +4,7 @@ import type { CommunityEvent, PlannrEvent } from "../../data/types";
 import { plural } from "../../lib/format";
 import { useStore } from "../../store/store";
 import { Section, ShareLink, Stat, TabPage } from "./common";
-import { NotCommunity } from "./community";
+import { AssignSelect, freeVolunteers, NotCommunity, ShiftGrid } from "./community";
 
 /** /events/:id/volunteers — the shift grid, the roster and the sign-up sheet. */
 export function VolunteersTab({ ev }: { ev: PlannrEvent }) {
@@ -77,101 +77,71 @@ function Volunteers({ ev }: { ev: CommunityEvent }) {
         />
       </div>
       <Section title="Shifts">
-        {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users must be able to scroll a wide table */}
-        <section className="scroll-x" aria-label="Volunteer shifts by role and time" tabIndex={0}>
-          <table className="w-full min-w-[720px] border-collapse text-sm">
-            <thead>
-              <tr className="text-left text-xs text-muted">
-                <th className="py-2 font-medium">Role</th>
-                {ev.shifts.slots.map((s) => (
-                  <th key={s} className="py-2 font-medium">
-                    {s}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {ev.shifts.roles.map((r) => (
-                <tr key={r.role} className="border-t border-sand-2 align-top">
-                  <td className="py-2.5 pr-3 font-medium">{r.role}</td>
-                  {r.slots.map((slot, i) => {
-                    const gap = slot.need - slot.names.length;
-                    const busy = new Set(ev.shifts.roles.flatMap((x) => x.slots[i]?.names ?? []));
-                    const free = ev.volunteers.filter((v) => !busy.has(v));
-                    const label = `${r.role}, ${ev.shifts.slots[i]}`;
-                    return (
-                      <td key={`${r.role}-${ev.shifts.slots[i]}`} className="py-2.5 pr-3">
-                        <div className="flex flex-col gap-1">
-                          {slot.names.map((n) => (
-                            <span key={n} className="flex items-center gap-1">
-                              {n}
-                              {editable && (
-                                <button
-                                  type="button"
-                                  className="icon-btn hover:text-rust-ink"
-                                  aria-label={`Take ${n} off ${label}`}
-                                  onClick={() => unassign(r.role, i, n)}
-                                >
-                                  ✕
-                                </button>
-                              )}
-                            </span>
-                          ))}
-                          {gap > 0 && <span className="text-xs text-rust-ink">Needs {gap}</span>}
+        <ShiftGrid slots={ev.shifts.slots} wide>
+          {ev.shifts.roles.map((r) => (
+            <tr key={r.role} className="border-t border-sand-2 align-top">
+              <td className="py-2.5 pr-3 font-medium">{r.role}</td>
+              {r.slots.map((slot, i) => {
+                const gap = slot.need - slot.names.length;
+                const free = freeVolunteers(ev, i);
+                const label = `${r.role}, ${ev.shifts.slots[i]}`;
+                return (
+                  <td key={`${r.role}-${ev.shifts.slots[i]}`} className="py-2.5 pr-3">
+                    <div className="flex flex-col gap-1">
+                      {slot.names.map((n) => (
+                        <span key={n} className="flex items-center gap-1">
+                          {n}
                           {editable && (
-                            <span className="flex items-center gap-1">
-                              {gap > 0 && free.length > 0 && (
-                                <select
-                                  className="min-h-6 rounded-md border border-line bg-surface px-1 py-0.5 text-xs"
-                                  value=""
-                                  aria-label={`Assign a volunteer to ${label}`}
-                                  onChange={(e) =>
-                                    e.target.value &&
-                                    dispatch({
-                                      type: "assignShift",
-                                      eventId: ev.id,
-                                      role: r.role,
-                                      slot: i,
-                                      name: e.target.value,
-                                    })
-                                  }
-                                >
-                                  <option value="">Assign…</option>
-                                  {free.map((v) => (
-                                    <option key={v} value={v}>
-                                      {v}
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-                              <button
-                                type="button"
-                                className="icon-btn"
-                                aria-label={`Need one fewer for ${label}`}
-                                onClick={() => setNeed(r.role, i, slot.need - 1)}
-                              >
-                                −
-                              </button>
-                              <span className="text-xs tabular text-muted">{slot.need}</span>
-                              <button
-                                type="button"
-                                className="icon-btn"
-                                aria-label={`Need one more for ${label}`}
-                                onClick={() => setNeed(r.role, i, slot.need + 1)}
-                              >
-                                +
-                              </button>
-                            </span>
+                            <button
+                              type="button"
+                              className="icon-btn hover:text-rust-ink"
+                              aria-label={`Take ${n} off ${label}`}
+                              onClick={() => unassign(r.role, i, n)}
+                            >
+                              ✕
+                            </button>
                           )}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+                        </span>
+                      ))}
+                      {gap > 0 && <span className="text-xs text-rust-ink">Needs {gap}</span>}
+                      {editable && (
+                        <span className="flex items-center gap-1">
+                          {gap > 0 && free.length > 0 && (
+                            <AssignSelect
+                              label={label}
+                              free={free}
+                              className="min-h-6 rounded-md border border-line bg-surface px-1 py-0.5 text-xs"
+                              onAssign={(name) =>
+                                dispatch({ type: "assignShift", eventId: ev.id, role: r.role, slot: i, name })
+                              }
+                            />
+                          )}
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            aria-label={`Need one fewer for ${label}`}
+                            onClick={() => setNeed(r.role, i, slot.need - 1)}
+                          >
+                            −
+                          </button>
+                          <span className="text-xs tabular text-muted">{slot.need}</span>
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            aria-label={`Need one more for ${label}`}
+                            onClick={() => setNeed(r.role, i, slot.need + 1)}
+                          >
+                            +
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </ShiftGrid>
         {editable && (
           <form onSubmit={addRole} className="flex gap-2">
             <label htmlFor="role-new" className="sr-only">

@@ -385,6 +385,16 @@ const EXTRAS_PROMPT: Record<Kind, string> = {
   other: OTHER_EXTRAS,
 };
 
+/** Most priorities a planner can pick: with more than three, nothing is a priority. */
+export const MAX_PRIORITIES = 3;
+
+/** Adds or removes one priority or cut; adding a fourth priority does nothing. */
+export function togglePick(current: string[], option: string, list: "priorities" | "cuts"): string[] {
+  if (current.includes(option)) return current.filter((x) => x !== option);
+  if (list === "priorities" && current.length >= MAX_PRIORITIES) return current;
+  return [...current, option];
+}
+
 /** The single next thing Plannr still needs, or null when it can draft. */
 export function nextQuestion(p: Profile, asked: ReadonlySet<QuestionField>): Question | null {
   if (!p.kind)

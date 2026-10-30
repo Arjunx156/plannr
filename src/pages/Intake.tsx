@@ -3,23 +3,51 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { canDraft, PriorityPicker } from "../components/intake";
 import { Logo, Toran, usePageMeta } from "../components/ui";
 import { HoldToSpeak, LangSelect } from "../components/voice";
-import type { Kind, Profile } from "../data/types";
+import type { Kind, PlannrEvent, Profile } from "../data/types";
 import { extractWithAi, mergeAiProfile } from "../lib/ai";
-import { emptyProfile, KIND_LABEL, type Question } from "../lib/intake";
+import { emptyProfile, KIND_LABEL, type Question, togglePick } from "../lib/intake";
 import type { SpeechCode } from "../lib/voice";
-import { type ChatTurn, type Draft, useStore } from "../store/store";
+import { type Action, type ChatTurn, type Draft, useStore } from "../store/store";
 import { Guided } from "./Guided";
 import {
-  acknowledge,
+  askedAfter,
   DONE,
+  greetingFor,
   KIND_FROM_CHIP,
-  opener,
+  leadFor,
   pendingField,
   questionAfter,
   readAnswer,
   turnId,
 } from "./intake/conversation";
 import { AiMark, ProfilePanel } from "./intake/ProfilePanel";
+
+/**
+ * How /new starts: adding a plan to an existing event, a kind chosen on the landing page
+ * ("Plan a wedding"), or a clean slate when asked for one or when a prompt arrives from the
+ * landing page. Otherwise the draft carries on where it was left.
+ */
+function startingDraft(params: URLSearchParams, events: PlannrEvent[], prompt: string | undefined): Action[] {
+  const eventId = params.get("event");
+  const type = params.get("type") as Kind | null;
+  if (eventId) {
+    const ev = events.find((e) => e.id === eventId);
+    const reset: Action = { type: "draftReset", forEvent: eventId };
+    if (!ev) return [reset];
+    return [
+      reset,
+      { type: "draft", patch: { profile: { ...emptyProfile(), kind: ev.kind, names: ev.name } } },
+    ];
+  }
+  if (type && KIND_LABEL[type]) {
+    const functions = type === "wedding" ? ["Ceremony"] : [];
+    return [
+      { type: "draftReset" },
+      { type: "draft", patch: { profile: { ...emptyProfile(), kind: type, functions } } },
+    ];
+  }
+  return prompt || params.get("fresh") ? [{ type: "draftReset" }] : [];
+}
 
 export function Intake() {
   const [params, setParams] = useSearchParams();
@@ -41,27 +69,9 @@ export function Intake() {
   useLayoutEffect(() => {
     if (booted.current) return;
     booted.current = true;
-    const type = params.get("type") as Kind | null;
-    const eventId = params.get("event");
-    const prompt = autoSend;
-    if (eventId) {
-      const ev = state.events.find((e) => e.id === eventId);
-      dispatch({ type: "draftReset", forEvent: eventId });
-      if (ev)
-        dispatch({ type: "draft", patch: { profile: { ...emptyProfile(), kind: ev.kind, names: ev.name } } });
-    } else if (type && KIND_LABEL[type]) {
-      dispatch({ type: "draftReset" });
-      dispatch({
-        type: "draft",
-        patch: {
-          profile: { ...emptyProfile(), kind: type, functions: type === "wedding" ? ["Ceremony"] : [] },
-        },
-      });
-    } else if (prompt || params.get("fresh")) {
-      dispatch({ type: "draftReset" });
-    }
+    for (const action of startingDraft(params, state.events, autoSend)) dispatch(action);
     // Drop it from history so a reload doesn't send it again.
-    if (prompt) window.history.replaceState({ ...window.history.state, usr: null }, "");
+    if (autoSend) window.history.replaceState({ ...window.history.state, usr: null }, "");
     setReady(true);
   }, [autoSend, dispatch, params, state.events]);
 
@@ -126,6 +136,15 @@ export function Intake() {
   );
 }
 
+/** Plannr pauses this long before replying, so an instant answer doesn't read as canned. */
+const REPLY_PAUSE_MS = 650;
+
+/** The composer's placeholder: an example to start, then plain prompts. */
+function composerHint(ready: boolean, answered: boolean): string {
+  if (ready) return "Add anything else, or press Draft my plan";
+  return answered ? "Type your answer" : "Kerala wedding in Kochi, 250 guests, ₹18 lakh, December";
+}
+
 function Chat({ draft, autoSend, onEdit }: { draft: Draft; autoSend?: string; onEdit: () => void }) {
   const { dispatch } = useStore();
   const navigate = useNavigate();
@@ -145,14 +164,9 @@ function Chat({ draft, autoSend, onEdit }: { draft: Draft; autoSend?: string; on
   const ready = canDraft(p);
 
   useEffect(() => {
-    if (draft.chat.length === 0) {
-      const greeting = p.kind
-        ? p.kind === "other" && p.names
-          ? `Let's plan ${p.names}. Where is it, roughly when, how many guests and what budget?`
-          : `Tell me about the ${KIND_LABEL[p.kind].toLowerCase()}: where, roughly when, how many guests and the budget. I'll ask only for what's missing.`
-        : "Describe the event in a sentence or two: what, where, roughly when, how many people and the budget. I'll ask only for what's missing.";
-      dispatch({ type: "draft", patch: { chat: [{ id: turnId(), role: "ai", text: greeting }] } });
-    }
+    if (draft.chat.length > 0) return;
+    const greeting = greetingFor(p.kind, p.names);
+    dispatch({ type: "draft", patch: { chat: [{ id: turnId(), role: "ai", text: greeting }] } });
   }, [draft.chat.length, p.kind, p.names, dispatch]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll whenever the conversation grows
@@ -166,7 +180,7 @@ function Chat({ draft, autoSend, onEdit }: { draft: Draft; autoSend?: string; on
       const current = draftRef.current;
       dispatch({ type: "draft", patch: { ...patch, chat: [...current.chat, aiTurn] } });
       setThinking(false);
-    }, 650);
+    }, REPLY_PAUSE_MS);
   };
 
   const send = async (raw: string) => {
@@ -177,10 +191,7 @@ function Chat({ draft, autoSend, onEdit }: { draft: Draft; autoSend?: string; on
     const isFirst = !current.chat.some((t) => t.role === "user");
     // The on-device parse lands instantly; Gemini fills what it missed a moment later.
     const local = readAnswer(message, current.profile, field);
-    const asked =
-      field && ["venue", "extras", "priorities"].includes(field)
-        ? [...new Set([...current.asked, field])]
-        : current.asked;
+    const asked = askedAfter(current.asked, field);
     const userTurn: ChatTurn = { id: turnId(), role: "user", text: message };
     dispatch({ type: "draft", patch: { profile: local, asked, chat: [...current.chat, userTurn] } });
     setText("");
@@ -189,14 +200,8 @@ function Chat({ draft, autoSend, onEdit }: { draft: Draft; autoSend?: string; on
     const ai = await extractWithAi(message, current.profile, field);
     const next = mergeAiProfile(local, ai);
     const q = questionAfter(next, asked, field);
-    const aiLead = (isFirst || field === "extras") && ai?.reply;
-    let lead =
-      aiLead || (isFirst ? opener(next) : field === "extras" ? acknowledge(current.profile, next) : "");
-    if (field === "date" && !next.date)
-      lead = "I couldn't place that date. A month is enough, like “December” or “in 3 weeks”.";
-    if (!q) lead = lead ? `${lead} ${DONE}` : DONE;
-    else if (q.field === "priorities" && lead) lead = `${lead} Last one:`;
-    await new Promise((r) => window.setTimeout(r, Math.max(0, 650 - (Date.now() - started))));
+    const lead = leadFor({ field, isFirst, aiReply: ai?.reply, prev: current.profile, next, question: q });
+    await new Promise((r) => window.setTimeout(r, Math.max(0, REPLY_PAUSE_MS - (Date.now() - started))));
     const aiTurn: ChatTurn = { id: turnId(), role: "ai", text: lead, question: q ?? undefined };
     dispatch({ type: "draft", patch: { profile: next, chat: [...draftRef.current.chat, aiTurn] } });
     setThinking(false);
@@ -228,17 +233,10 @@ function Chat({ draft, autoSend, onEdit }: { draft: Draft; autoSend?: string; on
 
   const togglePriority = (option: string, list: "priorities" | "cuts") => {
     const current = draftRef.current;
-    const prev = current.profile[list];
-    const has = prev.includes(option);
-    const nextList = has
-      ? prev.filter((x) => x !== option)
-      : list === "priorities" && prev.length >= 3
-        ? prev
-        : [...prev, option];
     dispatch({
       type: "draft",
       patch: {
-        profile: { ...current.profile, [list]: nextList },
+        profile: { ...current.profile, [list]: togglePick(current.profile[list], option, list) },
         asked: [...new Set([...current.asked, "priorities" as const])],
       },
     });
@@ -355,13 +353,10 @@ function Chat({ draft, autoSend, onEdit }: { draft: Draft; autoSend?: string; on
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKey}
-            placeholder={
-              ready
-                ? "Add anything else, or press Draft my plan"
-                : draft.chat.some((t) => t.role === "user")
-                  ? "Type your answer"
-                  : "Kerala wedding in Kochi, 250 guests, ₹18 lakh, December"
-            }
+            placeholder={composerHint(
+              ready,
+              draft.chat.some((t) => t.role === "user"),
+            )}
             className="resize-none bg-transparent text-base leading-[1.4] outline-none placeholder:text-muted"
           />
           <div className="flex flex-wrap items-center gap-2 text-[13px] font-medium">

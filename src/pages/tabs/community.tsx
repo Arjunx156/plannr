@@ -1,7 +1,8 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useEditable } from "../../components/tasks";
 import { Pill } from "../../components/ui";
-import type { Approval, PlannrEvent } from "../../data/types";
+import type { Approval, CommunityEvent, PlannrEvent } from "../../data/types";
 import { useStore } from "../../store/store";
 import { TabPage } from "./common";
 
@@ -56,5 +57,73 @@ export function ApprovalDecision({
         Decline
       </button>
     </span>
+  );
+}
+
+/** The volunteer rota as a table that scrolls sideways on a phone: roles down, time slots across. */
+export function ShiftGrid({
+  slots,
+  wide,
+  children,
+}: {
+  slots: string[];
+  wide?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users must be able to scroll a wide table (WCAG scrollable-region-focusable)
+    <section className="scroll-x" aria-label="Volunteer shifts by role and time" tabIndex={0}>
+      <table className={`w-full border-collapse text-sm ${wide ? "min-w-[720px]" : "min-w-[620px]"}`}>
+        <thead>
+          <tr className="text-left text-xs text-muted">
+            <th className="py-2 font-medium">Role</th>
+            {slots.map((s) => (
+              <th key={s} className="py-2 font-medium">
+                {s}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </section>
+  );
+}
+
+/** Volunteers not on any role during one time slot. */
+export function freeVolunteers(ev: CommunityEvent, slot: number): string[] {
+  const busy = new Set(ev.shifts.roles.flatMap((r) => r.slots[slot]?.names ?? []));
+  return ev.volunteers.filter((v) => !busy.has(v));
+}
+
+/** "Assign…": puts one of the free volunteers on a role's slot. */
+export function AssignSelect({
+  label,
+  free,
+  className,
+  onAssign,
+}: {
+  /** "Food safety, 5–8 pm" */
+  label: string;
+  free: string[];
+  className: string;
+  onAssign: (name: string) => void;
+}) {
+  return (
+    <select
+      className={className}
+      value=""
+      aria-label={`Assign a volunteer to ${label}`}
+      onChange={(e) => {
+        if (e.target.value) onAssign(e.target.value);
+      }}
+    >
+      <option value="">Assign…</option>
+      {free.map((v) => (
+        <option key={v} value={v}>
+          {v}
+        </option>
+      ))}
+    </select>
   );
 }

@@ -97,6 +97,25 @@ export async function createPlan(db: Db, userId: string, event: PlannrEvent): Pr
 }
 
 /**
+ * Saves the plan only if it is still at the version it was read at: the compare-and-swap at
+ * the heart of optimistic locking. False means someone else wrote first and the caller retries.
+ */
+async function writeIfUnchanged(
+  db: Db,
+  eventId: string,
+  readAt: number,
+  data: PlannrEvent,
+  version: number,
+): Promise<boolean> {
+  const updated = await db
+    .update(events)
+    .set({ data, version, updatedAt: new Date() })
+    .where(and(eq(events.id, eventId), eq(events.version, readAt)))
+    .returning({ version: events.version });
+  return updated.length > 0;
+}
+
+/**
  * Applies changes with optimistic locking: read, apply, and write only if nobody else
  * wrote in between; otherwise read again and re-apply on top of their change.
  */
@@ -168,12 +187,7 @@ export async function commit(
     if (JSON.stringify(next).length > MAX_PLAN_BYTES)
       throw new HttpError(413, "The plan is too large to save. Remove old photos or notes first.");
     const version = row.version + actions.length;
-    const updated = await db
-      .update(events)
-      .set({ data: next, version, updatedAt: new Date() })
-      .where(and(eq(events.id, eventId), eq(events.version, row.version)))
-      .returning({ version: events.version });
-    if (!updated.length) continue;
+    if (!(await writeIfUnchanged(db, eventId, row.version, next, version))) continue;
     await db.insert(changes).values(
       actions.map((action, i) => ({
         id: `chg_${randomUUID()}`,
@@ -215,12 +229,7 @@ async function rebuild(
       active.flatMap((c) => (c.action ? [c.action] : [])),
     );
     const version = row.version + 1;
-    const updated = await db
-      .update(events)
-      .set({ data: next, version, updatedAt: new Date() })
-      .where(and(eq(events.id, eventId), eq(events.version, row.version)))
-      .returning({ version: events.version });
-    if (!updated.length) continue;
+    if (!(await writeIfUnchanged(db, eventId, row.version, next, version))) continue;
     await db.insert(changes).values({
       id: `chg_${randomUUID()}`,
       eventId,

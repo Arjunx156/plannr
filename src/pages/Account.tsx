@@ -18,6 +18,21 @@ const REMINDER_TEXT: Record<ReminderState, string> = {
   unavailable: "Reminders aren't switched on for this site yet.",
 };
 
+const INSTALL_TEXT: Record<ReturnType<typeof useInstall>["state"], string> = {
+  installed: "Installed. Plannr opens from your home screen, and works without a signal.",
+  ready: "Add Plannr to your home screen. It opens full screen and keeps working at venues with no signal.",
+  ios: "In Safari, tap the Share button, then “Add to Home Screen”. Plannr then opens full screen and works without a signal.",
+  unavailable:
+    "Plannr works without a signal once you've opened it here. To add it to your home screen, use your browser's menu (in Chrome: ⋮ then “Install app” or “Add to Home screen”).",
+};
+
+/** The goodbye, saying how many shared plans went to a co-planner rather than being deleted. */
+function deletedText(handedOver: number): string {
+  if (!handedOver) return "Your account and plans are deleted.";
+  const plans = handedOver === 1 ? "One shared plan was" : `${handedOver} shared plans were`;
+  return `Your account is deleted. ${plans} handed to a co-planner.`;
+}
+
 /** /account — this device, your data, and leaving. */
 export function Account() {
   usePageMeta("Account and privacy", { private: true });
@@ -56,13 +71,7 @@ export function Account() {
     try {
       const out = await api.deleteAccount();
       await signOut();
-      dispatch(
-        toast(
-          out.handedOver
-            ? `Your account is deleted. ${out.handedOver === 1 ? "One shared plan was" : `${out.handedOver} shared plans were`} handed to a co-planner.`
-            : "Your account and plans are deleted.",
-        ),
-      );
+      dispatch(toast(deletedText(out.handedOver)));
       navigate("/");
     } catch (e) {
       dispatch(toast((e as Error).message));
@@ -81,34 +90,11 @@ export function Account() {
         <Section title="On this phone">
           <div className="flex flex-col gap-2 text-sm">
             <span className="font-semibold">Use Plannr like an app</span>
-            {install.state === "installed" ? (
-              <span className="text-body">
-                Installed. Plannr opens from your home screen, and works without a signal.
-              </span>
-            ) : install.state === "ready" ? (
-              <>
-                <span className="text-body">
-                  Add Plannr to your home screen. It opens full screen and keeps working at venues with no
-                  signal.
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm self-start"
-                  onClick={install.install}
-                >
-                  Install Plannr
-                </button>
-              </>
-            ) : install.state === "ios" ? (
-              <span className="text-body">
-                In Safari, tap the Share button, then “Add to Home Screen”. Plannr then opens full screen and
-                works without a signal.
-              </span>
-            ) : (
-              <span className="text-body">
-                Plannr works without a signal once you've opened it here. To add it to your home screen, use
-                your browser's menu (in Chrome: ⋮ then “Install app” or “Add to Home screen”).
-              </span>
+            <span className="text-body">{INSTALL_TEXT[install.state]}</span>
+            {install.state === "ready" && (
+              <button type="button" className="btn btn-secondary btn-sm self-start" onClick={install.install}>
+                Install Plannr
+              </button>
             )}
           </div>
           {account && (

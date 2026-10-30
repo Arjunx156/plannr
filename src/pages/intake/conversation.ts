@@ -2,6 +2,7 @@ import type { Kind, Profile } from "../../data/types";
 import {
   detectDate,
   detectKind,
+  KIND_LABEL,
   nextQuestion,
   parseDescription,
   type Question,
@@ -64,6 +65,51 @@ export function acknowledge(prev: Profile, next: Profile): string {
   return parts.length ? `Noted: ${joinList(parts)}.` : "Noted.";
 }
 
+/** The chat's first line, shaped by what's already known (from "Plan a wedding", say). */
+export function greetingFor(kind: Kind | undefined, names: string | undefined): string {
+  if (!kind)
+    return "Describe the event in a sentence or two: what, where, roughly when, how many people and the budget. I'll ask only for what's missing.";
+  if (kind === "other" && names)
+    return `Let's plan ${names}. Where is it, roughly when, how many guests and what budget?`;
+  return `Tell me about the ${KIND_LABEL[kind].toLowerCase()}: where, roughly when, how many guests and the budget. I'll ask only for what's missing.`;
+}
+
+/** Questions answered once and not asked again, even when the answer added nothing. */
+const ASK_ONCE: QuestionField[] = ["venue", "extras", "priorities"];
+
+/** The questions asked so far, after answering `field`. */
+export function askedAfter(asked: QuestionField[], field: QuestionField | undefined): QuestionField[] {
+  return field && ASK_ONCE.includes(field) ? [...new Set([...asked, field])] : asked;
+}
+
+interface Turn {
+  field: QuestionField | undefined;
+  isFirst: boolean;
+  aiReply: string | undefined;
+  prev: Profile;
+  next: Profile;
+  question: Question | null;
+}
+
+const DATE_NUDGE = "I couldn't place that date. A month is enough, like “December” or “in 3 weeks”.";
+
+/** Gemini's reply to a first message or to the extras; otherwise a summary of what was understood. */
+function openingFor({ field, isFirst, aiReply, prev, next }: Turn): string {
+  if ((isFirst || field === "extras") && aiReply) return aiReply;
+  if (isFirst) return opener(next);
+  return field === "extras" ? acknowledge(prev, next) : "";
+}
+
+/**
+ * What Plannr says before its next question: the opening, or a nudge when a date couldn't be
+ * read, and a closing line when there's nothing left to ask.
+ */
+export function leadFor(turn: Turn): string {
+  const lead = turn.field === "date" && !turn.next.date ? DATE_NUDGE : openingFor(turn);
+  if (!turn.question) return lead ? `${lead} ${DONE}` : DONE;
+  return turn.question.field === "priorities" && lead ? `${lead} Last one:` : lead;
+}
+
 /** The next question, phrased for what was just answered. */
 export function questionAfter(p: Profile, asked: QuestionField[], answered?: QuestionField): Question | null {
   const q = nextQuestion(p, new Set(asked));
@@ -84,30 +130,50 @@ function titleCase(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** A bare "18" to the budget question means lakhs; anything bigger is rupees. */
+const LAKH = 100_000;
+const LONGEST_CITY = 40;
+
+/** The leading number in a short answer: "250", "2,50,000", "18.5". */
+function leadingNumber(text: string): number {
+  return Number(text.match(/\d[\d,.]*/)?.[0]?.replace(/,/g, ""));
+}
+
+/** Questions whose short answers have a reader of their own; each names the profile field it fills. */
+type ShortField = "kind" | "city" | "guests" | "budget" | "date";
+
+/** How to read a short answer to each question when the full parser found nothing. */
+const SHORT_ANSWERS: Record<ShortField, (text: string) => Partial<Profile> | undefined> = {
+  kind: (text) => ({ kind: detectKind(text) ?? "other" }),
+  city: (text) => {
+    const city = text.trim().split(/[,.]/)[0]?.trim();
+    return city && city.length <= LONGEST_CITY ? { city: titleCase(city) } : undefined;
+  },
+  guests: (text) => {
+    const n = Math.trunc(leadingNumber(text));
+    return n > 0 ? { guests: n } : undefined;
+  },
+  budget: (text) => {
+    const n = leadingNumber(text);
+    if (!(n > 0)) return undefined;
+    return { budget: n < 1000 ? n * LAKH : n };
+  },
+  date: (text) => {
+    const d = detectDate(`in ${text}`);
+    return d ? { date: d.date, dateText: d.label } : undefined;
+  },
+};
+
+function isShortField(field: QuestionField | undefined): field is ShortField {
+  return !!field && Object.hasOwn(SHORT_ANSWERS, field);
+}
+
 /** Field-specific fallbacks for short answers like "Thrissur" or "18". */
 export function readAnswer(text: string, p: Profile, field: QuestionField | undefined): Profile {
-  const next = parseDescription(text, p);
-  if (field === "kind" && !next.kind) next.kind = detectKind(text) ?? "other";
-  if (field === "city" && !next.city) {
-    const city = text.trim().split(/[,.]/)[0]?.trim();
-    if (city && city.length <= 40) next.city = titleCase(city);
-  }
-  if (field === "guests" && !next.guests) {
-    const n = Number(text.match(/\d[\d,]*/)?.[0]?.replace(/,/g, ""));
-    if (n > 0) next.guests = n;
-  }
-  if (field === "budget" && !next.budget) {
-    const n = Number(text.match(/\d[\d,.]*/)?.[0]?.replace(/,/g, ""));
-    // A bare "18" to the budget question means lakhs; anything bigger is rupees.
-    if (n > 0) next.budget = n < 1000 ? n * 100000 : n;
-  }
-  if (field === "date" && !next.date) {
-    const d = detectDate(`in ${text}`);
-    if (d) {
-      next.date = d.date;
-      next.dateText = d.label;
-    }
-  }
+  const parsed = parseDescription(text, p);
+  // Only when the parser didn't already fill the field the question asked about.
+  const fallback = isShortField(field) && !parsed[field] ? SHORT_ANSWERS[field](text) : undefined;
+  const next = { ...parsed, ...fallback };
   const link = text.match(/https?:\/\/\S+|\b[\w-]+\.(?:com|in|co)\/\S*/i)?.[0];
   if (link && !next.inspiration.includes(link)) next.inspiration = [...next.inspiration, link];
   return next;
