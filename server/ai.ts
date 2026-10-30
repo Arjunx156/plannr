@@ -420,12 +420,19 @@ export async function handleAi(
 }
 
 /** A small fixed-window limiter so one client can't run up the bill. */
-export function rateLimiter(limit = 40, windowMs = 60000) {
+/** Keys a limiter tracks before it sweeps out the ones whose window has ended. */
+const MAX_TRACKED_KEYS = 5000;
+
+export function rateLimiter(limit = 40, windowMs = 60000, maxKeys = MAX_TRACKED_KEYS) {
   const hits = new Map<string, { count: number; reset: number }>();
+  /** Forgets finished windows only, so a flood of new addresses can't wipe an abuser's count. */
+  const sweep = (now: number) => {
+    for (const [key, h] of hits) if (h.reset <= now) hits.delete(key);
+  };
   return (key: string, now = Date.now()): boolean => {
     const h = hits.get(key);
     if (!h || h.reset <= now) {
-      if (hits.size > 5000) hits.clear();
+      if (hits.size >= maxKeys) sweep(now);
       hits.set(key, { count: 1, reset: now + windowMs });
       return true;
     }

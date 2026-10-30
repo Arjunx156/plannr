@@ -196,6 +196,16 @@ describe("rate limiter", () => {
     expect(allow("other", 2)).toBe(true);
     expect(allow("ip", 1001)).toBe(true);
   });
+
+  test("a flood of new addresses can't wipe an abuser's count, and finished windows are forgotten", () => {
+    const allow = rateLimiter(1, 1000, 10);
+    expect(allow("abuser", 0)).toBe(true);
+    expect(allow("abuser", 1)).toBe(false);
+    for (let i = 0; i < 50; i++) allow(`flood-${i}`, 2);
+    expect(allow("abuser", 3)).toBe(false);
+    // Once its window ends, the abuser starts afresh like anyone else.
+    expect(allow("abuser", 1001)).toBe(true);
+  });
 });
 
 describe("needs from Gemini", () => {

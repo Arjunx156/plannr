@@ -51,7 +51,12 @@ function FunctionAnswer({
           {f.time ? ` · ${f.time}` : ""}
         </span>
         {f.place && (
-          <a href={mapLink(f.address ?? f.place)} target="_blank" rel="noreferrer" className="link text-sm">
+          <a
+            href={mapLink(f.address ?? f.place)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="link text-sm"
+          >
             {f.place} · {t.map}
           </a>
         )}
@@ -367,7 +372,7 @@ export function SitePage({ view, preview }: { view: SiteView; preview?: ReactNod
                 <a
                   href={mapLink(f.address ?? f.place)}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="link text-sm"
                 >
                   {f.place} · {t.map}

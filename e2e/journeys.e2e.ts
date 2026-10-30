@@ -509,6 +509,33 @@ test.describe("accessibility and layout", () => {
   });
 });
 
+test.describe("sharing a page", () => {
+  test("WhatsApp opens in its own tab with the link, cut off from Plannr, and Plannr stays put", async ({
+    page,
+  }) => {
+    await signInGuest(page, "Rekha");
+    const ev = {
+      ...(seedEvents().find((e) => e.id === "green-valley-mela") as PlannrEvent),
+      id: `mela-${Date.now()}`,
+    };
+    expect((await page.request.post("/api/events", { data: { event: ev } })).status()).toBe(201);
+    // WhatsApp itself is out of reach in tests; a stand-in page answers instead.
+    await page.context().route("https://wa.me/**", (r) => r.fulfill({ body: "WhatsApp" }));
+
+    await page.goto(`/events/${ev.id}/volunteers`);
+    const opened = page.waitForEvent("popup");
+    await page.getByRole("button", { name: "Share the sign-up sheet on WhatsApp" }).click();
+    const whatsapp = await opened;
+    await whatsapp.waitForURL(/^https:\/\/wa\.me\//);
+    const text = new URL(whatsapp.url()).searchParams.get("text") ?? "";
+    expect(text).toContain("Volunteers needed");
+    expect(text).toMatch(/\/s\/[\w-]+$/);
+    // The new tab can't reach back into Plannr, and Plannr didn't navigate away.
+    expect(await whatsapp.evaluate(() => window.opener)).toBeNull();
+    await expect(page).toHaveURL(new RegExp(`/events/${ev.id}/volunteers$`));
+  });
+});
+
 test.describe("year after year", () => {
   test("an event is saved as a template and next year's starts from it", async ({ page }) => {
     await signInGuest(page, "Meera");

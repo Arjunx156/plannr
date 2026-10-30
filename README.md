@@ -70,7 +70,8 @@ history all work locally.
 
 ```
 src/
-  shared/     pure planning logic used by browser and server: engine, records, planning, ripple
+  shared/     pure planning logic used by browser and server: engine (typed reducer tables), records,
+              suggestions, planning, ripple, watch rules
   pages/      screens; tabs/ holds one file per event tab, with sub-folders for larger tabs
   components/ shell, assistant, scanner, shared UI
   lib/        dates, money, intake parsing, ideas, CSV, the AI client
@@ -84,12 +85,12 @@ e2e/          browser journeys and accessibility checks (Playwright + axe)
 
 | | |
 | --- | --- |
-| Tests | 195 unit and API tests (`tests/`); 142 browser journeys on desktop and phone (`e2e/`), including every brief requirement above |
-| Coverage | 90% of lines and 86% of functions in the code the unit tests load; CI fails below 85% of lines or 80% of functions (`scripts/coverage-gate.ts`) |
+| Tests | 381 unit and API tests (`tests/`), including the AI routes over HTTP and a contract test that runs the browser's API client against the real server in one process; 143 browser journeys on desktop and phone (`e2e/`), including every brief requirement above |
+| Coverage | 92% of lines and 90% of functions in the code the unit tests load; CI fails below 90% of lines or 87% of functions (`scripts/coverage-gate.ts`) |
 | Accessibility | axe checks for WCAG 2.2 AA and axe best practices on every main page, desktop and phone; every journey also fails on a console error. Skip links; screen changes announced, with focus moved to the new content; 24px touch targets; keyboard paths for drag and drop; reduced motion and higher contrast honoured; pages in four languages carry their `lang`. Lighthouse accessibility 100 |
 | Security | See [SECURITY.md](SECURITY.md): CSP and security headers (no inline scripts or `<style>`), role checks on every write, cross-site write protection, expiring shared links, sign-in rate limits shared across servers, prompt-injection handling, encrypted backups. `bun audit` and CodeQL run in CI |
 | Efficiency | Per-route code splitting with a size budget in CI; the demo's sample data loads only when the demo opens; weight-only font cuts, preloaded; pre-rendered public pages (Lighthouse best practices and SEO 100, total blocking time around 100 ms); streamed AI answers; the server sits in the same region as the database; queries are indexed and a plan list is one join |
-| Lint and types | Biome and strict TypeScript, both clean, both in CI |
+| Lint and types | Biome's recommended rules plus a cognitive-complexity limit of 15 per function, no nested ternaries, no non-null assertions and no stray console output; strict TypeScript with unchecked index access flagged. Both clean, both in CI. No duplicated code blocks (jscpd) |
 
 CI (`.github/workflows/ci.yml`) runs the dependency audit, lint, types, coverage, the build, the size budget,
 pre-rendering and the browser journeys on every push to `main`; `.github/workflows/codeql.yml` scans the code for

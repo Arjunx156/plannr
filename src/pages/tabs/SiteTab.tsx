@@ -207,7 +207,7 @@ function SiteAddress({
           Change address
         </button>
       )}
-      <a href={address} target="_blank" rel="noreferrer" className="btn btn-ghost btn-sm">
+      <a href={address} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
         Open
       </a>
     </form>
