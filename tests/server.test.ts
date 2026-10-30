@@ -564,7 +564,8 @@ describe("email codes", () => {
     expect(statuses[20]).toBe(429);
     // Shared by every server instance, because it lives in the database rather than in memory.
     expect((await db.select().from(rateLimit)).length).toBeGreaterThan(0);
-  });
+    // A fresh database and 21 real sign-ins: allow more than the 5 s default on a busy machine.
+  }, 20_000);
 
   test("an address the mail service won't deliver to gets a clear message", async () => {
     const mailApp = createApp({

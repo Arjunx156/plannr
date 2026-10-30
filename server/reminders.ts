@@ -23,6 +23,10 @@ export type PushSender = (
   msg: PushMessage,
 ) => Promise<boolean>;
 
+/** A morning reminder older than this isn't worth delivering. */
+const PUSH_TTL_SECONDS = 12 * 3600;
+
+/** Web push through VAPID, or undefined when the keys aren't configured. */
 export function webPushSender(env: Record<string, string | undefined>): PushSender | undefined {
   const pub = env.VAPID_PUBLIC_KEY;
   const priv = env.VAPID_PRIVATE_KEY;
@@ -35,7 +39,11 @@ export function webPushSender(env: Record<string, string | undefined>): PushSend
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         JSON.stringify(msg),
-        { TTL: 12 * 3600, vapidDetails: { subject, publicKey: pub, privateKey: priv }, urgency: "normal" },
+        {
+          TTL: PUSH_TTL_SECONDS,
+          vapidDetails: { subject, publicKey: pub, privateKey: priv },
+          urgency: "normal",
+        },
       );
       return true;
     } catch (e) {
@@ -46,6 +54,7 @@ export function webPushSender(env: Record<string, string | undefined>): PushSend
   };
 }
 
+/** Every plan a person is a member of. */
 async function plansOf(db: Db, userId: string): Promise<PlannrEvent[]> {
   const rows = await db
     .select({ data: events.data })
@@ -55,27 +64,42 @@ async function plansOf(db: Db, userId: string): Promise<PlannrEvent[]> {
   return rows.map((r) => r.data);
 }
 
-/** Today's reminders for everyone who asked for them. */
+type Subscription = typeof pushSubs.$inferSelect;
+type Delivery = "sent" | "gone" | "failed";
+
+/** Pushes one message to one device: sent, gone (the browser unsubscribed), or failed this time. */
+async function deliver(send: PushSender, sub: Subscription, message: PushMessage): Promise<Delivery> {
+  try {
+    return (await send(sub, message)) ? "sent" : "gone";
+  } catch (e) {
+    console.error("[push] send failed:", e instanceof Error ? e.message : e);
+    return "failed";
+  }
+}
+
+/** Groups subscriptions by the person they belong to. */
+function byPerson(subs: Subscription[]): Map<string, Subscription[]> {
+  const out = new Map<string, Subscription[]>();
+  for (const s of subs) out.set(s.userId, [...(out.get(s.userId) ?? []), s]);
+  return out;
+}
+
+/** Today's reminders for everyone who asked for them. Devices that unsubscribed are forgotten. */
 export async function sendReminders(
   db: Db,
   send: PushSender,
   today: string,
 ): Promise<{ people: number; sent: number; removed: number }> {
-  const subs = await db.select().from(pushSubs);
-  const byUser = new Map<string, typeof subs>();
-  for (const s of subs) byUser.set(s.userId, [...(byUser.get(s.userId) ?? []), s]);
+  const people = byPerson(await db.select().from(pushSubs));
   let sent = 0;
   const gone: string[] = [];
-  for (const [userId, list] of byUser) {
+  for (const [userId, devices] of people) {
     const msg = morningMessage(await plansOf(db, userId), today);
     if (!msg) continue;
-    for (const s of list) {
-      try {
-        if (await send(s, { ...msg, tag: `morning-${today}` })) sent += 1;
-        else gone.push(s.endpoint);
-      } catch (e) {
-        console.error("[push] send failed:", e instanceof Error ? e.message : e);
-      }
+    for (const device of devices) {
+      const result = await deliver(send, device, { ...msg, tag: `morning-${today}` });
+      if (result === "sent") sent += 1;
+      if (result === "gone") gone.push(device.endpoint);
     }
   }
   if (gone.length) await db.delete(pushSubs).where(inArray(pushSubs.endpoint, gone));
@@ -83,6 +107,6 @@ export async function sendReminders(
     await db
       .update(pushSubs)
       .set({ lastSentAt: new Date() })
-      .where(inArray(pushSubs.userId, [...byUser.keys()]));
-  return { people: byUser.size, sent, removed: gone.length };
+      .where(inArray(pushSubs.userId, [...people.keys()]));
+  return { people: people.size, sent, removed: gone.length };
 }

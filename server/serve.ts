@@ -45,6 +45,6 @@ const server = Bun.serve({
   },
 });
 
-console.log(
+console.info(
   `Plannr on http://localhost:${server.port} · AI ${env.GEMINI_API_KEY ? "on" : "off"} · database ${env.DATABASE_URL ? "Neon" : "local"}`,
 );

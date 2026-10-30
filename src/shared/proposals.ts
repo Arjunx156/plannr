@@ -13,88 +13,84 @@ import { genericRipple, headcountRipple, moveFunctionRipple, type Ripple } from 
 let seq = 0;
 const id = (prefix: string) => `${prefix}${Date.now().toString(36)}${(seq++).toString(36)}`;
 
+type Planned = Exclude<PlannrEvent, { layout: "empty" }>;
+type Translate = (ev: Planned, p: AiProposal, today: string) => EventAction[];
+
+/** Days ahead a new task falls due when the assistant doesn't say. */
+const DEFAULT_TASK_DAYS = 7;
+
+/** The proposed due date if it's before the event; otherwise a week out, never after the event. */
+function taskDue(ev: Planned, due: string | undefined, today: string): string {
+  if (due && due <= ev.date) return due;
+  const soon = addDays(today, DEFAULT_TASK_DAYS);
+  return soon < ev.date ? soon : ev.date;
+}
+
+/** The function id, but only if the plan has that function. */
+function knownFunction(ev: Planned, fnId: string | undefined): { fnId: string } | undefined {
+  return fnId && functionsOf(ev).some((f) => f.id === fnId) ? { fnId } : undefined;
+}
+
+const TRANSLATE: Record<AiProposal["kind"], Translate> = {
+  addTask: (ev, p, today) => {
+    if (!p.title) return [];
+    const fn = knownFunction(ev, p.fnId);
+    const task = {
+      id: id("ai"),
+      title: p.title,
+      who: p.who ?? "You",
+      due: taskDue(ev, p.due, today),
+      done: false,
+      ...(fn ? { fn: fn.fnId } : {}),
+    };
+    return [{ type: "addTask", eventId: ev.id, task }];
+  },
+  moveTask: (ev, p) => {
+    const t = ev.tasks.list.find((x) => x.id === p.taskId);
+    if (!t || !p.due || p.due === t.due) return [];
+    return [{ type: "updateTask", eventId: ev.id, taskId: t.id, patch: { due: p.due } }];
+  },
+  completeTask: (ev, p) => {
+    const t = ev.tasks.list.find((x) => x.id === p.taskId);
+    return t && !t.done ? [{ type: "toggleTask", eventId: ev.id, taskId: t.id }] : [];
+  },
+  setHeadcount: (ev, p) =>
+    ev.layout === "personal" && p.guests && p.guests !== ev.guests
+      ? [{ type: "setHeadcount", eventId: ev.id, guests: p.guests }]
+      : [],
+  setBudgetLine: (ev, p) => {
+    const c = p.categoryId ? findRecord(ev, "categories", p.categoryId) : undefined;
+    if (!c || p.amount === undefined || p.amount === c.planned) return [];
+    return [
+      { type: "updateRecord", eventId: ev.id, coll: "categories", id: c.id, patch: { planned: p.amount } },
+    ];
+  },
+  remember: (ev, p) =>
+    p.text
+      ? [{ type: "addRecord", eventId: ev.id, coll: "memory", record: { id: id("mem"), text: p.text } }]
+      : [],
+  announce: (ev, p) => {
+    if (!p.text) return [];
+    const record = { id: id("an"), at: "", text: p.text };
+    return [{ type: "addRecord", eventId: ev.id, coll: "announcements", record }];
+  },
+  moveFunction: (ev, p) => {
+    const f = functionsOf(ev).find((x) => x.id === p.fnId);
+    if (!f || !p.date || p.date === f.date) return [];
+    return [{ type: "updateRecord", eventId: ev.id, coll: "functions", id: f.id, patch: { date: p.date } }];
+  },
+  addChecklist: (ev, p) => {
+    if (!p.label) return [];
+    const record = { id: id("ck"), label: p.label, done: false, ...knownFunction(ev, p.fnId) };
+    return [{ type: "addRecord", eventId: ev.id, coll: "checklist", record }];
+  },
+};
+
+/** The plan changes one proposal stands for; none when it names something the plan doesn't have. */
 export function proposalActions(ev: PlannrEvent, p: AiProposal, today: string): EventAction[] {
   if (ev.layout === "empty") return [];
-  const eventId = ev.id;
-  switch (p.kind) {
-    case "addTask": {
-      const soon = addDays(today, 7);
-      const due = p.due && p.due <= ev.date ? p.due : soon < ev.date ? soon : ev.date;
-      return p.title
-        ? [
-            {
-              type: "addTask",
-              eventId,
-              task: {
-                id: id("ai"),
-                title: p.title,
-                who: p.who ?? "You",
-                due,
-                done: false,
-                ...(p.fnId && functionsOf(ev).some((f) => f.id === p.fnId) ? { fn: p.fnId } : {}),
-              },
-            },
-          ]
-        : [];
-    }
-    case "moveTask": {
-      const t = ev.tasks.list.find((x) => x.id === p.taskId);
-      return t && p.due && p.due !== t.due
-        ? [{ type: "updateTask", eventId, taskId: t.id, patch: { due: p.due } }]
-        : [];
-    }
-    case "completeTask": {
-      const t = ev.tasks.list.find((x) => x.id === p.taskId);
-      return t && !t.done ? [{ type: "toggleTask", eventId, taskId: t.id }] : [];
-    }
-    case "setHeadcount":
-      return ev.layout === "personal" && p.guests && p.guests !== ev.guests
-        ? [{ type: "setHeadcount", eventId, guests: p.guests }]
-        : [];
-    case "setBudgetLine": {
-      const c = p.categoryId ? findRecord(ev, "categories", p.categoryId) : undefined;
-      return c && p.amount !== undefined && p.amount !== c.planned
-        ? [{ type: "updateRecord", eventId, coll: "categories", id: c.id, patch: { planned: p.amount } }]
-        : [];
-    }
-    case "remember":
-      return p.text
-        ? [{ type: "addRecord", eventId, coll: "memory", record: { id: id("mem"), text: p.text } }]
-        : [];
-    case "announce":
-      return p.text
-        ? [
-            {
-              type: "addRecord",
-              eventId,
-              coll: "announcements",
-              record: { id: id("an"), at: "", text: p.text },
-            },
-          ]
-        : [];
-    case "moveFunction": {
-      const f = functionsOf(ev).find((x) => x.id === p.fnId);
-      return f && p.date && p.date !== f.date
-        ? [{ type: "updateRecord", eventId, coll: "functions", id: f.id, patch: { date: p.date } }]
-        : [];
-    }
-    case "addChecklist":
-      return p.label
-        ? [
-            {
-              type: "addRecord",
-              eventId,
-              coll: "checklist",
-              record: {
-                id: id("ck"),
-                label: p.label,
-                done: false,
-                ...(p.fnId && functionsOf(ev).some((f) => f.id === p.fnId) ? { fnId: p.fnId } : {}),
-              },
-            },
-          ]
-        : [];
-  }
+  // Proposals arrive from the model: an unknown kind is dropped, never guessed at.
+  return TRANSLATE[p.kind]?.(ev, p, today) ?? [];
 }
 
 /** The preview for what the assistant proposed, with every connected change. */
