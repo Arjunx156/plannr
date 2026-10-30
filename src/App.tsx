@@ -2,6 +2,7 @@ import { lazy, type ReactNode, Suspense } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { RouteAnnouncer } from "./components/RouteAnnouncer";
+import { ScrollToTop } from "./components/ScrollToTop";
 import { Logo, Spinner, Toasts } from "./components/ui";
 import { Landing } from "./pages/Landing";
 import { Birthdays, Community as CommunityGuide, HowItWorks, Pricing, Weddings } from "./pages/site/Guides";
@@ -82,6 +83,7 @@ export function App() {
         </Routes>
       </Suspense>
       <Toasts />
+      <ScrollToTop />
       <RouteAnnouncer />
       <AccountSync />
     </ErrorBoundary>

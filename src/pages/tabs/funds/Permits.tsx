@@ -6,9 +6,19 @@ import { list } from "../../../shared/records";
 import { toast, useStore } from "../../../store/store";
 import { DraftBox, newId, Section } from "../common";
 
+/** Who an application goes to, from what the permit is for. */
+function addressee(label: string): string {
+  const l = label.toLowerCase();
+  if (l.includes("police")) return "The Station House Officer\nPolice Station";
+  if (l.includes("fire")) return "The Station Officer\nFire and Rescue Services";
+  if (/corporation|municipal/.test(l)) return "The Secretary\nCorporation Office";
+  if (l.includes("panchayat")) return "The Secretary\nGrama Panchayat Office";
+  return "The Officer concerned";
+}
+
 function permitLetter(ev: CommunityEvent, p: Permit): string {
   return `To
-The ${p.label.replace(/^(permission|permit|noc)\s*(from|for)?\s*/i, "") || "Authority"}
+${addressee(p.label)}
 
 Subject: Request for ${p.label.toLowerCase()} for ${ev.name} on ${longDate(ev.date)}
 

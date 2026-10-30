@@ -143,7 +143,7 @@ export const readSchema = {
         required: ["label", "amount"],
       },
     },
-    inclusions: { type: "string", description: "What is included, one line" },
+    inclusions: { type: "string", description: "What is included, one line, without a leading 'Includes'" },
     terms: { type: "string", description: "Payment and cancellation terms, one line" },
     summary: { type: "string", description: "What it is for, at most six words" },
   },
@@ -183,7 +183,8 @@ export function sanitizeRead(raw: unknown): Json {
     date: isoDate(r.date),
     items,
     payments,
-    inclusions: str(r.inclusions, 400),
+    // Shown after "Includes:", so a model that repeats the word doesn't say it twice.
+    inclusions: str(str(r.inclusions, 400)?.replace(/^includes?\b:?\s*/i, "")),
     terms: str(r.terms, 400),
     summary: str(r.summary, 80),
   };

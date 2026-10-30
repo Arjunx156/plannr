@@ -32,7 +32,7 @@ function Stalls({ ev }: { ev: CommunityEvent }) {
         <Stat
           label="Stalls"
           value={`${f.stalls.booked}/${f.stalls.total}`}
-          sub={`${f.stalls.requested} requests waiting`}
+          sub={`${plural(f.stalls.requested, "request")} waiting`}
         />
         <Stat
           label="Fees paid"

@@ -43,17 +43,19 @@ export function Plan() {
       if (!live) return;
       setNotes(n);
       setNotesState(n ? "done" : "off");
+      // Kept on the draft, so the ideas survive signing up on the way to accepting.
+      dispatch({ type: "draft", patch: { ideas: n?.ideas ?? [] } });
     })();
     return () => {
       live = false;
     };
-  }, [p, plan]);
+  }, [p, plan, dispatch]);
 
   const onAccept = async () => {
     if (!state.session.signedIn) return navigate("/signup?next=accept");
     setAccepted(true);
     setSaving(true);
-    if (!(await accept(notes?.ideas))) {
+    if (!(await accept())) {
       setAccepted(false);
       setSaving(false);
     }

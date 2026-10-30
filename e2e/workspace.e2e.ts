@@ -79,14 +79,11 @@ test.describe("vendors", () => {
     await page.goto("/events/ananya-rohan/vendors");
     const compare = page.getByRole("region", { name: "Catering: side by side" });
     await expect(compare).toBeVisible();
-    const book = compare.getByRole("button", { name: "Book…" });
-    if (await book.count()) {
-      await book.first().click();
-      const dialog = page.getByRole("dialog");
-      await expect(dialog.getByText("Payments")).toBeVisible();
-      await dialog.getByRole("button", { name: "Apply all" }).click();
-      await expect(compare.getByText("booked").first()).toBeVisible();
-    }
+    await compare.getByRole("button", { name: "Book Kerala Kitchen Caterers" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Payments")).toBeVisible();
+    await dialog.getByRole("button", { name: "Apply all" }).click();
+    await expect(compare.getByText("booked").first()).toBeVisible();
   });
 
   test("a new vendor gets a quote and an enquiry draft", async ({ page }) => {
@@ -122,10 +119,8 @@ test.describe("the day", () => {
     await signInDemo(page);
     await page.goto("/events/ananya-rohan/day");
     const checkIn = page.getByRole("region", { name: "Check-in" });
-    if (await checkIn.count()) {
-      await checkIn.getByRole("button", { name: "All in" }).first().click();
-      await expect(checkIn.getByText(/ in$/).first()).toBeVisible();
-    }
+    await checkIn.getByRole("button", { name: "All in" }).first().click();
+    await expect(checkIn.getByText(/ in$/).first()).toBeVisible();
   });
 });
 
@@ -149,6 +144,7 @@ test.describe("community", () => {
     await page.goto("/events/green-valley-mela/funds");
     await page.getByRole("button", { name: "Draft letter" }).first().click();
     const dialog = page.getByRole("dialog");
+    await expect(dialog.getByLabel("Draft")).toHaveValue(/^To\nThe Station House Officer\n/);
     await expect(dialog.getByLabel("Draft")).toHaveValue(/Respected Sir/);
     await dialog.getByRole("button", { name: "Keep with the permit" }).click();
     await expect(page.getByText("letter drafted").first()).toBeVisible();

@@ -254,6 +254,7 @@ describe("reading a document", () => {
         { label: "Advance", amount: 150000, date: "2026-10-30" },
         { label: "Balance", amount: "lots" },
       ],
+      inclusions: "Includes: vessels, serving staff and clearing",
       terms: "50% advance",
     });
     const out = await handleAi(
@@ -270,6 +271,7 @@ describe("reading a document", () => {
       perGuest: true,
       items: [{ label: "Sadhya", amount: 1850 }],
       payments: [{ label: "Advance", amount: 150000, date: "2026-10-30" }],
+      inclusions: "vessels, serving staff and clearing",
     });
     const sent = calls[0]?.body as { contents: { parts: Record<string, unknown>[] }[] } | undefined;
     const parts = sent?.contents[0]?.parts;

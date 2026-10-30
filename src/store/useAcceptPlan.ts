@@ -8,16 +8,16 @@ import { toast, useStore } from "./store";
  * Turns the current draft into a live event and opens its dashboard. With an account the
  * plan is saved on the server first, so it's there on every device before anyone opens it.
  * Resolves false when it couldn't be saved; the draft is kept so nothing is lost.
- * `ideas` are the ones Gemini suggested for the draft, kept on the new event's ideas board.
+ * Gemini's ideas for the draft start the new event's ideas board.
  */
 export function useAcceptPlan() {
   const { state, dispatch } = useStore();
   const navigate = useNavigate();
-  return async (ideas: string[] = []): Promise<boolean> => {
+  return async (): Promise<boolean> => {
     const { draft, session } = state;
     const plan = draftPlan(draft.profile);
     const existing = state.events.find((e) => e.id === draft.forEvent);
-    const event = eventFromDraft(draft.profile, plan, session, existing, ideas);
+    const event = eventFromDraft(draft.profile, plan, session, existing, draft.ideas ?? []);
     if (state.mode === "account" && existing && state.remote[existing.id]) {
       dispatch({ type: "replacePlan", eventId: existing.id, event });
     } else if (state.mode === "account") {

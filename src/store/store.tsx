@@ -43,6 +43,8 @@ export interface Draft {
   generated: boolean;
   /** The event the draft becomes when accepted, if it fills in an existing one. */
   forEvent?: string;
+  /** Gemini's ideas for this draft, kept so they reach the ideas board however the plan is accepted. */
+  ideas?: string[];
 }
 
 export interface Toast {

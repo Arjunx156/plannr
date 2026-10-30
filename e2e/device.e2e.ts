@@ -115,10 +115,15 @@ test.describe("passes and the gate", () => {
   test("passes print with a QR code each, and the gate checks them in by name", async ({ page }) => {
     await signInDemo(page);
     await page.goto("/events/green-valley-mela/stalls");
-    await page.getByRole("link", { name: "Print passes" }).click();
+    const print = page.getByRole("link", { name: "Print passes" });
+    await print.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await print.click();
     await expect(page).toHaveURL(/\/events\/green-valley-mela\/passes$/);
     const first = page.getByRole("listitem").first();
     await expect(first.getByRole("img", { name: /^Pass for / })).toBeVisible();
+    // A new screen starts at the top, not where the last one was scrolled to.
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
     const name = (await first.locator(".font-serif").textContent()) ?? "";
     await expectAccessible(page);
 

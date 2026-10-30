@@ -236,7 +236,8 @@ export const assistantSchema = {
     text: { type: "string", description: "The answer, at most about 90 words" },
     source: {
       type: "string",
-      description: "Optional one-line grounding: which part of the plan the numbers come from",
+      description:
+        "Optional one-line grounding in words the family uses: which part of the plan the numbers come from, e.g. 'Budget: catering and attire'. Never field names",
     },
     translation: {
       type: "string",

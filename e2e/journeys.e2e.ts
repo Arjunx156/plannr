@@ -73,7 +73,9 @@ test.describe("planning a new event", () => {
     await expect(page.getByRole("menu", { name: "Account" })).toContainText(email);
   });
 
-  test("Gemini fills what the parser misses, then adds notes to the plan", async ({ page }) => {
+  test("Gemini fills what the parser misses, adds notes to the plan, and its ideas start the board", async ({
+    page,
+  }) => {
     await mockAi(page, {
       intake: {
         kind: "wedding",
@@ -109,6 +111,17 @@ test.describe("planning a new event", () => {
     await expect(page.getByRole("heading", { name: "Plannr's notes" })).toBeVisible();
     await expect(page.getByText("Check the ramps")).toBeVisible();
     await expect(page.getByText("January is peak wedding season.")).toBeVisible();
+
+    // The ideas survive signing up on the way to accepting, and start the new event's board.
+    await page.getByRole("button", { name: "Accept and start planning" }).click();
+    await page.getByRole("button", { name: "Continue as a guest" }).click();
+    await page.getByLabel("Your name").fill("Lakshmi");
+    await page.getByRole("button", { name: "Continue to my plan" }).click();
+    await expect(page).toHaveURL(/\/events\/[^/]+$/);
+    await page.getByRole("link", { name: "Ideas", exact: true }).click();
+    await expect(
+      page.getByRole("region", { name: "Ideas board" }).getByText("Tender coconut welcome drinks"),
+    ).toBeVisible();
   });
 });
 
