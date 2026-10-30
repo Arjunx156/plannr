@@ -5,6 +5,7 @@ import { daysUntil, dueLabel } from "../src/lib/dates";
 import { inr, inrShort, inrSigned } from "../src/lib/format";
 import { emptyProfile, nextQuestion, parseDescription } from "../src/lib/intake";
 import { budgetTotals, communityReadiness, personalReadiness, settle, whatIf } from "../src/lib/metrics";
+import { eventFromDraft } from "../src/lib/newEvent";
 import { draftPlan, splitBudget } from "../src/lib/plan";
 import { initialState, reducer } from "../src/store/store";
 
@@ -177,5 +178,26 @@ describe("intake edge cases", () => {
 
   test("names the birthday child from 'for Aarav'", () => {
     expect(parseDescription("6th birthday for Aarav, 40 guests", emptyProfile()).names).toBe("Aarav");
+  });
+});
+
+describe("accepting a draft", () => {
+  test("keeps the family's needs as standing notes and the draft's ideas on the board", () => {
+    const p = parseDescription(
+      "Kerala wedding in Kochi, 250 guests, ₹18 lakh, April. Two grandparents use wheelchairs.",
+      emptyProfile(),
+    );
+    const ev = eventFromDraft(p, draftPlan(p), { name: "Priya", initials: "PM" }, undefined, [
+      "Jasmine strings on the mandapam",
+    ]);
+    expect(ev.memory?.map((m) => m.text)).toContain("2 wheelchair users");
+    expect(ev.ideas).toEqual([
+      {
+        id: "i1",
+        title: "Jasmine strings on the mandapam",
+        status: "idea",
+        note: "From Plannr's first draft",
+      },
+    ]);
   });
 });

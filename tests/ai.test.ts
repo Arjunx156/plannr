@@ -229,6 +229,14 @@ describe("writing for the family", () => {
   });
 });
 
+describe("unknown AI routes", () => {
+  test("are refused without calling the model", async () => {
+    const { calls, fetchImpl } = gemini({});
+    expect((await handleAi("constructor", {}, config, fetchImpl)).status).toBe(404);
+    expect(calls).toHaveLength(0);
+  });
+});
+
 describe("reading a document", () => {
   const png = Buffer.from("not really a png").toString("base64");
 

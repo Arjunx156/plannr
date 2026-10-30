@@ -1,10 +1,9 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router";
-import { TaskRow, useEditable, useTaskToggle } from "../components/tasks";
+import { useEditable } from "../components/tasks";
 import { Field, Pill, Spinner } from "../components/ui";
-import type { PlannrEvent, Task } from "../data/types";
+import type { PlannrEvent } from "../data/types";
 import { api, inviteUrl } from "../lib/api";
-import { addDays, TODAY } from "../lib/dates";
 import { initials, timeAgo } from "../lib/format";
 import { type HistoryEntry, type Member, ROLE_LABEL, type Role } from "../shared/types";
 import { canEdit, toast, useStore } from "../store/store";
@@ -44,148 +43,6 @@ function NeedsAccount({ ev, title, children }: { ev: PlannrEvent; title: string;
           Create a free account
         </Link>
       </div>
-    </TabPage>
-  );
-}
-
-// ---------------------------------------------------------------- tasks
-
-type Show = "open" | "done" | "all";
-
-export function TasksTab({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (id: string) => void }) {
-  const { dispatch } = useStore();
-  const editable = useEditable(ev);
-  const { toggle, ticked } = useTaskToggle(ev);
-  const [show, setShow] = useState<Show>("open");
-  const [who, setWho] = useState("");
-  const [title, setTitle] = useState("");
-  const tasks = ev.layout === "empty" ? [] : ev.tasks.list;
-  const people = [...new Set(tasks.map((t) => t.who))].sort();
-  const open = (t: Task) => !t.done || ticked.includes(t.id);
-  const shown = tasks
-    .filter((t) => (show === "all" ? true : show === "open" ? open(t) : t.done))
-    .filter((t) => !who || t.who === who)
-    .sort((a, b) => a.due.localeCompare(b.due));
-  const week = addDays(TODAY, 7);
-  const groups: { label: string; list: Task[] }[] =
-    show === "done"
-      ? [{ label: "Done", list: shown }]
-      : [
-          { label: "Overdue", list: shown.filter((t) => !t.done && t.due < TODAY) },
-          { label: "This week", list: shown.filter((t) => !t.done && t.due >= TODAY && t.due <= week) },
-          { label: "Later", list: shown.filter((t) => !t.done && t.due > week) },
-          { label: "Done", list: shown.filter((t) => t.done) },
-        ];
-
-  const add = (e: FormEvent) => {
-    e.preventDefault();
-    const clean = title.trim();
-    if (!clean) return;
-    dispatch({
-      type: "addTask",
-      eventId: ev.id,
-      task: {
-        id: `u${Date.now().toString(36)}`,
-        title: clean,
-        who: who || "You",
-        due: TODAY < ev.date ? TODAY : ev.date,
-        done: false,
-      },
-    });
-    setTitle("");
-  };
-
-  const done = tasks.filter((t) => t.done).length;
-  return (
-    <TabPage
-      eyebrow={ev.name}
-      title="Tasks"
-      aside={
-        <span className="text-sm text-body">
-          {done} of {tasks.length} done
-        </span>
-      }
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <fieldset className="m-0 flex gap-1.5 border-0 p-0">
-          <legend className="sr-only">Show</legend>
-          {(["open", "done", "all"] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={show === s}
-              className="chip chip-sm"
-              onClick={() => setShow(s)}
-            >
-              {s === "open" ? "Open" : s === "done" ? "Done" : "All"}
-            </button>
-          ))}
-        </fieldset>
-        {people.length > 1 && (
-          <label className="ml-auto flex items-center gap-2 text-sm text-body">
-            Who
-            <select
-              className="field h-9 min-h-0 py-0 appearance-auto"
-              value={who}
-              onChange={(e) => setWho(e.target.value)}
-            >
-              <option value="">Everyone</option>
-              {people.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </div>
-      {editable && (
-        <form onSubmit={add} className="flex gap-2">
-          <label htmlFor="tasks-new" className="sr-only">
-            New task
-          </label>
-          <input
-            id="tasks-new"
-            className="field flex-1"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder={who ? `Add a task for ${who}` : "Add a task"}
-          />
-          <button type="submit" className="btn btn-secondary" disabled={!title.trim()}>
-            Add
-          </button>
-        </form>
-      )}
-      {groups
-        .filter((g) => g.list.length)
-        .map((g) => (
-          <section
-            key={g.label}
-            aria-label={g.label}
-            className="flex flex-col rounded-2xl border border-line bg-surface px-5 pt-3 pb-1"
-          >
-            <h2 className={`eyebrow pb-1 ${g.label === "Overdue" ? "text-rust-ink" : "text-muted"}`}>
-              {g.label} · {g.list.length}
-            </h2>
-            <ul className="m-0 flex list-none flex-col p-0">
-              {g.list.map((t) => (
-                <TaskRow
-                  key={t.id}
-                  ev={ev}
-                  task={t}
-                  editable={editable}
-                  onToggle={toggle}
-                  onOpen={(x) => onOpenTask(x.id)}
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
-      {!shown.length && (
-        <p className="m-0 rounded-2xl border border-dashed border-line-2 p-8 text-center text-body">
-          {show === "done" ? "Nothing ticked off yet." : "Nothing open here. Enjoy the quiet."}
-        </p>
-      )}
     </TabPage>
   );
 }

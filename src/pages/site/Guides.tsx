@@ -194,7 +194,7 @@ export function HowItWorks() {
   return (
     <SitePage
       title="How it works"
-      description="Describe your event in one sentence and Plannr drafts a budget, tasks, vendors and guest list you can plan together and run on the day."
+      description="Describe your event in one sentence and Plannr drafts a budget, timeline, vendor checklist and personalised ideas you can plan together and run on the day."
       eyebrow="How it works"
       heading="From one sentence to the day itself"
       wide

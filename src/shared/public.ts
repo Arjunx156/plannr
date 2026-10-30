@@ -1,4 +1,5 @@
 import type { Announcement, FunctionDay, Household, Photo, PlannrEvent, SiteInfo, Task } from "../data/types";
+import { addDays } from "../lib/dates";
 import { clock, fundTotals, runsheetFor } from "./derive";
 import { functionsOf, list, vendorsOf } from "./records";
 
@@ -19,6 +20,18 @@ export type PublicKind =
   | "album"
   | "stalls"
   | "gate";
+
+/** Days a link keeps working after the event's last day. Photos and the fund report are for afterwards. */
+const LINK_DAYS_AFTER: Partial<Record<PublicKind, number>> = { album: 180, fund: 180 };
+const LINK_DAYS_DEFAULT = 30;
+
+/** The last day a shared link works: a while after the event, so old links don't stay open for ever. */
+export function linkExpiry(ev: PlannrEvent, kind: PublicKind): string {
+  const last = functionsOf(ev)
+    .map((f) => f.date)
+    .reduce((a, b) => (b > a ? b : a), ev.date);
+  return addDays(last, LINK_DAYS_AFTER[kind] ?? LINK_DAYS_DEFAULT);
+}
 
 export interface PublicFunction {
   id: string;

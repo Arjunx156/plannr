@@ -1,3 +1,6 @@
 [test]
 # Pin the clock to the demo story's day so countdowns in tests are deterministic.
 preload = ["./tests/setup.ts"]
+# `bun run coverage` writes coverage/lcov.info; scripts/coverage-gate.ts holds the total at 80%.
+coverageSkipTestFiles = true
+coverageReporter = ["text", "lcov"]

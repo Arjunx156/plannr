@@ -5,119 +5,21 @@ import { Logo, Toran, usePageMeta } from "../components/ui";
 import { HoldToSpeak, LangSelect } from "../components/voice";
 import type { Kind, Profile } from "../data/types";
 import { extractWithAi, mergeAiProfile } from "../lib/ai";
-import {
-  detectDate,
-  detectKind,
-  emptyProfile,
-  KIND_LABEL,
-  nextQuestion,
-  parseDescription,
-  profileRows,
-  type Question,
-  type QuestionField,
-} from "../lib/intake";
+import { emptyProfile, KIND_LABEL, type Question } from "../lib/intake";
 import type { SpeechCode } from "../lib/voice";
 import { type ChatTurn, type Draft, useStore } from "../store/store";
 import { Guided } from "./Guided";
-
-let turnSeq = 0;
-const turnId = () => {
-  turnSeq += 1;
-  return `c${Date.now().toString(36)}${turnSeq}`;
-};
-
-const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six"];
-const DONE =
-  "That's everything I need. Press Draft my plan when you're ready, or tell me who's planning with you.";
-
-const KIND_FROM_CHIP: Record<string, Kind> = {
-  Wedding: "wedding",
-  Birthday: "birthday",
-  "Community event": "community",
-  "Something else": "other",
-};
-
-function joinList(parts: string[]): string {
-  if (parts.length < 2) return parts.join("");
-  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
-}
-
-function opener(p: Profile): string {
-  if (!p.kind && !p.city && !p.guests && !p.budget) return "Thanks. Let's take it one step at a time.";
-  if (p.kind === "wedding" && p.names)
-    return `Congratulations to ${p.names.replace(" & ", " and ")}. I've filled in most of the profile from that. A few quick questions and I'll draft the plan.`;
-  if (p.kind === "birthday")
-    return `${p.style ? `A ${p.style.replace(" theme", "").toLowerCase()} party sounds brilliant. ` : ""}I've filled in what I could. A couple of quick questions and I'll draft the plan.`;
-  if (p.kind === "community")
-    return "A mela has a lot of moving parts. I've filled in what I could from that; a few quick questions and I'll draft the plan.";
-  return "Got it. I've filled in what I could from that.";
-}
-
-function acknowledge(prev: Profile, next: Profile): string {
-  const parts: string[] = [];
-  if (next.functions.length > prev.functions.length && next.functions.length > 1)
-    parts.push(`${NUMBER_WORDS[next.functions.length] ?? next.functions.length} functions`);
-  const fresh = next.needs.filter((n) => !prev.needs.includes(n));
-  if (fresh.some((n) => /wheelchair/i.test(n)))
-    parts.push(
-      next.venues?.includes(" or ")
-        ? "I'll flag step-free access when comparing the two venues"
-        : "I'll flag step-free access with the venue",
-    );
-  if (fresh.includes("Vegetarian")) parts.push("a vegetarian menu");
-  if (fresh.some((n) => /allerg/i.test(n))) parts.push("allergy notes on the RSVP form");
-  if (next.venues && next.venues !== prev.venues && !parts.length) parts.push(`venue: ${next.venues}`);
-  return parts.length ? `Noted: ${joinList(parts)}.` : "Noted.";
-}
-
-/** The next question, phrased for what was just answered. */
-function questionAfter(p: Profile, asked: QuestionField[], answered?: QuestionField): Question | null {
-  const q = nextQuestion(p, new Set(asked));
-  if (q?.field === "extras" && answered === "venue") {
-    const tail =
-      p.kind === "wedding"
-        ? "Add any other functions, traditions or accessibility needs too."
-        : "Add anything else I should plan around.";
-    if (p.venueStatus === "Shortlisted")
-      return { ...q, prompt: `Which ones are you choosing between? ${tail}` };
-    if (p.venueStatus === "Booked") return { ...q, prompt: `Which venue is it? ${tail}` };
-    return { ...q, prompt: `No problem, I'll put venue visits in the first week. ${tail}` };
-  }
-  return q;
-}
-
-function titleCase(s: string): string {
-  return s.replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-/** Field-specific fallbacks for short answers like "Thrissur" or "18". */
-function readAnswer(text: string, p: Profile, field: QuestionField | undefined): Profile {
-  const next = parseDescription(text, p);
-  if (field === "kind" && !next.kind) next.kind = detectKind(text) ?? "other";
-  if (field === "city" && !next.city) {
-    const city = text.trim().split(/[,.]/)[0]?.trim();
-    if (city && city.length <= 40) next.city = titleCase(city);
-  }
-  if (field === "guests" && !next.guests) {
-    const n = Number(text.match(/\d[\d,]*/)?.[0]?.replace(/,/g, ""));
-    if (n > 0) next.guests = n;
-  }
-  if (field === "budget" && !next.budget) {
-    const n = Number(text.match(/\d[\d,.]*/)?.[0]?.replace(/,/g, ""));
-    // A bare "18" to the budget question means lakhs; anything bigger is rupees.
-    if (n > 0) next.budget = n < 1000 ? n * 100000 : n;
-  }
-  if (field === "date" && !next.date) {
-    const d = detectDate(`in ${text}`);
-    if (d) {
-      next.date = d.date;
-      next.dateText = d.label;
-    }
-  }
-  const link = text.match(/https?:\/\/\S+|\b[\w-]+\.(?:com|in|co)\/\S*/i)?.[0];
-  if (link && !next.inspiration.includes(link)) next.inspiration = [...next.inspiration, link];
-  return next;
-}
+import {
+  acknowledge,
+  DONE,
+  KIND_FROM_CHIP,
+  opener,
+  pendingField,
+  questionAfter,
+  readAnswer,
+  turnId,
+} from "./intake/conversation";
+import { AiMark, ProfilePanel } from "./intake/ProfilePanel";
 
 export function Intake() {
   const [params, setParams] = useSearchParams();
@@ -501,113 +403,5 @@ function Chat({ draft, autoSend, onEdit }: { draft: Draft; autoSend?: string; on
       </div>
       <ProfilePanel profile={p} asking={pending?.field} images={images} onAdd={addImages} onEdit={onEdit} />
     </div>
-  );
-}
-
-function pendingField(d: Draft): QuestionField | undefined {
-  const last = d.chat[d.chat.length - 1];
-  return last?.role === "ai" ? last.question?.field : undefined;
-}
-
-function AiMark() {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[9px] bg-peacock text-xs text-white"
-    >
-      ◆
-    </span>
-  );
-}
-
-const DOT: Record<"ok" | "ask" | "todo", { bg: string; mark: string; text: string }> = {
-  ok: { bg: "bg-leaf", mark: "✓", text: "text-ink" },
-  ask: { bg: "bg-peacock", mark: "?", text: "text-peacock" },
-  todo: { bg: "bg-line-2", mark: "", text: "text-muted" },
-};
-
-function ProfilePanel({
-  profile,
-  asking,
-  images,
-  onAdd,
-  onEdit,
-}: {
-  profile: Profile;
-  asking?: QuestionField;
-  images: { name: string; url: string }[];
-  onAdd: (f: FileList | null) => void;
-  onEdit: () => void;
-}) {
-  const rows = profileRows(profile, asking);
-  const known = rows.filter((r) => r.state === "ok").length;
-  const fileRef = useRef<HTMLInputElement>(null);
-  const tiles = profile.inspiration.slice(0, 5);
-  return (
-    <aside
-      aria-label="What Plannr understood"
-      className="flex flex-col gap-3.5 border-t border-line bg-surface p-5 sm:p-7 lg:border-t-0 lg:border-l"
-    >
-      <div className="flex items-baseline justify-between">
-        <h2 className="font-serif text-2xl leading-none">What I've understood</h2>
-        <button type="button" className="link text-xs" onClick={onEdit}>
-          Edit any
-        </button>
-      </div>
-      <div className="flex items-center gap-2.5">
-        <div className="bar flex-1" style={{ height: 5 }}>
-          <span style={{ width: `${known * 10}%`, background: "var(--color-peacock)" }} />
-        </div>
-        <span className="text-xs font-medium text-body">{known} of 10</span>
-      </div>
-      <dl className="m-0 flex flex-col">
-        {rows.map((r) => (
-          <div
-            key={r.key}
-            className="grid grid-cols-[18px_112px_minmax(0,1fr)] items-start gap-2 border-t border-sand-2 py-[9px] text-sm leading-[1.4]"
-          >
-            <span
-              aria-hidden="true"
-              className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white ${DOT[r.state].bg}`}
-            >
-              {DOT[r.state].mark}
-            </span>
-            <dt className="text-muted">{r.label}</dt>
-            <dd className={`m-0 ${DOT[r.state].text}`}>{r.value || "Not yet"}</dd>
-          </div>
-        ))}
-      </dl>
-      <div className="mt-0.5 grid grid-cols-3 gap-1.5">
-        {tiles.map((name) => {
-          const img = images.find((i) => i.name === name);
-          return (
-            <div
-              key={name}
-              className="hatch relative flex aspect-square items-end overflow-hidden rounded-lg p-1.5 font-mono text-[9px] leading-[1.2] font-medium text-muted"
-            >
-              {img && (
-                <img src={img.url} alt={name} className="absolute inset-0 h-full w-full object-cover" />
-              )}
-              {!img && <span className="break-all">{name.replace(/^https?:\/\//, "")}</span>}
-            </div>
-          );
-        })}
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={(e) => onAdd(e.target.files)}
-        />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="flex aspect-square items-center justify-center rounded-lg border-[1.5px] border-dashed border-line-2 text-xs font-medium text-body hover:border-ink hover:text-ink"
-        >
-          + Add
-        </button>
-      </div>
-    </aside>
   );
 }

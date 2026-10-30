@@ -1,9 +1,10 @@
 import type { Plugin } from "vite";
 
 /**
- * The content security policy, as a meta tag in the built page, so the browser refuses
- * scripts from anywhere but Plannr itself. Built pages only: the dev server injects its own
- * inline scripts. Framing is refused separately by the X-Frame-Options header.
+ * The content security policy: the browser refuses scripts from anywhere but Plannr itself.
+ * Production sends it as a header on every response (CSP_HEADER, which also refuses framing);
+ * built pages carry it as a meta tag too, so `vite preview` and saved copies are covered.
+ * The dev server injects its own inline scripts, so it goes without.
  */
 export const CSP = [
   "default-src 'self'",
@@ -19,6 +20,9 @@ export const CSP = [
   "base-uri 'self'",
   "form-action 'self'",
 ].join("; ");
+
+/** The header form adds what a meta tag can't express: no framing, and HTTPS only. */
+export const CSP_HEADER = `${CSP}; frame-ancestors 'none'; upgrade-insecure-requests`;
 
 export function plannrCsp(): Plugin {
   return {

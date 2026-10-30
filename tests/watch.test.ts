@@ -55,9 +55,9 @@ describe("what needs attention", () => {
   test("a committee sees its claims, permits and open shifts", () => {
     const w = watchPlan(mela, addDays(mela.date, -10));
     expect(w.some((x) => x.id.startsWith("approvals:"))).toBe(true);
-    expect(
-      w.every((x) => !x.primary || x.primary.kind !== "go" || x.primary.to.startsWith(`/events/${mela.id}`)),
-    ).toBe(true);
+    expect(w.every((x) => x.primary?.kind !== "go" || x.primary.to.startsWith(`/events/${mela.id}`))).toBe(
+      true,
+    );
   });
 
   test("past and archived events stay quiet", () => {

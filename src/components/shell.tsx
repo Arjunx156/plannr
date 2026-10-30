@@ -434,7 +434,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
               label: t.title,
               hint: `${ev.name}${t.done ? " · done" : ""}`,
               group: "Tasks",
-              run: go(`/events/${ev.id}/tasks?task=${encodeURIComponent(t.id)}`),
+              run: go(`/events/${ev.id}/timeline?task=${encodeURIComponent(t.id)}`),
             });
     return shown;
   }, [query, state.events, state.mode, currentId, go]);

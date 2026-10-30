@@ -31,3 +31,4 @@ blob-report
 # Local database and Vercel build output
 .data
 .vercel
+coverage

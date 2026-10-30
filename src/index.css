@@ -91,9 +91,13 @@
     *,
     *::before,
     *::after {
+      /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat every component's own animation */
       animation-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat every component's own animation */
       animation-iteration-count: 1 !important;
+      /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat every component's own animation */
       transition-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: reduced motion must beat every component's own animation */
       scroll-behavior: auto !important;
     }
   }
@@ -468,6 +472,7 @@
 
 @media print {
   .no-print {
+    /* biome-ignore lint/complexity/noImportantStyles: print hiding must beat utility display classes */
     display: none !important;
   }
   body {

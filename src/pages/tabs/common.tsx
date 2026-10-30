@@ -3,7 +3,8 @@ import { Link } from "react-router";
 import type { PlannrEvent } from "../../data/types";
 import { aiEnabled, aiRead, aiWrite, type ReadResult, type WriteTask } from "../../lib/ai";
 import { api, publicUrl } from "../../lib/api";
-import type { PublicKind } from "../../shared/public";
+import { longDate } from "../../lib/dates";
+import { linkExpiry, type PublicKind } from "../../shared/public";
 import { toast, useStore } from "../../store/store";
 
 export { QrCode } from "../../components/qr";
@@ -215,6 +216,7 @@ export function ShareLink({
         disabled={busy}
         onClick={copy}
         aria-label={`Copy the ${kind} link`}
+        title={`Works until ${longDate(linkExpiry(ev, kind))}`}
       >
         Copy link
       </button>

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { handleAi } from "../server/ai.ts";
-import { ideasRequest, sanitizeIdeas } from "../server/prompts.ts";
+import { ideasRequest, sanitizeIdeas } from "../server/ideaPrompts.ts";
 import { seedEvents } from "../src/data/seed";
-import type { PersonalEvent } from "../src/data/types";
+import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 import { toCsv } from "../src/lib/csv";
 import { deviceIdeas, ideaBrief, ideaRecord } from "../src/lib/ideas";
 import { list } from "../src/shared/records";
@@ -136,5 +136,24 @@ describe("CSV export", () => {
       '"\'=HYPERLINK(""http://x"")","\'+91 cheque"',
       '"Menon family","Gold ""coin"""',
     ]);
+  });
+});
+
+describe("ideas from the family's own notes", () => {
+  test("come first and quote the note they answer", () => {
+    const ideas = deviceIdeas(wedding);
+    expect(ideas[0]).toMatchObject({
+      title: "A mocktail and fresh juice counter",
+      because: "Your note: “No alcohol at any function”",
+    });
+    expect(ideas.some((i) => i.because.includes("wheelchair"))).toBe(true);
+  });
+
+  test("a birthday's allergy note and a mela's sound rule shape their ideas", () => {
+    const [, birthday, mela] = seedEvents() as [PersonalEvent, PersonalEvent, CommunityEvent];
+    expect(deviceIdeas(birthday)[0]?.title).toBe("Allergy labels on every dish");
+    const melaIdeas = deviceIdeas(mela).map((i) => i.title);
+    expect(melaIdeas).toContain("Steel plates and a washing station");
+    expect(melaIdeas).toContain("Sound checks early, stage off on time");
   });
 });

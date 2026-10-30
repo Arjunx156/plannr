@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { and, eq, ne } from "drizzle-orm";
 import type { PlannrEvent, Stall } from "../src/data/types";
 import type { EventAction } from "../src/shared/engine";
-import { isHelper, type PublicKind, type PublicView, projectView } from "../src/shared/public";
+import { isHelper, linkExpiry, type PublicKind, type PublicView, projectView } from "../src/shared/public";
 import { findRecord, list, slugId } from "../src/shared/records";
 import { count } from "./admin";
 import { events, type LinkKind, links } from "./db/schema";
@@ -142,6 +142,8 @@ async function resolve(db: Db, token: string): Promise<Resolved> {
   if (!link) throw new HttpError(404, "This link isn't valid. Ask the family for a new one.");
   const event = await plan(db, link.eventId);
   if (event.archived) throw new HttpError(410, "This event has been archived");
+  if (linkExpiry(event, link.kind) < new Date().toISOString().slice(0, 10))
+    throw new HttpError(410, "This link has expired. Ask the family for a new one if you still need it.");
   // Mark it used, at most once an hour, so hosts can see which links were opened.
   if (!link.lastUsedAt || Date.now() - link.lastUsedAt.getTime() > 3_600_000)
     await db.update(links).set({ lastUsedAt: new Date() }).where(eq(links.token, token));

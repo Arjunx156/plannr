@@ -53,7 +53,7 @@ export function Plan() {
     if (!state.session.signedIn) return navigate("/signup?next=accept");
     setAccepted(true);
     setSaving(true);
-    if (!(await accept())) {
+    if (!(await accept(notes?.ideas))) {
       setAccepted(false);
       setSaving(false);
     }

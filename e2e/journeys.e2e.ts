@@ -112,6 +112,72 @@ test.describe("planning a new event", () => {
   });
 });
 
+test.describe("the brief: budgets, timelines, vendor checklists and personalised ideas", () => {
+  test("the timeline puts tasks, payments and bookings in phases, and shows where today falls", async ({
+    page,
+  }) => {
+    await signInDemo(page);
+    await page.goto("/events/aarav-6/timeline");
+    await expect(page.getByRole("heading", { name: "Timeline", level: 1 })).toBeVisible();
+    const month = page.getByRole("region", { name: "The final month" });
+    await expect(month.getByText("you are here")).toBeVisible();
+    await expect(month.getByRole("link", { name: "Book entertainment" })).toBeVisible();
+    await expect(month.getByText("Book · late")).toBeVisible();
+    await expect(page.getByRole("region", { name: "The day" }).getByText("The party")).toBeVisible();
+    // Old links to the task list still work.
+    await page.goto("/events/aarav-6/tasks");
+    await expect(page).toHaveURL(/\/events\/aarav-6\/timeline$/);
+  });
+
+  test("the vendor checklist ticks off bookings and starts the next search", async ({ page }) => {
+    await signInDemo(page);
+    await page.goto("/events/aarav-6/vendors");
+    const checklist = page.getByRole("region", { name: "Vendor checklist" });
+    await expect(checklist.getByText("2 of 7 booked")).toBeVisible();
+    await expect(checklist.getByText("1 past their book-by date")).toBeVisible();
+    await expect(checklist.getByText("Late: book now")).toBeVisible();
+    await checklist.getByRole("button", { name: "Start looking for Photography" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(checklist.getByRole("button", { name: "Open Photography" })).toBeVisible();
+  });
+
+  test("ideas answer the family's own notes, and planning one adds its task", async ({ page }) => {
+    await signInDemo(page);
+    await page.goto("/events/aarav-6/ideas");
+    await page.getByRole("button", { name: "Suggest ideas" }).click();
+    await expect(page.getByText(/came from the rules on this device/)).toBeVisible();
+    const board = page.getByRole("region", { name: "Ideas board" });
+    await expect(board.getByText("Your note: “Everything nut-free: Kabir is allergic”")).toBeVisible();
+    await board.getByRole("button", { name: "Plan it: Allergy labels on every dish" }).click();
+    await expect(board.getByText("in the plan", { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "Timeline", exact: true }).click();
+    await expect(page.getByText("Arrange: Allergy labels on every dish")).toBeVisible();
+  });
+
+  test("Plannr AI writes ideas that say why, when it's on", async ({ page }) => {
+    await mockAi(page, {
+      ideas: {
+        ideas: [
+          {
+            title: "Rocket countdown for the cake",
+            detail: "Everyone counts down from ten before Aarav blows out the candles.",
+            because: "A space-themed sixth birthday",
+            effort: "low",
+          },
+        ],
+      },
+    });
+    await signInDemo(page);
+    await page.goto("/events/aarav-6/ideas");
+    await page.getByRole("button", { name: "Suggest ideas" }).click();
+    await expect(page.getByText("Added 1 idea picked for this event.")).toBeVisible();
+    const board = page.getByRole("region", { name: "Ideas board" });
+    await expect(board.getByText("Rocket countdown for the cake", { exact: true })).toBeVisible();
+    await expect(board.getByText("A space-themed sixth birthday")).toBeVisible();
+  });
+});
+
 test.describe("running an event", () => {
   test("ticking a task can be undone", async ({ page }) => {
     await signInDemo(page);
@@ -178,7 +244,7 @@ test.describe("running an event", () => {
     await expect(assistant.getByText(/Call the florist about jasmine/)).toBeVisible();
     await assistant.getByRole("button", { name: "Apply all" }).click();
     await expect(assistant.getByText("✓ Applied")).toBeVisible();
-    await page.goto("/events/ananya-rohan/tasks");
+    await page.goto("/events/ananya-rohan/timeline");
     await expect(page.getByText("Call the florist about jasmine")).toBeVisible();
   });
 
@@ -243,7 +309,8 @@ test.describe("planning together", () => {
     expect(link).toMatch(/\/join\/[\w-]+$/);
 
     // Priya keeps the task list open while Rohan joins and works.
-    await page.goto(`/events/${id}/tasks`);
+    await page.goto(`/events/${id}/timeline`);
+    await page.getByRole("button", { name: "Task list" }).click();
     await page.getByRole("button", { name: "All", exact: true }).click();
     const task = page.getByLabel("Finalise guest list with both families");
     await expect(task).not.toBeChecked();
@@ -273,7 +340,8 @@ test.describe("planning together", () => {
       .getByRole("button", { name: "Undo Ticked off “Finalise guest list with both families”" })
       .click();
     await expect(page.getByText("Undid: Ticked off “Finalise guest list with both families”")).toBeVisible();
-    await page.getByRole("link", { name: "Tasks", exact: true }).click();
+    await page.getByRole("link", { name: "Timeline", exact: true }).click();
+    await page.getByRole("button", { name: "Task list" }).click();
     await page.getByRole("button", { name: "All", exact: true }).click();
     await expect(task).not.toBeChecked();
     await rohanContext.close();
@@ -289,7 +357,7 @@ test.describe("finding your way", () => {
     await search.fill("guest list");
     await expect(page.getByRole("option", { name: /Finalise guest list with both families/ })).toBeVisible();
     await search.press("Enter");
-    await expect(page).toHaveURL(/\/events\/ananya-rohan\/tasks\?task=/);
+    await expect(page).toHaveURL(/\/events\/ananya-rohan\/timeline\?task=/);
     await expect(page.getByLabel("Title")).toHaveValue("Finalise guest list with both families");
     await page.getByLabel("Note").fill("Amma has the final list");
     await page.getByRole("button", { name: "Save changes" }).click();
@@ -363,7 +431,10 @@ test.describe("accessibility and layout", () => {
     "/events/ananya-rohan",
     "/events/green-valley-mela",
     "/events/aarav-6",
-    "/events/ananya-rohan/tasks",
+    "/events/ananya-rohan/timeline",
+    "/events/ananya-rohan/vendors",
+    "/events/aarav-6/ideas",
+    "/events/green-valley-mela/timeline",
     "/events/ananya-rohan/history",
     "/today",
     "/inbox",
@@ -376,6 +447,30 @@ test.describe("accessibility and layout", () => {
       await expectNoSideScroll(page);
     });
   }
+
+  test("keyboard users can skip straight past the header to the page", async ({ page }) => {
+    await signInDemo(page);
+    await page.goto("/events/aarav-6/timeline");
+    await expect(page.getByRole("heading", { name: "Timeline", level: 1 })).toBeVisible();
+    await page.keyboard.press("Tab");
+    const skip = page.getByRole("link", { name: "Skip to content" });
+    await expect(skip).toBeFocused();
+    await page.keyboard.press("Enter");
+    // The next Tab starts from the page's content, not the header.
+    await page.keyboard.press("Tab");
+    expect(
+      await page.evaluate(() => !!document.getElementById("main")?.contains(document.activeElement)),
+    ).toBe(true);
+  });
+
+  test("a shared page in another language says so, for screen readers", async ({ page }) => {
+    await signInDemo(page);
+    await page.goto("/preview/shifts/green-valley-mela");
+    await page.getByRole("button", { name: "മലയാളം" }).click();
+    await expect(page.locator("[lang='ml']").first()).toBeVisible();
+    await page.getByRole("button", { name: "English" }).click();
+    await expect(page.locator("[lang='en']").first()).toBeVisible();
+  });
 
   test("the gallery renders every component in both themes", async ({ page }, info) => {
     await page.goto("/gallery");

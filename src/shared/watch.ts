@@ -67,7 +67,7 @@ function shared(ev: PersonalEvent | CommunityEvent, today: string): Watch[] {
         .slice(0, 3)
         .map((t) => t.title)
         .join(" · "),
-      primary: { label: "See the tasks", kind: "go", to: `${base}/tasks` },
+      primary: { label: "See the tasks", kind: "go", to: `${base}/timeline` },
       rank: 30,
     });
   const needed = list(ev, "vendors").filter((v) => v.stage === "needed");

@@ -15,7 +15,18 @@ import {
 } from "../src/shared/derive";
 import { applyEventAction, describeAction, replay, stamp } from "../src/shared/engine";
 import { addMinutes } from "../src/shared/planActions";
-import { findRecord, functionsOf, list, vendorsOf } from "../src/shared/records";
+import {
+  COLLS,
+  canHold,
+  findRecord,
+  functionsOf,
+  isColl,
+  list,
+  recordName,
+  remove,
+  setList,
+  vendorsOf,
+} from "../src/shared/records";
 
 const events = seedEvents();
 const wedding = events.find((e) => e.id === "ananya-rohan") as PersonalEvent;
@@ -275,5 +286,31 @@ describe("vendors", () => {
     expect((once as PersonalEvent).guests).toBe(280);
     expect((once as PersonalEvent).site?.published).toBe(true);
     expect((once as PersonalEvent).site?.story).toBe(wedding.site?.story);
+  });
+});
+
+describe("every collection", () => {
+  test("round-trips through its store on each layout that can hold it, and is named in history", () => {
+    for (const coll of COLLS)
+      for (const ev of [wedding, birthday, mela, anniversary]) {
+        const items = list(ev, coll);
+        if (!canHold(ev, coll)) {
+          expect(items).toEqual([]);
+          expect(setList(ev, coll, [])).toBe(ev);
+          continue;
+        }
+        // Writing back what was read changes nothing that matters.
+        expect(list(setList(ev, coll, items), coll)).toEqual(items);
+        const first = items[0];
+        if (!first) continue;
+        expect(recordName(coll, first).length).toBeGreaterThan(4);
+        // A one-day event's day is worked out from its date, so it can't be removed.
+        const derived = coll === "functions" && items.length === 1 && first.id === "day";
+        expect(list(remove(ev, coll, first.id), coll)).toHaveLength(derived ? 1 : items.length - 1);
+        expect(remove(ev, coll, "missing")).toBe(ev);
+      }
+    expect(recordName("households", undefined)).toBe("an item");
+    expect(isColl("households")).toBe(true);
+    expect(isColl("users")).toBe(false);
   });
 });

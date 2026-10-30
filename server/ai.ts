@@ -1,29 +1,28 @@
 import {
+  readPrompt,
+  readRequest,
+  readSchema,
+  sanitizeRead,
+  sanitizeWrite,
+  writePrompt,
+  writeRequest,
+  writeSchema,
+} from "./documentPrompts.js";
+import { ideasPrompt, ideasRequest, ideasSchema, sanitizeIdeas } from "./ideaPrompts.js";
+import { BadRequest } from "./promptKit.js";
+import {
   assistantPrompt,
   assistantRequest,
   assistantSchema,
-  BadRequest,
-  ideasPrompt,
-  ideasRequest,
-  ideasSchema,
   intakePrompt,
   intakeRequest,
   intakeSchema,
   planPrompt,
   planRequest,
   planSchema,
-  readPrompt,
-  readRequest,
-  readSchema,
   sanitizeAssistant,
-  sanitizeIdeas,
   sanitizeIntake,
   sanitizePlan,
-  sanitizeRead,
-  sanitizeWrite,
-  writePrompt,
-  writeRequest,
-  writeSchema,
 } from "./prompts.js";
 
 /**
@@ -342,6 +341,61 @@ function failure(route: string, e: unknown): AiResponse {
 
 const user = (text: string) => [{ role: "user" as const, parts: [{ text }] }];
 
+/** One AI route: checks the request, builds the prompt, and cleans what the model sends back. */
+type RouteSpec = (body: unknown) => { args: GenerateArgs; finish: (raw: unknown) => unknown };
+
+const ROUTES: Record<string, RouteSpec> = {
+  intake: (body) => {
+    const req = intakeRequest(body);
+    const { system, user: text } = intakePrompt(req);
+    return {
+      args: { system, contents: user(text), schema: intakeSchema, temperature: 0.1 },
+      finish: (raw) => sanitizeIntake(raw, req.today),
+    };
+  },
+  assistant: (body) => {
+    const { system, contents } = assistantPrompt(assistantRequest(body));
+    return { args: { system, contents, schema: assistantSchema }, finish: sanitizeAssistant };
+  },
+  plan: (body) => {
+    const { system, user: text } = planPrompt(planRequest(body));
+    return {
+      args: { system, contents: user(text), schema: planSchema, temperature: 0.6 },
+      finish: sanitizePlan,
+    };
+  },
+  ideas: (body) => {
+    const req = ideasRequest(body);
+    const { system, user: text } = ideasPrompt(req);
+    return {
+      args: { system, contents: user(text), schema: ideasSchema, temperature: 0.8 },
+      finish: (raw) => sanitizeIdeas(raw, req.avoid),
+    };
+  },
+  write: (body) => {
+    const { system, user: text } = writePrompt(writeRequest(body));
+    return {
+      args: { system, contents: user(text), schema: writeSchema, temperature: 0.7 },
+      finish: sanitizeWrite,
+    };
+  },
+  read: (body) => {
+    const req = readRequest(body);
+    const { system, text } = readPrompt(req);
+    return {
+      args: {
+        system,
+        contents: [
+          { role: "user", parts: [{ inlineData: { mimeType: req.mime, data: req.data } }, { text }] },
+        ],
+        schema: readSchema,
+        temperature: 0,
+      },
+      finish: sanitizeRead,
+    };
+  },
+};
+
 /** Routes a request for /api/ai/<route>. Never throws; errors come back as JSON. */
 export async function handleAi(
   route: string,
@@ -352,87 +406,12 @@ export async function handleAi(
 ): Promise<AiResponse> {
   if (route === "status") return { status: 200, body: { enabled: !!config.apiKey, model: config.model } };
   if (!config.apiKey) return { status: 503, body: { error: "AI is not configured on this server" } };
+  const spec = Object.hasOwn(ROUTES, route) ? ROUTES[route] : undefined;
+  if (!spec) return { status: 404, body: { error: "Unknown AI route" } };
   try {
-    if (route === "intake") {
-      const req = intakeRequest(body);
-      const { system, user: text } = intakePrompt(req);
-      const raw = await generate(
-        config,
-        { system, contents: user(text), schema: intakeSchema, temperature: 0.1 },
-        fetchImpl,
-        BUDGET_MS.intake,
-        meter,
-      );
-      return { status: 200, body: sanitizeIntake(raw, req.today) };
-    }
-    if (route === "assistant") {
-      const req = assistantRequest(body);
-      const { system, contents } = assistantPrompt(req);
-      const raw = await generate(
-        config,
-        { system, contents, schema: assistantSchema },
-        fetchImpl,
-        BUDGET_MS.assistant,
-        meter,
-      );
-      return { status: 200, body: sanitizeAssistant(raw) };
-    }
-    if (route === "plan") {
-      const req = planRequest(body);
-      const { system, user: text } = planPrompt(req);
-      const raw = await generate(
-        config,
-        { system, contents: user(text), schema: planSchema, temperature: 0.6 },
-        fetchImpl,
-        BUDGET_MS.plan,
-        meter,
-      );
-      return { status: 200, body: sanitizePlan(raw) };
-    }
-    if (route === "ideas") {
-      const req = ideasRequest(body);
-      const { system, user: text } = ideasPrompt(req);
-      const raw = await generate(
-        config,
-        { system, contents: user(text), schema: ideasSchema, temperature: 0.8 },
-        fetchImpl,
-        BUDGET_MS.ideas,
-        meter,
-      );
-      return { status: 200, body: sanitizeIdeas(raw, req.avoid) };
-    }
-    if (route === "write") {
-      const req = writeRequest(body);
-      const { system, user: text } = writePrompt(req);
-      const raw = await generate(
-        config,
-        { system, contents: user(text), schema: writeSchema, temperature: 0.7 },
-        fetchImpl,
-        BUDGET_MS.write,
-        meter,
-      );
-      return { status: 200, body: sanitizeWrite(raw) };
-    }
-    if (route === "read") {
-      const req = readRequest(body);
-      const { system, text } = readPrompt(req);
-      const raw = await generate(
-        config,
-        {
-          system,
-          contents: [
-            { role: "user", parts: [{ inlineData: { mimeType: req.mime, data: req.data } }, { text }] },
-          ],
-          schema: readSchema,
-          temperature: 0,
-        },
-        fetchImpl,
-        BUDGET_MS.read,
-        meter,
-      );
-      return { status: 200, body: sanitizeRead(raw) };
-    }
-    return { status: 404, body: { error: "Unknown AI route" } };
+    const { args, finish } = spec(body);
+    const raw = await generate(config, args, fetchImpl, BUDGET_MS[route], meter);
+    return { status: 200, body: finish(raw) };
   } catch (e) {
     return failure(route, e);
   }

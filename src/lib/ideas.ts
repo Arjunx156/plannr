@@ -78,8 +78,51 @@ function lineFor(ev: PlannedEvent, pattern: RegExp): string | undefined {
 
 type Rule = (ev: PlannedEvent) => IdeaSuggestion | undefined;
 
-/** Each rule reads one detail of the event and says which, so even offline ideas explain themselves. */
+/** The family's own note that mentions this, word for word, if there is one. */
+function noted(ev: PlannedEvent, pattern: RegExp): string | undefined {
+  return list(ev, "memory").find((m) => pattern.test(m.text))?.text;
+}
+
+/** An idea that answers one of the family's notes, quoting it as the reason. */
+function fromNote(pattern: RegExp, idea: Omit<IdeaSuggestion, "because">): Rule {
+  return (ev) => {
+    const note = noted(ev, pattern);
+    return note ? { ...idea, because: `Your note: “${note}”` } : undefined;
+  };
+}
+
+/**
+ * Each rule reads one detail of the event and says which, so even offline ideas explain themselves.
+ * The family's own notes come first: they are the most personal thing Plannr knows.
+ */
 const RULES: Rule[] = [
+  fromNote(/alcohol/i, {
+    title: "A mocktail and fresh juice counter",
+    detail:
+      "Tender coconut, sharbat and lime-mint, with one drink named after the couple or the guest of honour.",
+    effort: "low",
+  }),
+  fromNote(/allerg|nut-free|gluten/i, {
+    title: "Allergy labels on every dish",
+    detail:
+      "Small cards marking nut-free, egg-free and dairy-free food, checked with the caterer the day before.",
+    effort: "low",
+  }),
+  fromNote(/plastic|disposable/i, {
+    title: "Steel plates and a washing station",
+    detail: "Hire steel plates and tumblers with two people to wash them, instead of disposables.",
+    effort: "medium",
+  }),
+  fromNote(/sound|noise|loudspeaker/i, {
+    title: "Sound checks early, stage off on time",
+    detail: "Finish sound checks before 6 pm and send nearby homes a note with the timings.",
+    effort: "low",
+  }),
+  fromNote(/wheelchair|ramp|walker/i, {
+    title: "Ramps and front seats held for elders",
+    detail: "Check every step on the route, put a ramp where needed and keep aisle seats near the stage.",
+    effort: "low",
+  }),
   (ev) =>
     month(ev) >= 3 && month(ev) <= 5
       ? {

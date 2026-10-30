@@ -8,6 +8,7 @@ export interface AiMocks {
   intake?: Record<string, unknown>;
   assistant?: Record<string, unknown>;
   plan?: Record<string, unknown>;
+  ideas?: Record<string, unknown>;
 }
 
 /** Turns Gemini on for this page and answers each route with a canned reply. */

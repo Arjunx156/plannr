@@ -71,6 +71,17 @@ describe("accounts", () => {
       body: JSON.stringify({ event: wedding() }),
     });
     expect(res.status).toBe(403);
+    // A browser that leaves Origin off still says where the request came from.
+    const noOrigin = await app.request("/api/events", {
+      method: "POST",
+      headers: {
+        "sec-fetch-site": "cross-site",
+        "content-type": "application/json",
+        cookie: [...priya.cookies].map(([k, v]) => `${k}=${v}`).join("; "),
+      },
+      body: JSON.stringify({ event: wedding() }),
+    });
+    expect(noOrigin.status).toBe(403);
   });
 
   test("a guest gets a real account with a session", async () => {
@@ -197,6 +208,20 @@ describe("shared links", () => {
   const mela = () => ({
     ...(seedEvents().find((e) => e.id === "green-valley-mela") as CommunityEvent),
     id: `mela-${crypto.randomUUID().slice(0, 8)}`,
+  });
+
+  test("links stop working a month after the event, but the album and fund report last longer", async () => {
+    const rekha = new Client();
+    await rekha.guest();
+    const past = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
+    const ev = { ...mela(), date: past };
+    await rekha.call("/api/events", { body: { event: ev } });
+    const shifts = await rekha.call(`/api/events/${ev.id}/links`, { body: { kind: "shifts" } });
+    const fund = await rekha.call(`/api/events/${ev.id}/links`, { body: { kind: "fund" } });
+    const expired = await new Client().call(`/api/p/${shifts.json.token}`);
+    expect(expired.status).toBe(410);
+    expect(expired.json.error).toContain("expired");
+    expect((await new Client().call(`/api/p/${fund.json.token}`)).status).toBe(200);
   });
 
   test("an RSVP link answers for its own household only, and history names them", async () => {

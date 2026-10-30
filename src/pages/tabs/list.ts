@@ -5,12 +5,15 @@ export interface TabDef {
   label: string;
 }
 
-/** The sections of one event, in order. Community events trade guests and budget for funds and volunteers. */
+/**
+ * The sections of one event, in order. Community events trade guests and budget for funds and volunteers.
+ * "tasks" was the timeline's old address and still opens it.
+ */
 export function tabsFor(ev: PlannrEvent): TabDef[] {
   if (ev.layout === "community")
     return [
       { id: "", label: "Overview" },
-      { id: "tasks", label: "Tasks" },
+      { id: "timeline", label: "Timeline" },
       { id: "funds", label: "Funds & permits" },
       { id: "volunteers", label: "Volunteers" },
       { id: "stalls", label: "Stalls & passes" },
@@ -24,7 +27,7 @@ export function tabsFor(ev: PlannrEvent): TabDef[] {
     ];
   return [
     { id: "", label: "Overview" },
-    { id: "tasks", label: "Tasks" },
+    { id: "timeline", label: "Timeline" },
     { id: "guests", label: "Guests" },
     { id: "budget", label: "Budget" },
     { id: "vendors", label: "Vendors" },

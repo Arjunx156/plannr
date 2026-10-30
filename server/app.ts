@@ -261,6 +261,8 @@ export function createApp(deps: {
 
   app.post("/ai/:route", async (c) => {
     const route = c.req.param("route");
+    // Unknown routes are turned away before they count against anyone's allowance.
+    if (!Object.hasOwn(ROUTE_COST, route)) return c.json({ error: "Unknown AI route" }, 404);
     const gate = await aiGate(c, route);
     if (gate instanceof Response) return gate;
     const input = await c.req.json().catch(() => undefined);
@@ -335,9 +337,11 @@ export function createApp(deps: {
   const origins = trustedOrigins(env);
   app.use("*", async (c, next) => {
     // Writes only from Plannr's own pages; the session cookie alone isn't proof of intent.
+    // Browsers send Origin on every write; when one doesn't, Sec-Fetch-Site still names a cross-site caller.
     const origin = c.req.header("origin");
-    if (c.req.method !== "GET" && origin && !origins.includes(origin))
-      return c.json({ error: "Requests must come from Plannr" }, 403);
+    const site = c.req.header("sec-fetch-site");
+    const crossSite = origin ? !origins.includes(origin) : site === "cross-site" || site === "same-site";
+    if (c.req.method !== "GET" && crossSite) return c.json({ error: "Requests must come from Plannr" }, 403);
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) return c.json({ error: "Sign in to continue" }, 401);
     c.set("userId", session.user.id);

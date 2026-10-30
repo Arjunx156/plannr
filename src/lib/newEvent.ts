@@ -58,12 +58,17 @@ export function eventName(p: Profile): string {
   return p.names ?? "New event";
 }
 
-/** The accepted draft becomes a live event with an empty ledger and its first tasks. */
+/**
+ * The accepted draft becomes a live event with an empty ledger and its first tasks. The family's
+ * needs and traditions become standing notes every later suggestion respects, and the ideas
+ * Gemini wrote for the draft start the ideas board.
+ */
 export function eventFromDraft(
   p: Profile,
   plan: PlanDraft,
   user: { name: string; initials: string },
   existing?: { id: string; name: string },
+  ideas: string[] = [],
 ): PersonalEvent {
   const kind = p.kind ?? "other";
   const date = p.date ?? addDays(TODAY, 90);
@@ -129,6 +134,16 @@ export function eventFromDraft(
       theme: kind === "wedding" ? "maroon" : "indigo",
     },
     functions,
+    memory: [...p.needs, ...(p.traditions ? [p.traditions] : [])].map((text, i) => ({
+      id: `m${i + 1}`,
+      text,
+    })),
+    ideas: ideas.map((title, i) => ({
+      id: `i${i + 1}`,
+      title,
+      status: "idea",
+      note: "From Plannr's first draft",
+    })),
     people: [{ initials: user.initials, bg: "#1F5F6B", fg: "#FFFFFF", name: user.name }],
     morePeople: 0,
     pace: "A fresh plan: nothing is late yet",

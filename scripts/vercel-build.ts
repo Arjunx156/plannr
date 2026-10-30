@@ -5,6 +5,7 @@
  */
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { CSP_HEADER } from "../server/security";
 import { PUBLIC_ROUTES } from "../server/seo";
 
 const root = join(import.meta.dir, "..");
@@ -63,7 +64,9 @@ await writeFile(
       shouldAddHelpers: false,
       supportsResponseStreaming: true,
       maxDuration: 60,
-      regions: ["bom1"],
+      // Next to the Neon database (us-east-1): a request makes several queries, and each one
+      // would otherwise cross the world. The browser's one round trip is the cheaper one.
+      regions: ["iad1"],
     },
     null,
     2,
@@ -71,9 +74,12 @@ await writeFile(
 );
 
 const security = {
+  "content-security-policy": CSP_HEADER,
   "x-content-type-options": "nosniff",
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-frame-options": "DENY",
+  "cross-origin-opener-policy": "same-origin",
+  "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
   // The camera scans QR codes at the gate; the microphone is for voice input.
   "permissions-policy": "camera=(self), geolocation=(), microphone=(self)",
 };

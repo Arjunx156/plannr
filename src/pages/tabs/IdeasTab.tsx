@@ -18,6 +18,7 @@ const EFFORT: Record<NonNullable<Idea["effort"]>, string> = {
 
 const ORDER: Record<Idea["status"], number> = { idea: 0, planned: 1, dropped: 2 };
 
+/** /events/:id/ideas — ideas picked for this event, each with its reason, and the board they're planned from. */
 export function IdeasTab({ ev }: { ev: PlannrEvent }) {
   const editable = useEditable(ev);
   if (ev.layout === "empty") return null;
@@ -150,11 +151,21 @@ function Board({ ev, editable }: { ev: PlannedEvent; editable: boolean }) {
               ) : (
                 editable && (
                   <>
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => plan(i)}>
-                      Plan it<span className="sr-only">: {i.title}</span>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      aria-label={`Plan it: ${i.title}`}
+                      onClick={() => plan(i)}
+                    >
+                      Plan it
                     </button>
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => drop(i)}>
-                      Drop<span className="sr-only">: {i.title}</span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      aria-label={`Drop: ${i.title}`}
+                      onClick={() => drop(i)}
+                    >
+                      Drop
                     </button>
                   </>
                 )
