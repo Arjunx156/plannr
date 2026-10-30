@@ -261,10 +261,12 @@ const STORES: { [C in Coll]: Store<C> } = {
 
 export const COLLS = Object.keys(STORES) as Coll[];
 
+/** Whether a string names one of the plan's record collections. */
 export function isColl(c: unknown): c is Coll {
   return typeof c === "string" && c in STORES;
 }
 
+/** Whether this kind of event keeps the given collection (stalls are community-only, and so on). */
 export function canHold(ev: PlannrEvent, coll: Coll): ev is Planned {
   return ev.layout !== "empty" && STORES[coll].layouts.includes(ev.layout);
 }
@@ -274,16 +276,18 @@ export function list<C extends Coll>(ev: PlannrEvent, coll: C): RecordTypes[C][]
   return canHold(ev, coll) ? (STORES[coll] as Store<C>).get(ev) : [];
 }
 
+/** One record by id, or undefined. */
 export function findRecord<C extends Coll>(ev: PlannrEvent, coll: C, id: string): RecordTypes[C] | undefined {
   return list(ev, coll).find((r) => r.id === id);
 }
 
-export function setList<C extends Coll>(ev: PlannrEvent, coll: C, next: RecordTypes[C][]): PlannrEvent {
-  return canHold(ev, coll) ? (STORES[coll] as Store<C>).set(ev, next) : ev;
+/** Replaces a collection's list. A store swaps one list only, so the event keeps its layout. */
+export function setList<E extends PlannrEvent, C extends Coll>(ev: E, coll: C, next: RecordTypes[C][]): E {
+  return canHold(ev, coll) ? ((STORES[coll] as Store<C>).set(ev, next) as E) : ev;
 }
 
 /** Adds the record, or replaces the one with the same id. */
-export function upsert<C extends Coll>(ev: PlannrEvent, coll: C, record: RecordTypes[C]): PlannrEvent {
+export function upsert<E extends PlannrEvent, C extends Coll>(ev: E, coll: C, record: RecordTypes[C]): E {
   const current = list(ev, coll);
   const exists = current.some((r) => r.id === record.id);
   return setList(
@@ -294,12 +298,12 @@ export function upsert<C extends Coll>(ev: PlannrEvent, coll: C, record: RecordT
 }
 
 /** Changes some fields of one record; unknown ids change nothing. The id itself never changes. */
-export function patch<C extends Coll>(
-  ev: PlannrEvent,
+export function patch<E extends PlannrEvent, C extends Coll>(
+  ev: E,
   coll: C,
   id: string,
   changes: Partial<RecordTypes[C]>,
-): PlannrEvent {
+): E {
   const current = list(ev, coll);
   if (!current.some((r) => r.id === id)) return ev;
   return setList(
@@ -309,7 +313,8 @@ export function patch<C extends Coll>(
   );
 }
 
-export function remove(ev: PlannrEvent, coll: Coll, id: string): PlannrEvent {
+/** Removes one record; unknown ids change nothing. */
+export function remove<E extends PlannrEvent>(ev: E, coll: Coll, id: string): E {
   const current = list(ev, coll);
   if (!current.some((r) => r.id === id)) return ev;
   return setList(

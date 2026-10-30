@@ -110,38 +110,66 @@ function retryable(e: unknown): boolean {
   return e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
 }
 
+/** An attempt with less time than this left isn't worth starting. */
+const MIN_ATTEMPT_MS = 2500;
+/** The main model gets just over half the time left, so the fallback still has a fair go. */
+const MAIN_MODEL_SHARE = 0.55;
+/** Characters of an upstream error body kept in the log. */
+const ERROR_DETAIL_CHARS = 300;
+
+/** The main model, then the fallback when one is configured and different. */
+function modelsToTry(config: AiConfig): string[] {
+  const { model, fallback } = config;
+  return fallback && fallback !== model ? [model, fallback] : [model];
+}
+
 /**
- * Asks the main model, and when it's busy or slow asks the fallback with the time left,
- * so a spike at Google doesn't leave a family staring at an error.
+ * Runs `attempt` on the main model, and when it's busy or slow on the fallback with the time
+ * left, so a spike at Google doesn't leave a family staring at an error. `canRetry` decides
+ * whether a failure is worth the second try.
  */
-async function generate(
+async function withFallback<T>(
   config: AiConfig,
-  args: GenerateArgs,
-  fetchImpl: Fetch,
-  budgetMs = TIMEOUT_MS,
-  meter?: Meter,
-): Promise<unknown> {
+  budgetMs: number,
+  attempt: (model: string, timeoutMs: number) => Promise<T>,
+  canRetry: (e: unknown) => boolean = retryable,
+): Promise<T> {
   const deadline = Date.now() + budgetMs;
-  const models = [
-    config.model,
-    ...(config.fallback && config.fallback !== config.model ? [config.fallback] : []),
-  ];
+  const models = modelsToTry(config);
   let last: unknown = new UpstreamError("AI took too long", 504);
   for (const [i, model] of models.entries()) {
     const left = deadline - Date.now();
-    if (left < 2500) break;
-    const share = i === models.length - 1 ? left : Math.round(left * 0.55);
+    if (left < MIN_ATTEMPT_MS) break;
+    const isLast = i === models.length - 1;
     try {
-      return await generateOnce(config, model, args, fetchImpl, share, meter);
+      return await attempt(model, isLast ? left : Math.round(left * MAIN_MODEL_SHARE));
     } catch (e) {
       last = e;
-      if (!retryable(e)) throw e;
-      console.warn(
-        `[ai] ${model} unavailable, ${i < models.length - 1 ? "trying the fallback" : "giving up"}`,
-      );
+      if (!canRetry(e)) throw e;
+      console.warn(`[ai] ${model} unavailable, ${isLast ? "giving up" : "trying the fallback"}`);
     }
   }
   throw last;
+}
+
+/** Posts to one Gemini method; anything but a 2xx becomes an UpstreamError carrying its status. */
+async function postGemini(
+  config: AiConfig,
+  model: string,
+  method: "generateContent" | "streamGenerateContent?alt=sse",
+  body: string,
+  timeoutMs: number,
+  fetchImpl: Fetch,
+): Promise<Response> {
+  const res = await fetchImpl(`${BASE}/models/${encodeURIComponent(model)}:${method}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-goog-api-key": config.apiKey ?? "" },
+    body,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (res.ok) return res;
+  const detail = await res.text().catch(() => "");
+  throw new UpstreamError(`Gemini ${res.status}: ${detail.slice(0, ERROR_DETAIL_CHARS)}`, res.status);
 }
 
 function requestBody(args: GenerateArgs): string {
@@ -170,6 +198,7 @@ function chunkText(data: Chunk): string {
     .join("");
 }
 
+/** One non-streaming call: the model's JSON answer, parsed. */
 async function generateOnce(
   config: AiConfig,
   model: string,
@@ -178,16 +207,7 @@ async function generateOnce(
   timeoutMs: number,
   meter?: Meter,
 ): Promise<unknown> {
-  const res = await fetchImpl(`${BASE}/models/${encodeURIComponent(model)}:generateContent`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-goog-api-key": config.apiKey ?? "" },
-    body: requestBody(args),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new UpstreamError(`Gemini ${res.status}: ${detail.slice(0, 300)}`, res.status);
-  }
+  const res = await postGemini(config, model, "generateContent", requestBody(args), timeoutMs, fetchImpl);
   const data = (await res.json()) as Chunk;
   if (meter) meter.tokens += data.usageMetadata?.totalTokenCount ?? 0;
   const text = chunkText(data);
@@ -272,58 +292,38 @@ export async function streamAssistant(
 ): Promise<AiResponse> {
   if (!config.apiKey) return { status: 503, body: { error: "AI is not configured on this server" } };
   try {
-    const req = assistantRequest(body);
-    const { system, contents } = assistantPrompt(req);
+    const { system, contents } = assistantPrompt(assistantRequest(body));
     const payload = requestBody({ system, contents, schema: assistantSchema });
-    const deadline = Date.now() + (BUDGET_MS.assistant ?? TIMEOUT_MS);
-    const models = [
-      config.model,
-      ...(config.fallback && config.fallback !== config.model ? [config.fallback] : []),
-    ];
-    let last: unknown = new UpstreamError("AI took too long", 504);
-    for (const [i, model] of models.entries()) {
-      const left = deadline - Date.now();
-      if (left < 2500) break;
-      let raw = "";
-      let shown = "";
-      try {
-        const res = await fetchImpl(
-          `${BASE}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
-          {
-            method: "POST",
-            headers: { "content-type": "application/json", "x-goog-api-key": config.apiKey ?? "" },
-            body: payload,
-            signal: AbortSignal.timeout(i === models.length - 1 ? left : Math.round(left * 0.55)),
-          },
+    let shown = "";
+    const answer = await withFallback(
+      config,
+      BUDGET_MS.assistant ?? TIMEOUT_MS,
+      async (model, timeoutMs) => {
+        const res = await postGemini(
+          config,
+          model,
+          "streamGenerateContent?alt=sse",
+          payload,
+          timeoutMs,
+          fetchImpl,
         );
-        if (!res.ok) {
-          const detail = await res.text().catch(() => "");
-          throw new UpstreamError(`Gemini ${res.status}: ${detail.slice(0, 300)}`, res.status);
-        }
-        await readStream(
-          res,
-          (chunk) => {
-            raw += chunk;
-            const text = partialText(raw);
-            if (text && text.length > shown.length) {
-              shown = text;
-              onText(text);
-            }
-          },
-          meter,
-        );
+        let raw = "";
+        const onChunk = (chunk: string) => {
+          raw += chunk;
+          const text = partialText(raw);
+          if (text && text.length > shown.length) {
+            shown = text;
+            onText(text);
+          }
+        };
+        await readStream(res, onChunk, meter);
         if (!raw) throw new UpstreamError("Gemini returned no text", 502);
-        return { status: 200, body: sanitizeAssistant(JSON.parse(raw)) };
-      } catch (e) {
-        last = e;
-        // Once words are on screen, switching models would replace them mid-sentence.
-        if (shown || !retryable(e)) throw e;
-        console.warn(
-          `[ai] ${model} unavailable, ${i < models.length - 1 ? "trying the fallback" : "giving up"}`,
-        );
-      }
-    }
-    throw last;
+        return sanitizeAssistant(JSON.parse(raw));
+      },
+      // Once words are on screen, switching models would replace them mid-sentence.
+      (e) => !shown && retryable(e),
+    );
+    return { status: 200, body: answer };
   } catch (e) {
     return failure("assistant", e);
   }
@@ -410,7 +410,9 @@ export async function handleAi(
   if (!spec) return { status: 404, body: { error: "Unknown AI route" } };
   try {
     const { args, finish } = spec(body);
-    const raw = await generate(config, args, fetchImpl, BUDGET_MS[route], meter);
+    const raw = await withFallback(config, BUDGET_MS[route] ?? TIMEOUT_MS, (model, timeoutMs) =>
+      generateOnce(config, model, args, fetchImpl, timeoutMs, meter),
+    );
     return { status: 200, body: finish(raw) };
   } catch (e) {
     return failure(route, e);

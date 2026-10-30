@@ -102,8 +102,10 @@ async function sendCode(env: AuthEnv, email: string, otp: string): Promise<void>
     throw new Error(message);
   }
   if (isProduction(env)) throw new Error("Email sign-in isn't set up on this server yet");
+  // Development only (production returned above): no mail provider, so the code goes to the
+  // terminal and to the outbox the journey tests read.
   devOutbox.set(email.toLowerCase(), otp);
-  console.log(`[auth] sign-in code for ${email}: ${otp}`);
+  console.info(`[auth] development sign-in code for ${email}: ${otp}`);
 }
 
 export function createAuth(db: Db, env: AuthEnv) {

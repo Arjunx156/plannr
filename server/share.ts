@@ -38,6 +38,14 @@ function when(v: PublicView): string {
   return dateRange(first, last);
 }
 
+/** Search engines show about this many characters of a description. */
+const DESCRIPTION_CHARS = 160;
+
+/** Cuts text to `max` characters, ending with an ellipsis when it had to cut. */
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
 function metaFor(v: PublicView, url: string): Meta {
   const name = v.event.name;
   const base = { url, index: false };
@@ -47,11 +55,7 @@ function metaFor(v: PublicView, url: string): Meta {
       return {
         ...base,
         title: `${name} · ${when(v)}`,
-        description: story
-          ? story.length > 160
-            ? `${story.slice(0, 157)}…`
-            : story
-          : `${name}, ${when(v)}.`,
+        description: story ? truncate(story, DESCRIPTION_CHARS) : `${name}, ${when(v)}.`,
         index: !!v.site.indexable,
       };
     }

@@ -15,30 +15,60 @@ export interface Reminder {
   rank: number;
 }
 
+/** Payments due within this many days make the morning list. */
+const PAYMENT_LOOKAHEAD_DAYS = 2;
+/** Most reminders one notification spells out before "and N more". */
+const SHOWN_IN_NOTIFICATION = 3;
+
+type Planned = Exclude<PlannrEvent, { layout: "empty" }>;
+
+/** Functions happening today or tomorrow. */
+function functionReminders(ev: Planned, today: string): Reminder[] {
+  const tomorrow = addDays(today, 1);
+  return functionsOf(ev).flatMap((f) => {
+    if (f.date === today)
+      return [{ eventId: ev.id, rank: 0, text: `${f.label} is today${f.time ? ` at ${f.time}` : ""}` }];
+    if (f.date === tomorrow) return [{ eventId: ev.id, rank: 1, text: `${f.label} is tomorrow` }];
+    return [];
+  });
+}
+
+/** "Overdue", "Pay today" or "Pay by 12 Oct". */
+function paymentWhen(date: string, today: string): string {
+  if (date < today) return "Overdue";
+  if (date === today) return "Pay today";
+  return `Pay by ${shortDate(date)}`;
+}
+
+/** Unpaid payments that are overdue or due in the next two days. */
+function paymentReminders(ev: Planned, today: string): Reminder[] {
+  const horizon = addDays(today, PAYMENT_LOOKAHEAD_DAYS);
+  return list(ev, "payments")
+    .filter((p) => !p.paid && p.date <= horizon)
+    .map((p) => ({
+      eventId: ev.id,
+      rank: p.date < today ? 2 : 3,
+      text: `${paymentWhen(p.date, today)}: ${p.label}, ${inr(p.amount)}`,
+    }));
+}
+
+/** The planner's own tasks that are overdue or due today. */
+function taskReminders(ev: Planned, today: string): Reminder[] {
+  return ev.tasks.list
+    .filter((t) => !t.done && t.due <= today && (t.who === "You" || !t.who))
+    .map((t) => ({
+      eventId: ev.id,
+      rank: t.due < today ? 4 : 5,
+      text: `${t.due < today ? "Overdue" : "Today"}: ${t.title}`,
+    }));
+}
+
+/** Everything that needs doing today for one event, most urgent first. Past and archived events have none. */
 export function remindersFor(ev: PlannrEvent, today: string): Reminder[] {
   if (ev.layout === "empty" || ev.archived || ev.date < addDays(today, -1)) return [];
-  const out: Reminder[] = [];
-  const tomorrow = addDays(today, 1);
-  for (const f of functionsOf(ev)) {
-    if (f.date === today)
-      out.push({ eventId: ev.id, rank: 0, text: `${f.label} is today${f.time ? ` at ${f.time}` : ""}` });
-    else if (f.date === tomorrow) out.push({ eventId: ev.id, rank: 1, text: `${f.label} is tomorrow` });
-  }
-  for (const p of list(ev, "payments"))
-    if (!p.paid && p.date <= addDays(today, 2))
-      out.push({
-        eventId: ev.id,
-        rank: p.date < today ? 2 : 3,
-        text: `${p.date < today ? "Overdue" : p.date === today ? "Pay today" : `Pay by ${shortDate(p.date)}`}: ${p.label}, ${inr(p.amount)}`,
-      });
-  for (const t of ev.tasks.list)
-    if (!t.done && t.due <= today && (t.who === "You" || !t.who))
-      out.push({
-        eventId: ev.id,
-        rank: t.due < today ? 4 : 5,
-        text: `${t.due < today ? "Overdue" : "Today"}: ${t.title}`,
-      });
-  return out.sort((a, b) => a.rank - b.rank);
+  return [...functionReminders(ev, today), ...paymentReminders(ev, today), ...taskReminders(ev, today)].sort(
+    (a, b) => a.rank - b.rank,
+  );
 }
 
 /** One notification for the morning, or nothing when the day is clear. */
@@ -49,10 +79,10 @@ export function morningMessage(
   const all = events.flatMap((ev) => remindersFor(ev, today).map((r) => ({ ...r, name: ev.name })));
   if (!all.length) return undefined;
   all.sort((a, b) => a.rank - b.rank);
-  const events1 = new Set(all.map((r) => r.eventId));
-  const only = events1.size === 1 ? all[0]?.name : undefined;
+  const eventIds = new Set(all.map((r) => r.eventId));
+  const only = eventIds.size === 1 ? all[0]?.name : undefined;
   const title = only ? `Today for ${only}` : `${all.length} things today`;
-  const lines = all.slice(0, 3).map((r) => (only ? r.text : `${r.name}: ${r.text}`));
-  if (all.length > 3) lines.push(`and ${all.length - 3} more`);
+  const lines = all.slice(0, SHOWN_IN_NOTIFICATION).map((r) => (only ? r.text : `${r.name}: ${r.text}`));
+  if (all.length > SHOWN_IN_NOTIFICATION) lines.push(`and ${all.length - SHOWN_IN_NOTIFICATION} more`);
   return { title, body: lines.join("\n"), url: only ? `/events/${all[0]?.eventId}` : "/today" };
 }

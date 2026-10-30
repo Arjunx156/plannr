@@ -12,12 +12,18 @@ const BUDGET = { entry: 170, chunk: 60, css: 30 };
 const dir = join(import.meta.dir, "..", "dist", "assets");
 const html = await Bun.file(join(import.meta.dir, "..", "dist", "index.html")).text();
 const entry = html.match(/src="\/assets\/([^"]+\.js)"/)?.[1];
+/** The gzipped size allowed for one built file. */
+function budgetFor(file: string): number {
+  if (file.endsWith(".css")) return BUDGET.css;
+  return file === entry ? BUDGET.entry : BUDGET.chunk;
+}
+
 const problems: string[] = [];
 const rows: string[] = [];
 for (const file of await readdir(dir)) {
   if (!/\.(js|css)$/.test(file)) continue;
   const kb = gzipSync(await Bun.file(join(dir, file)).arrayBuffer()).length / 1024;
-  const limit = file.endsWith(".css") ? BUDGET.css : file === entry ? BUDGET.entry : BUDGET.chunk;
+  const limit = budgetFor(file);
   rows.push(`${kb.toFixed(1).padStart(7)} KB  ${file}${file === entry ? "  (entry)" : ""}`);
   if (kb > limit) problems.push(`${file} is ${kb.toFixed(1)} KB gzipped; the budget is ${limit} KB`);
 }
