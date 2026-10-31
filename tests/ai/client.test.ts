@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedEvents } from "../../src/data/seed";
-import { aiEnabled, aiWrite, askAi, planNotes, suggestIdeas } from "../../src/lib/ai";
+import { aiEnabled, aiRead, aiWrite, askAi, planNotes, suggestIdeas } from "../../src/lib/ai";
 import { extractWithAi } from "../../src/lib/aiIntake";
-import { streamAssistantAnswer } from "../../src/lib/assistantClient";
+import { eventFacts, streamAssistantAnswer } from "../../src/lib/assistantClient";
 import { emptyProfile } from "../../src/lib/intake";
 import { draftPlan } from "../../src/lib/plan";
 import { failureLine } from "../../src/pages/plan/sections";
-import { personal, stubFetch } from "../support";
+import { demo, personal, stubFetch } from "../support";
 
 const wedding = personal(seedEvents()[0]);
 const realFetch = globalThis.fetch;
@@ -147,5 +147,71 @@ describe("the assistant's streamed answer", () => {
       sse(['event: text\ndata: {"text":"Part"}\n\n', 'event: error\ndata: {"error":"busy"}\n\n']);
     expect(await streamAssistantAnswer(wedding, [], "Hi", undefined, () => undefined)).toBeUndefined();
     expect(sent("/api/ai/assistant")).toHaveLength(before);
+  });
+});
+
+describe("the assistant's facts and its stream, past the happy path", () => {
+  test("a committee's facts are its readiness and its money; an empty event has none yet", () => {
+    const { mela, empty } = demo();
+    const facts = eventFacts(mela);
+    expect(facts).toMatchObject({
+      readiness: {
+        permits: expect.stringContaining("cleared"),
+        volunteers: expect.stringContaining("shift"),
+      },
+      funds: { spent: mela.funds.spent, budget: mela.funds.budget },
+    });
+    expect(eventFacts(empty)).toMatchObject({ note: "No plan yet" });
+  });
+
+  test("other events and empty text events are passed over, and a dropped stream ends the answer", async () => {
+    const shown: string[] = [];
+    routes["/api/ai/assistant/stream"] = () =>
+      sse([
+        "event: ping\ndata: {}\n\n",
+        'event: text\ndata: {"t":1}\n\n',
+        'event: text\ndata: {"text":"Hal',
+        "\n\n",
+      ]);
+    expect(await streamAssistantAnswer(wedding, [], "Hi", undefined, (t) => shown.push(t))).toBeUndefined();
+    expect(shown).toEqual([]);
+  });
+
+  test("a stream that can't open falls back to the ordinary answer", async () => {
+    routes["/api/ai/assistant/stream"] = () => {
+      throw new TypeError("Failed to fetch");
+    };
+    routes["/api/ai/assistant"] = () => json({ text: "Ordinary answer" });
+    expect(await streamAssistantAnswer(wedding, [], "Hi", undefined, () => undefined)).toEqual({
+      text: "Ordinary answer",
+    });
+  });
+});
+
+describe("reading a bill or quote", () => {
+  const bill = (bytes: number, type = "image/jpeg") =>
+    new File([new Uint8Array(bytes).fill(65)], "bill", { type });
+  const context = { categories: ["Catering"], guests: 300 };
+
+  test("sends the file as base64 with the plan's categories, and returns what was read", async () => {
+    routes["/api/ai/read"] = () => json({ kind: "bill", total: 1200, items: [], payments: [] });
+    expect(await aiRead(bill(3), context)).toMatchObject({ kind: "bill", total: 1200 });
+    expect(sent("/api/ai/read").at(-1)?.body).toMatchObject({ mime: "image/jpeg", data: "QUFB", ...context });
+  });
+
+  test("refuses a file that's too big or of a kind it can't read, before sending anything", async () => {
+    const before = sent("/api/ai/read").length;
+    await expect(aiRead(bill(3 * 1024 * 1024 + 1), context)).rejects.toThrow("over 3 MB");
+    await expect(aiRead(bill(3, "text/plain"), context)).rejects.toThrow("photos (JPG, PNG, WebP) and PDFs");
+    expect(sent("/api/ai/read")).toHaveLength(before);
+  });
+
+  test("says what went wrong when the server can't read it or can't be reached", async () => {
+    routes["/api/ai/read"] = () => json({ error: "That page is too blurry to read" }, 422);
+    await expect(aiRead(bill(3), context)).rejects.toThrow("too blurry");
+    routes["/api/ai/read"] = () => {
+      throw new TypeError("Failed to fetch");
+    };
+    await expect(aiRead(bill(3), context)).rejects.toThrow("Couldn't reach Plannr");
   });
 });

@@ -51,6 +51,31 @@ describe("previewing a change before it applies", () => {
     expect(bookingRipple(wedding, "nobody").lines).toEqual([]);
   });
 
+  test("booking with nothing scheduled sets out an advance and a balance that add up to the quote", () => {
+    const v = list(wedding, "vendors").find((x) => x.quotes.length > 0 && x.categoryId);
+    const quote = v?.quotes[0];
+    if (!v || !quote) throw new Error("seed has a quoted vendor with a budget line");
+    // A per-plate quote, and no payments yet for this vendor.
+    const perPlate = { ...quote, perGuest: true, amount: 950 };
+    const unpaid = {
+      ...wedding,
+      budget: { ...wedding.budget, payments: wedding.budget.payments.filter((p) => p.vendorId !== v.id) },
+    };
+    const fresh = replay(unpaid, [
+      { type: "updateRecord", eventId: wedding.id, coll: "vendors", id: v.id, patch: { quotes: [perPlate] } },
+    ]);
+    const r = bookingRipple(fresh, v.id, perPlate.id);
+    const total = 950 * wedding.guests;
+    expect(r.lines.find((l) => l.id === "budget-line")?.detail).toContain(`${wedding.guests} × `);
+    const amounts = (r.lines.find((l) => l.id === "payments")?.actions ?? []).map((a) =>
+      a.type === "addRecord" && a.coll === "payments" ? a.record.amount : 0,
+    );
+    expect(amounts).toHaveLength(2);
+    expect(amounts.reduce((sum, n) => sum + n, 0)).toBe(total);
+    const after = replay(fresh, chosenActions(r, new Set(r.lines.map((l) => l.id))));
+    expect(list(after, "payments").filter((p) => p.vendorId === v.id)).toHaveLength(2);
+  });
+
   test("moving a function moves its tasks, and warns to tell the vendors", () => {
     const fnId = list(wedding, "vendors").flatMap((v) => v.arrivals ?? [])[0]?.fnId;
     const f = wedding.functions.find((x) => x.id === fnId);

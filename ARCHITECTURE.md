@@ -42,7 +42,7 @@ allowed actions (`server/linkActions.ts`), and each link sees only its own slice
 | `src/store` | App state: the reducer, the account and sync | `data`, `lib`, `shared` |
 | `src/components` | The shell and the pieces screens share: overlays, fields, the assistant, the scanner, task rows | the folders above |
 | `src/pages` | One file per route. `tabs/` holds one file per event tab, with a folder for each larger tab; `public/` holds the shared-link pages | the folders above |
-| `server` | The Hono app (`app.ts`), routes grouped by who calls them (`routes/`), each AI prompt with its schema and sanitizer (`prompts/`), action schemas (`validation/`), sign-in, plans, history, links, backups | `src/shared`, `src/data`, `src/lib/dates` |
+| `server` | The Hono app (`app.ts`), routes grouped by who calls them (`routes/`), each AI prompt with its request and answer schemas (`prompts/`), action schemas (`validation/`), sign-in, plans, history, links, backups | `src/shared`, `src/data`, `src/lib/dates` |
 
 `scripts/structure.ts` holds these layers as rules and fails the build when an import crosses one the wrong way:
 
@@ -72,7 +72,7 @@ allowed actions (`server/linkActions.ts`), and each link sees only its own slice
 - **Duplication** (jscpd, `.jscpd.json`): no block of 5 lines and 50 tokens or more appears twice. Shared pieces
   live in one place instead: `bindText` for form fields, `CardPage` for single-card pages, `FunctionFacts` for
   a function's day and place on the shared-link pages.
-- **Tests**: unit coverage of at least 94% of lines and 91% of functions (`scripts/coverage-gate.ts`), and a
+- **Tests**: unit coverage of at least 99% of lines and 95% of functions (`scripts/coverage-gate.ts`), and a
   budget on the JavaScript a first visit loads (`scripts/size-budget.ts`).
 
 `just check` runs lint, types, structure, duplication, tests and the build. CI adds the dependency audit, coverage,

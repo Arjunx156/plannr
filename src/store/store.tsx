@@ -11,7 +11,7 @@ import {
 } from "react";
 import { SEED_REVISION } from "../data/demoMeta";
 import type { PlannrEvent } from "../data/types";
-import { isEventAction, QUIET_ACTIONS, stamp } from "../shared/engine";
+import { type EventAction, isEventAction, QUIET_ACTIONS, stamp } from "../shared/engine";
 import { canEdit } from "../shared/types";
 import { initialState, ownEvents, reducer } from "./reducer";
 import { SyncQueue } from "./sync";
@@ -72,6 +72,35 @@ export { canEdit };
 
 const StoreContext = createContext<Store | null>(null);
 
+/** What one action does: the action to apply on this screen, and the change to send the server, if any. */
+export interface Routed {
+  apply: Action;
+  send?: EventAction;
+}
+
+/**
+ * Where an action goes. In account mode a change to a plan applies here at once and is queued for
+ * the server. Viewers can talk to the assistant on their own screen but can't change the plan.
+ */
+export function route(s: AppState, action: Action): Routed {
+  if (!isEventAction(action)) return { apply: action };
+  // Time-dependent parts are fixed when the change is made, in the demo too.
+  const stamped = stamp(action);
+  const meta = s.mode === "account" ? s.remote[action.eventId] : undefined;
+  if (!meta) return { apply: stamped };
+  if (canEdit(meta.role)) return { apply: stamped, send: stamped };
+  if (QUIET_ACTIONS.has(stamped.type)) return { apply: stamped };
+  return {
+    apply: toast("You can view this plan but not change it. Ask the owner to make you a co-planner."),
+  };
+}
+
+/** The state as it's kept on this device: no toasts, no activity, and no sync status, which is per tab. */
+export function saved(state: AppState): string {
+  const { toasts: _toasts, sync: _sync, activity: _activity, ...rest } = state;
+  return JSON.stringify({ ...rest, toasts: [], activity: [] });
+}
+
 /** Holds the app's state, saves it on this device and syncs plan changes to the server. */
 export function StoreProvider({ children }: { children: ReactNode }): JSX.Element {
   const [state, raw] = useReducer(reducer, undefined, load);
@@ -79,24 +108,11 @@ export function StoreProvider({ children }: { children: ReactNode }): JSX.Elemen
   stateRef.current = state;
   const sync = useMemo(() => new SyncQueue(raw), []);
 
-  /**
-   * In account mode a change to a plan applies here at once and is queued for the
-   * server. Viewers can talk to the assistant on their own screen but can't change the plan.
-   */
   const dispatch = useCallback(
     (action: Action) => {
-      const s = stateRef.current;
-      if (!isEventAction(action)) return raw(action);
-      // Time-dependent parts are fixed when the change is made, in the demo too.
-      const stamped = stamp(action);
-      const meta = s.mode === "account" ? s.remote[action.eventId] : undefined;
-      if (!meta) return raw(stamped);
-      if (!canEdit(meta.role) && !QUIET_ACTIONS.has(stamped.type)) {
-        raw(toast("You can view this plan but not change it. Ask the owner to make you a co-planner."));
-        return;
-      }
-      raw(stamped);
-      if (canEdit(meta.role)) sync.enqueue(stamped);
+      const { apply, send } = route(stateRef.current, action);
+      raw(apply);
+      if (send) sync.enqueue(send);
     },
     [sync],
   );
@@ -121,9 +137,8 @@ export function StoreProvider({ children }: { children: ReactNode }): JSX.Elemen
   }, [sync]);
 
   useEffect(() => {
-    const { toasts: _toasts, sync: _sync, activity: _activity, ...rest } = state;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...rest, toasts: [], activity: [] }));
+      localStorage.setItem(STORAGE_KEY, saved(state));
     } catch {
       // Storage full or blocked: the session still works, it just won't survive a reload.
     }

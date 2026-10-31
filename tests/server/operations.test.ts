@@ -47,6 +47,18 @@ describe("morning reminders", () => {
       // The seeded wedding has overdue tasks or payments, so the morning has something to say.
       expect(sent.length).toBe(out.sent);
       if (sent.length > 0) expect(sent[0]?.title).toContain(ev.name);
+      const removed = await priya.call("/api/push/remove", { body: { endpoint: "https://push.example/ok" } });
+      expect(removed.json).toEqual({ ok: true });
+    },
+    OWN_DB_MS,
+  );
+
+  test(
+    "are skipped, and said to be, when push isn't configured",
+    async () => {
+      const quiet = createApp({ db: await createLocalDb(), env: { CRON_SECRET: "s3cret" } });
+      const run = await quiet.request("/api/cron/daily", { headers: { authorization: "Bearer s3cret" } });
+      expect(await run.json()).toMatchObject({ reminders: { skipped: "Reminders aren't configured" } });
     },
     OWN_DB_MS,
   );

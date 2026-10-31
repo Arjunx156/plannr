@@ -18,6 +18,18 @@ describe("plan notes", () => {
     expect(s.watchouts.length).toBe(3);
     expect(s.ideas).toEqual([]);
   });
+
+  test("are asked for with the profile and the draft, dated against the draft's event day", async () => {
+    const notes = { summary: "A Kochi wedding in May.", tips: [], budget: [], timeline: [], vendors: [] };
+    const { calls, fetchImpl } = gemini(notes);
+    const body = { profile: { city: "Kochi" }, plan: { date: "2027-05-30", tasks: [] }, today: TODAY };
+    const out = await handleAi("plan", body, config, fetchImpl);
+    expect(out).toEqual({ status: 200, body: { ...notes, watchouts: [], ideas: [] } });
+    const sent = JSON.stringify(calls[0]?.body);
+    expect(sent).toContain(`between today (${TODAY}) and the event day (2027-05-30)`);
+    expect(sent).toContain("Kochi");
+    expect((await handleAi("plan", { plan: {} }, config, fetchImpl)).status).toBe(400);
+  });
 });
 
 describe("needs from Gemini", () => {

@@ -45,6 +45,9 @@ describe("the intake conversation", () => {
     expect(readAnswer("18", p, "budget").budget).toBe(1_800_000);
     expect(readAnswer("250000", p, "budget").budget).toBe(250_000);
     expect(readAnswer("not sure", p, "kind").kind).toBe("other");
+    expect(readAnswer("north paravur, kerala", p, "city").city).toBe("North Paravur");
+    expect(readAnswer("none", p, "guests").guests).toBeUndefined();
+    expect(readAnswer("no idea", p, "budget").budget).toBeUndefined();
     expect(readAnswer("see pinterest.com/board/1", p, undefined).inspiration).toEqual([
       "pinterest.com/board/1",
     ]);
@@ -58,6 +61,14 @@ describe("the intake conversation", () => {
       "venue",
     );
     if (shortlisted?.field === "extras") expect(shortlisted.prompt).toContain("choosing between");
+    const asked = ["kind", "city", "date", "guests", "budget", "venue"] as const;
+    expect(questionAfter({ ...p, venueStatus: "Booked" }, [...asked], "venue")?.prompt).toStartWith(
+      "Which venue is it?",
+    );
+    const open = questionAfter({ ...p, kind: "birthday", venueStatus: "Not started" }, [...asked], "venue");
+    expect(open?.prompt).toBe(
+      "No problem, I'll put venue visits in the first week. Add anything else I should plan around.",
+    );
   });
 
   test("knows which question is waiting for an answer, and gives every turn its own id", () => {

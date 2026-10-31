@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { seedEvents } from "../src/data/seed";
 import type { PlannrEvent } from "../src/data/types";
 import { addDays } from "../src/lib/dates";
+import { rsvpSummary } from "../src/shared/derive";
 import { applyEventAction } from "../src/shared/engine";
+import { functionsOf } from "../src/shared/eventLists";
 import { morningMessage, remindersFor } from "../src/shared/reminders";
 import { rainWatch, watchPlan } from "../src/shared/watch";
 import { community, personal } from "./support";
@@ -74,6 +76,83 @@ describe("what needs attention", () => {
     const w = rainWatch(wedding, risks);
     expect(w.length).toBe(1);
     expect(w[0]?.text).toContain("80%");
+  });
+});
+
+describe("a family's notices", () => {
+  const notice = (ev: PlannrEvent, today: string, prefix: string) =>
+    watchPlan(ev, today).find((x) => x.id.startsWith(prefix));
+  const households = wedding.households ?? [];
+  const first = functionsOf(wedding)
+    .map((f) => f.date)
+    .sort()[0];
+  if (!first) throw new Error("the demo wedding has functions");
+
+  test("a guest list that has drifted from the budget's headcount offers to re-plan for it", () => {
+    const { total } = rsvpSummary(wedding);
+    expect(total).toBeGreaterThan(0);
+    const drifted = notice({ ...wedding, guests: total + 100 }, TODAY, "headcount:");
+    expect(drifted?.primary).toMatchObject({ kind: "headcount", guests: total });
+  });
+
+  test("a venue with more guests expected than seats is flagged", () => {
+    const fn = functionsOf(wedding).find((f) => f.date >= TODAY);
+    if (!fn) throw new Error("the demo wedding has functions ahead");
+    const small = {
+      ...wedding,
+      functions: functionsOf(wedding).map((f) => (f.id === fn.id ? { ...f, capacity: 1 } : f)),
+    };
+    expect(notice(small, TODAY, `capacity:${fn.id}:`)?.text).toContain("seats 1");
+  });
+
+  test("invitations not sent grow urgent as the first function nears; then unanswered ones are chased", () => {
+    const unsent = {
+      ...wedding,
+      households: households.map(({ invitedAt: _, ...h }) => ({ ...h, rsvp: {} })),
+    };
+    expect(notice(unsent, addDays(first, -90), "invites:")).toBeUndefined();
+    expect(notice(unsent, addDays(first, -45), "invites:")?.tone).toBe("info");
+    expect(notice(unsent, addDays(first, -10), "invites:")?.tone).toBe("warn");
+    const waiting = { ...wedding, households: households.map((h) => ({ ...h, invitedAt: TODAY, rsvp: {} })) };
+    expect(notice(waiting, addDays(first, -30), "waiting:")).toBeUndefined();
+    expect(notice(waiting, addDays(first, -10), "waiting:")?.text).toContain("replied yet");
+  });
+
+  test("a family entered twice is spotted, and so are several", () => {
+    const [a, b] = households;
+    if (!a || !b) throw new Error("the demo wedding has households");
+    const once = notice(
+      { ...wedding, households: [...households, { ...a, id: "again-a" }] },
+      TODAY,
+      "dupes:",
+    );
+    expect(once?.text).toContain("it was added twice");
+    const twice = {
+      ...wedding,
+      households: [...households, { ...a, id: "again-a" }, { ...b, id: "again-b" }],
+    };
+    expect(notice(twice, TODAY, "dupes:")?.text).toContain("they were added twice");
+  });
+});
+
+describe("a committee's notices", () => {
+  const permit = (due: string) => ({
+    ...mela,
+    permits: [{ id: "p1", label: "Police", status: "Applied", tone: "due" as const, due }],
+  });
+  const near = addDays(mela.date, -30);
+
+  test("a permit shows three weeks out, turns urgent in the last week, and says when it's overdue", () => {
+    const on = (due: string) => watchPlan(permit(due), near).find((x) => x.id.startsWith("permit:p1"));
+    expect(on(addDays(near, 30))).toBeUndefined();
+    expect(on(addDays(near, 14))).toMatchObject({ tone: "info", label: "Permit" });
+    expect(on(addDays(near, 3))?.tone).toBe("warn");
+    expect(on(addDays(near, -2))?.label).toBe("Permit overdue");
+  });
+
+  test("spending more than has come in is flagged", () => {
+    const short = { ...mela, funds: { ...mela.funds, spent: 100_000_000 } };
+    expect(watchPlan(short, near).some((x) => x.id.startsWith("cash:"))).toBe(true);
   });
 });
 

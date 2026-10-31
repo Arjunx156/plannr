@@ -52,6 +52,17 @@ describe("single changes", () => {
     ).toBe(false);
   });
 
+  test("a change to a record is held to its collection's shape, and keeps the record's id", () => {
+    const update = (patch: Record<string, unknown>) =>
+      parseAction({ type: "updateRecord", coll: "vendors", id: "v1", patch });
+    expect(update({ stage: "booked" }).ok).toBe(true);
+    expect(error(update({ phone: "98470 31212" }))).toContain("phone");
+    expect<unknown>(update({ id: "v2", name: "Kochi Sounds" })).toEqual({
+      ok: true,
+      action: { type: "updateRecord", coll: "vendors", id: "v1", patch: { name: "Kochi Sounds" } },
+    });
+  });
+
   test("a new draft in place of a plan gets the whole-plan checks", () => {
     const ev = wedding();
     expect(parseAction({ type: "replacePlan", event: ev }).ok).toBe(true);

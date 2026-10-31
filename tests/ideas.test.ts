@@ -157,4 +157,13 @@ describe("ideas from the family's own notes", () => {
     expect(melaIdeas).toContain("Steel plates and a washing station");
     expect(melaIdeas).toContain("Sound checks early, stage off on time");
   });
+
+  test("a monsoon date and a crowd that eats vegetarian each bring their own idea", () => {
+    const veg = list(wedding, "households").map((h, i) =>
+      i === 0 ? { ...h, meal: "veg" as const, expected: 24 } : h,
+    );
+    const titles = deviceIdeas({ ...wedding, date: "2027-07-18", households: veg }).map((i) => i.title);
+    expect(titles).toContain("A covered path from the cars");
+    expect(titles).toContain("A vegetarian counter of its own");
+  });
 });

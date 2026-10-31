@@ -3,6 +3,26 @@
 Every notable change to Plannr, newest first. The format follows [Keep a Changelog](https://keepachangelog.com),
 and versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+Nothing a family sees has changed.
+
+### Code
+
+- Every AI route's request and answer is one zod schema. The answer schema generates the JSON schema Gemini
+  answers in and cleans what comes back, so the two can't drift; a snapshot test pins each generated schema
+  and the keywords Gemini accepts. The hand-written readers and their 119 untyped property reads are gone.
+- Biome also requires exhaustive switches and refuses a promise where a value belongs.
+- The store decides in one small function whether a change applies here, goes to the server or is refused, and
+  reads a document's bytes without `FileReader`.
+
+### Testing
+
+- Tests for the device assistant, photo uploads, account deletion, shared-link changes, backups to Blob storage,
+  web push, the environment reader, the cron job, invites that raise a role, helpers ticking their own
+  checklist, and new events named and dated from their profile.
+- Coverage is up to 99.4% of lines and 96.2% of functions, and CI now fails below 99% and 95%.
+
 ## 1.0.0 - 2026-10-31
 
 The first stable release. Nothing a family sees has changed; this release is about the guarantees underneath.

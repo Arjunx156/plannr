@@ -12,9 +12,12 @@ drain, and a model's answer is prose that may not match what the app expects.
 
 The browser never calls Gemini. It calls `/api/ai/:route`, and the server holds the key (`server/ai.ts`).
 
-- Each prompt lives in its own module in `server/prompts/`, with three parts: the request check, the JSON schema
-  Gemini must answer in (`responseJsonSchema`), and a sanitizer that cleans the answer field by field before the
-  app sees it. Unknown kinds, out-of-range amounts and past dates are dropped there, not in the UI.
+- Each prompt lives in its own module in `server/prompts/`, with two zod schemas: one for the request, and one
+  for the answer. The answer's schema is written once and does both jobs: Gemini is sent the JSON schema generated
+  from it (`responseJsonSchema`), and the answer is parsed by it before the app sees it. Each field runs a small
+  cleaning step from `kit.ts` first, so unknown kinds, out-of-range amounts and impossible dates are dropped there,
+  not in the UI, and a row missing a field it needs is dropped rather than the whole answer. A snapshot test
+  (`tests/ai/schemas.test.ts`) pins what Gemini is asked for, so a refactor can't change it unnoticed.
 - Requests are capped in size, limited in bursts, and drawn from a daily allowance per person
   (`DAILY_AI` in `server/routes/ai.ts`), stored in the database so every server instance shares it.
 - Each route has its own time budget (`BUDGET_MS`), and the browser waits a little longer

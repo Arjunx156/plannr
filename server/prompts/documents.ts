@@ -1,7 +1,28 @@
-import { BadRequest, clip, int, isObject, isoDate, type Json, oneOf, str, strList, VOICE } from "./kit";
-
 /** Writing for the family (enquiries, thank-yous, letters, translations) and reading their bills and quotes. */
+import { z } from "zod";
+import {
+  calendarDay,
+  choice,
+  clip,
+  flag,
+  geminiSchema,
+  type JsonSchema,
+  maybe,
+  oneOf,
+  parseAnswer,
+  parseRequest,
+  prose,
+  requestBody,
+  requestDate,
+  rows,
+  str,
+  text,
+  texts,
+  VOICE,
+  whole,
+} from "./kit";
 
+/** What Plannr can write for the family. */
 export const WRITE_TASKS = [
   "translate",
   "enquiry",
@@ -11,38 +32,31 @@ export const WRITE_TASKS = [
   "announcement",
   "invite",
 ] as const;
-/** What Plannr can write for the family. */
+/** One of the writing tasks. */
 export type WriteTask = (typeof WRITE_TASKS)[number];
 
 const WRITE_LANGS: Record<string, string> = { en: "English", ml: "Malayalam", hi: "Hindi", ta: "Tamil" };
 
+const writeBody = requestBody({
+  task: z.enum(WRITE_TASKS, { error: "Unknown writing task" }),
+  lang: z.preprocess((v) => oneOf(v, Object.keys(WRITE_LANGS)) ?? "en", z.string()),
+  // The family's own draft to improve, kept as written.
+  text: z.preprocess((v) => (typeof v === "string" ? v.slice(0, 6000) : ""), z.string()),
+  context: z.record(z.string(), z.unknown()).catch({}),
+});
+
 /** One writing request: the task, the language and any context. */
-export interface WriteRequest {
-  task: WriteTask;
-  lang: string;
-  text: string;
-  context: unknown;
-}
+export type WriteRequest = z.output<typeof writeBody>;
 
 /** Checks a writing request's fields; throws BadRequest when one is missing or malformed. */
-export function writeRequest(body: unknown): WriteRequest {
-  if (!isObject(body)) throw new BadRequest("Expected a JSON object");
-  const task = oneOf(body["task"], WRITE_TASKS);
-  if (!task) throw new BadRequest("Unknown writing task");
-  return {
-    task,
-    lang: oneOf(body["lang"], Object.keys(WRITE_LANGS)) ?? "en",
-    text: typeof body["text"] === "string" ? body["text"].slice(0, 6000) : "",
-    context: isObject(body["context"]) ? body["context"] : {},
-  };
+export function writeRequest(raw: unknown): WriteRequest {
+  return parseRequest(writeBody, raw);
 }
 
+const writeAnswer = z.object({ text: prose(5000) });
+
 /** The JSON schema for written text. */
-export const writeSchema = {
-  type: "object",
-  properties: { text: { type: "string" } },
-  required: ["text"],
-} as const;
+export const writeSchema: JsonSchema = geminiSchema(writeAnswer);
 
 const WRITE_BRIEF: Record<WriteTask, string> = {
   translate:
@@ -75,10 +89,7 @@ ${r.text ? `Current draft (improve it, keep its facts): ${r.text}` : ""}`,
 
 /** Cleans written text: no carriage returns, trimmed, capped in length. */
 export function sanitizeWrite(raw: unknown): { text: string } {
-  const r = isObject(raw) ? raw : {};
-  const text = typeof r["text"] === "string" ? r["text"].replace(/\r/g, "").trim().slice(0, 5000) : "";
-  if (!text) throw new Error("Empty draft");
-  return { text };
+  return parseAnswer(writeAnswer, raw, "Empty draft");
 }
 
 /** The file types Plannr can read: photos and PDFs. */
@@ -93,72 +104,60 @@ export const READ_MIMES = [
 /** Base64 of a 3 MB file, with a little room. */
 export const MAX_READ_BASE64 = 4_200_000;
 
+/** Why a file can't be read: it didn't arrive as base64. */
+const NOT_BASE64 = "The file didn't come through";
+
+const readBody = requestBody({
+  mime: z.enum(READ_MIMES, { error: "Plannr can read photos and PDFs" }),
+  data: z
+    .string({ error: NOT_BASE64 })
+    .regex(/^[A-Za-z0-9+/=]+$/, NOT_BASE64)
+    .max(MAX_READ_BASE64, "That file is over 3 MB"),
+  categories: texts(30, 60),
+  guests: maybe(whole(1, 100_000)),
+  today: requestDate(),
+});
+
 /** A bill, quote or contract to read, sent whole as base64. */
-export interface ReadRequest {
-  mime: (typeof READ_MIMES)[number];
-  data: string;
-  categories: string[];
-  guests?: number | undefined;
-  today: string;
-}
+export type ReadRequest = z.output<typeof readBody>;
 
 /** Checks a read request's file type and size; throws BadRequest when either is wrong. */
-export function readRequest(body: unknown): ReadRequest {
-  if (!isObject(body)) throw new BadRequest("Expected a JSON object");
-  const mime = oneOf(body["mime"], READ_MIMES);
-  if (!mime) throw new BadRequest("Plannr can read photos and PDFs");
-  if (typeof body["data"] !== "string" || !body["data"] || !/^[A-Za-z0-9+/=]+$/.test(body["data"]))
-    throw new BadRequest("The file didn't come through");
-  if (body["data"].length > MAX_READ_BASE64) throw new BadRequest("That file is over 3 MB");
-  return {
-    mime,
-    data: body["data"],
-    categories: strList(body["categories"], 30, 60),
-    guests: int(body["guests"], 1, 100000),
-    today: isoDate(body["today"]) ?? new Date().toISOString().slice(0, 10),
-  };
+export function readRequest(raw: unknown): ReadRequest {
+  return parseRequest(readBody, raw);
 }
 
+/** What kind of paper it is. */
+const DOCUMENT_KINDS = ["bill", "quote", "contract", "other"] as const;
+
+/** An amount in whole rupees. */
+const rupees = () => whole(1, 1_000_000_000);
+
+/** What's included. The app shows it after "Includes:", so a model that starts with the word doesn't say it twice. */
+const inclusions = z.preprocess((v) => str(str(v, 400)?.replace(/^includes?\b:?\s*/i, ""), 400), z.string());
+
+const lineItem = z.object({ label: text(120), amount: rupees() });
+
+const payment = z.object({ label: text(80), amount: rupees(), date: maybe(calendarDay()) });
+
+/** What Plannr reads from a document, as Gemini sends it and as it's cleaned. */
+const documentAnswer = z.object({
+  kind: choice(DOCUMENT_KINDS, "other"),
+  vendor: maybe(text(120)).describe("The business that issued it"),
+  category: maybe(text(60)).describe("The closest of the budget categories given, exactly as written"),
+  total: maybe(rupees()).describe("Total in whole rupees; for a per-plate price, the price per plate"),
+  perGuest: maybe(flag()).describe("True when the main price is per plate or per guest"),
+  date: maybe(calendarDay()).describe("Document date, YYYY-MM-DD"),
+  items: rows(lineItem, 40),
+  payments: rows(payment, 8).describe(
+    "Instalments the document sets out, e.g. an advance and a balance, with due dates when stated",
+  ),
+  inclusions: maybe(inclusions).describe("What is included, one line, without a leading 'Includes'"),
+  terms: maybe(text(400)).describe("Payment and cancellation terms, one line"),
+  summary: maybe(text(80)).describe("What it is for, at most six words"),
+});
+
 /** The JSON schema for what Plannr reads from a document. */
-export const readSchema = {
-  type: "object",
-  properties: {
-    kind: { type: "string", enum: ["bill", "quote", "contract", "other"] },
-    vendor: { type: "string", description: "The business that issued it" },
-    category: {
-      type: "string",
-      description: "The closest of the budget categories given, exactly as written",
-    },
-    total: {
-      type: "integer",
-      description: "Total in whole rupees; for a per-plate price, the price per plate",
-    },
-    perGuest: { type: "boolean", description: "True when the main price is per plate or per guest" },
-    date: { type: "string", description: "Document date, YYYY-MM-DD" },
-    items: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: { label: { type: "string" }, amount: { type: "integer" } },
-        required: ["label", "amount"],
-      },
-    },
-    payments: {
-      type: "array",
-      description:
-        "Instalments the document sets out, e.g. an advance and a balance, with due dates when stated",
-      items: {
-        type: "object",
-        properties: { label: { type: "string" }, amount: { type: "integer" }, date: { type: "string" } },
-        required: ["label", "amount"],
-      },
-    },
-    inclusions: { type: "string", description: "What is included, one line, without a leading 'Includes'" },
-    terms: { type: "string", description: "Payment and cancellation terms, one line" },
-    summary: { type: "string", description: "What it is for, at most six words" },
-  },
-  required: ["kind", "items", "payments"],
-} as const;
+export const readSchema: JsonSchema = geminiSchema(documentAnswer);
 
 /** The prompt for reading an Indian event bill, quote or contract. */
 export function readPrompt(r: ReadRequest): { system: string; text: string } {
@@ -172,36 +171,10 @@ Extract the document.`,
   };
 }
 
-/** Cleans what was read: amounts in range, dates valid, categories from the plan. */
-export function sanitizeRead(raw: unknown): Json {
-  const r = isObject(raw) ? raw : {};
-  const money = (v: unknown) => int(v, 1, 1_000_000_000);
-  const items = (Array.isArray(r["items"]) ? r["items"] : [])
-    .filter(isObject)
-    .map((i) => ({ label: str(i["label"], 120) ?? "", amount: money(i["amount"]) ?? 0 }))
-    .filter((i) => i.label && i.amount)
-    .slice(0, 40);
-  const payments = (Array.isArray(r["payments"]) ? r["payments"] : [])
-    .filter(isObject)
-    .map((p) => ({
-      label: str(p["label"], 80) ?? "",
-      amount: money(p["amount"]) ?? 0,
-      date: isoDate(p["date"]),
-    }))
-    .filter((p) => p.label && p.amount)
-    .slice(0, 8);
-  return {
-    kind: oneOf(r["kind"], ["bill", "quote", "contract", "other"] as const) ?? "other",
-    vendor: str(r["vendor"], 120),
-    category: str(r["category"], 60),
-    total: money(r["total"]),
-    perGuest: r["perGuest"] === true ? true : undefined,
-    date: isoDate(r["date"]),
-    items,
-    payments,
-    // Shown after "Includes:", so a model that repeats the word doesn't say it twice.
-    inclusions: str(str(r["inclusions"], 400)?.replace(/^includes?\b:?\s*/i, "")),
-    terms: str(r["terms"], 400),
-    summary: str(r["summary"], 80),
-  };
+/** What was read from a document, after cleaning. */
+export type DocumentResult = z.output<typeof documentAnswer>;
+
+/** Cleans what was read: amounts in range, dates valid, complete line items and instalments only. */
+export function sanitizeRead(raw: unknown): DocumentResult {
+  return parseAnswer(documentAnswer, raw);
 }

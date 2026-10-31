@@ -99,6 +99,14 @@ describe("shared links", () => {
       body: { actions: [{ type: "toggleTask", taskId: mine[0]?.id }] },
     });
     expect(ok.status).toBe(200);
+    const act = (action: Record<string, unknown>) =>
+      new Client(app).call(`/api/p/${link.json.token}/actions`, { body: { actions: [action] } });
+    const tick = (id: string, patch: Record<string, unknown>) =>
+      act({ type: "updateRecord", coll: "checklist", id, patch });
+    expect((await tick("c3", { done: true })).status).toBe(200);
+    expect((await tick("c3", { label: "Something else" })).status).toBe(403);
+    expect((await tick("c1", { done: true })).status).toBe(403);
+    expect((await act({ type: "renameEvent", eventId: ev.id, name: "Ours now" })).status).toBe(403);
   });
 
   test("volunteers sign up for open shifts; full ones say so", async () => {

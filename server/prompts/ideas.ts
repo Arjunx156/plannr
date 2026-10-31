@@ -1,57 +1,63 @@
-import { BadRequest, clip, int, isObject, isoDate, oneOf, str, strList, VOICE } from "./kit";
+import { z } from "zod";
+import {
+  choice,
+  clip,
+  geminiSchema,
+  type JsonSchema,
+  maybe,
+  parseAnswer,
+  parseRequest,
+  record,
+  requestBody,
+  requestDate,
+  rows,
+  text,
+  texts,
+  VOICE,
+  whole,
+} from "./kit";
 
 /** Ideas for one event from a brief the browser builds; guests appear as counts only. */
 
 export const EFFORTS = ["low", "medium", "high"] as const;
 const MAX_IDEAS = 6;
 
+const ideasBody = requestBody(
+  {
+    brief: record("brief is required"),
+    // Titles already on the ideas board, so the model suggests something new.
+    avoid: texts(40, 160),
+    today: requestDate(),
+  },
+  "brief is required",
+);
+
 /** An ideas request: the event brief, titles to avoid and today's date. */
-export interface IdeasRequest {
-  brief: unknown;
-  /** Titles already on the ideas board, so the model suggests something new. */
-  avoid: string[];
-  today: string;
-}
+export type IdeasRequest = z.output<typeof ideasBody>;
 
 /** Checks an ideas request; throws BadRequest when the brief is missing. */
-export function ideasRequest(body: unknown): IdeasRequest {
-  if (!isObject(body) || !isObject(body["brief"])) throw new BadRequest("brief is required");
-  return {
-    brief: body["brief"],
-    avoid: strList(body["avoid"], 40, 160),
-    today: isoDate(body["today"]) ?? new Date().toISOString().slice(0, 10),
-  };
+export function ideasRequest(raw: unknown): IdeasRequest {
+  return parseRequest(ideasBody, raw);
 }
 
+/** One idea, as Gemini sends it and as it's cleaned. */
+const idea = z.object({
+  title: text(120).describe("The idea in under ten words"),
+  detail: text(320).describe("One or two sentences on what to do"),
+  because: text(200).describe("The detail of this event it answers, in under 20 words"),
+  cost: maybe(whole(1, 10_000_000)).describe("Rough extra cost in rupees, 0 when it costs nothing extra"),
+  effort: choice(EFFORTS, "medium"),
+  category: maybe(text(60)).describe(
+    "The budget line it belongs to, named exactly as in the brief, or empty",
+  ),
+});
+
+const ideasAnswer = z.object({
+  ideas: rows(idea).describe("Four to six ideas, each answering a different detail of this event"),
+});
+
 /** The JSON schema for a list of ideas. */
-export const ideasSchema = {
-  type: "object",
-  properties: {
-    ideas: {
-      type: "array",
-      description: "Four to six ideas, each answering a different detail of this event",
-      items: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "The idea in under ten words" },
-          detail: { type: "string", description: "One or two sentences on what to do" },
-          because: {
-            type: "string",
-            description: "The detail of this event it answers, in under 20 words",
-          },
-          cost: { type: "integer", description: "Rough extra cost in rupees, 0 when it costs nothing extra" },
-          effort: { type: "string", enum: [...EFFORTS] },
-          category: {
-            type: "string",
-            description: "The budget line it belongs to, named exactly as in the brief, or empty",
-          },
-        },
-        required: ["title", "detail", "because", "effort"],
-      },
-    },
-  },
-  required: ["ideas"],
-} as const;
+export const ideasSchema: JsonSchema = geminiSchema(ideasAnswer);
 
 /** The ideas prompt: specific to this event, never generic. */
 export function ideasPrompt(r: IdeasRequest): { system: string; user: string } {
@@ -70,38 +76,18 @@ Nothing generic that would suit any event. Keep costs realistic and inside the b
 }
 
 /** One idea after cleaning. */
-export interface IdeaSuggestion {
-  title: string;
-  detail: string;
-  because: string;
-  effort: (typeof EFFORTS)[number];
-  cost?: number;
-  category?: string | undefined;
-}
+export type IdeaSuggestion = z.output<typeof idea>;
 
 /** Keeps complete ideas only, none the board already has, and fails when nothing is left. */
 export function sanitizeIdeas(raw: unknown, avoid: string[] = []): { ideas: IdeaSuggestion[] } {
-  const r = isObject(raw) ? raw : {};
   const seen = new Set(avoid.map((t) => t.toLowerCase()));
-  const ideas: IdeaSuggestion[] = [];
-  for (const x of (Array.isArray(r["ideas"]) ? r["ideas"] : []).filter(isObject)) {
-    const title = str(x["title"], 120);
-    const detail = str(x["detail"], 320);
-    const because = str(x["because"], 200);
-    if (!title || !detail || !because || seen.has(title.toLowerCase())) continue;
-    seen.add(title.toLowerCase());
-    const cost = int(x["cost"], 1, 10_000_000);
-    const category = str(x["category"], 60);
-    ideas.push({
-      title,
-      detail,
-      because,
-      effort: oneOf(x["effort"], EFFORTS) ?? "medium",
-      ...(cost ? { cost } : {}),
-      ...(category ? { category } : {}),
-    });
-    if (ideas.length >= MAX_IDEAS) break;
-  }
+  const fresh = (s: IdeaSuggestion) => {
+    const key = s.title.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  };
+  const ideas = parseAnswer(ideasAnswer, raw).ideas.filter(fresh).slice(0, MAX_IDEAS);
   if (ideas.length === 0) throw new Error("No usable ideas");
   return { ideas };
 }

@@ -1,7 +1,9 @@
-/** The one-line history entries for plan changes, as the History tab and the Inbox show them. */
+/** The one-line history entries for every change, as the History tab and the Inbox show them. */
 import { describe, expect, test } from "bun:test";
 import { longDate } from "../src/lib/dates";
+import { describeAction } from "../src/shared/describeAction";
 import { describePlanAction } from "../src/shared/describePlanAction";
+import type { CoreAction } from "../src/shared/engine";
 import type { PlanAction } from "../src/shared/planActions";
 import { demo } from "./support";
 
@@ -165,5 +167,54 @@ describe("history lines for a committee's plan", () => {
     expect(describePlanAction({ type: "setHeadcount", eventId: m, guests: 900 }, mela)).toBe(
       "Planned for 900 guests",
     );
+  });
+});
+
+describe("the engine's own changes", () => {
+  const task = wedding.tasks.list[0];
+  if (!task) throw new Error("the demo wedding has tasks");
+
+  /** Each change, and the line it should read as against the demo wedding, which has no open notices. */
+  const Lines: [CoreAction, string][] = [
+    [{ type: "toggleTask", eventId: w, taskId: task.id }, `Ticked off “${task.title}”`],
+    [{ type: "toggleTask", eventId: w, taskId: "gone" }, "Changed a task"],
+    [{ type: "updateTask", eventId: w, taskId: task.id, patch: {} }, `Edited “${task.title}”`],
+    [{ type: "updateTask", eventId: w, taskId: "gone", patch: {} }, "Edited “a task”"],
+    [{ type: "resolveNotice", eventId: w, noticeId: "n1", status: "dismissed" }, "Dismissed “a suggestion”"],
+    [{ type: "resolveNotice", eventId: w, noticeId: "n1", status: "done" }, "Handled “a suggestion”"],
+    [
+      { type: "resolveNotice", eventId: w, noticeId: "n1", status: "done", result: "Booked the nadaswaram" },
+      "Booked the nadaswaram",
+    ],
+    [{ type: "reopenNotice", eventId: w, noticeId: "n1" }, "Reopened “a suggestion”"],
+    [
+      { type: "applyChange", eventId: w, change: "cut-decor" },
+      "Cut ₹50,000 from décor, keeping the mandapam",
+    ],
+    [{ type: "addTip", eventId: w }, "Added ₹8,000 for the chenda melam tip"],
+    [{ type: "updateCategory", eventId: w, categoryId: "c1", patch: {} }, "Updated a budget category"],
+    [
+      { type: "applyGuestGrowth", eventId: w },
+      "Updated catering, invitations and seating for the new headcount",
+    ],
+    [
+      { type: "bookPhotographer", eventId: w, studio: "Lumière", price: 90_000 },
+      "Booked Lumière for photography",
+    ],
+    [{ type: "orderCake", eventId: w }, "Marked the cake as ordered"],
+    [{ type: "addStars", eventId: w }, "Swapped the second balloon arch for glow-in-the-dark stars"],
+    [{ type: "addAreca", eventId: w }, "Added the areca-leaf plate tasks"],
+    [{ type: "approveExpense", eventId: w, approvalId: "a1", status: "approved" }, "Approved an expense"],
+    [{ type: "approveExpense", eventId: w, approvalId: "a1", status: "declined" }, "Declined an expense"],
+    [{ type: "assignShift", eventId: w, role: "First aid", slot: 0, name: "Neha" }, "Put Neha on First aid"],
+    [{ type: "archiveEvent", eventId: w, archived: true }, "Archived the event"],
+    [{ type: "archiveEvent", eventId: w, archived: false }, "Restored the event"],
+    [{ type: "renameEvent", eventId: w, name: "Our wedding" }, "Renamed the event to “Our wedding”"],
+    [{ type: "replacePlan", eventId: w, event: wedding }, "Replaced the plan with a new draft"],
+    [{ type: "messageActionDone", eventId: w, messageId: "m1" }, "Talked to the assistant"],
+  ];
+
+  test.each(Lines)("%o", (action, line) => {
+    expect(describeAction(action, wedding)).toBe(line);
   });
 });

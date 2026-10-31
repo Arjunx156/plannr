@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type App, createApp } from "../server/app";
+import { devOutbox } from "../server/auth";
 import { createLocalDb } from "../server/db/local";
 import { seedEvents } from "../src/data/seed";
 import type { PersonalEvent } from "../src/data/types";
-import { ApiError, api } from "../src/lib/api";
+import { ApiError, api, inviteUrl, publicUrl } from "../src/lib/api";
+import { PUBLIC_PATH } from "../src/shared/public";
 import { list } from "../src/shared/records";
 import { personal, stubFetch } from "./support";
 
@@ -20,7 +22,12 @@ let jar = new Map<string, string>();
 let online = true;
 
 beforeAll(async () => {
-  app = createApp({ db: await createLocalDb(), env: { PLANNR_DEV_OUTBOX: "1" } });
+  app = createApp({
+    db: await createLocalDb(),
+    env: { PLANNR_DEV_OUTBOX: "1" },
+    // Photo storage that answers as Vercel Blob would, without the network.
+    photos: async (eventId) => `https://plannr.public.blob.vercel-storage.com/albums/${eventId}/photo.jpg`,
+  });
   stubFetch(async (input: string | URL | Request, init?: RequestInit) => {
     if (!online) throw new TypeError("Failed to fetch");
     const headers = new Headers(init?.headers);
@@ -47,6 +54,9 @@ async function newGuest(name: string) {
   await api.rename(name);
   return api.me();
 }
+
+/** The first bytes of a JPEG, which is all the server reads to know one. */
+const jpeg = () => new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16])], { type: "image/jpeg" });
 
 const wedding = (): PersonalEvent => ({
   ...personal(seedEvents()[0]),
@@ -171,5 +181,82 @@ describe("templates", () => {
     expect(next.event).toMatchObject({ name: "Next year", date: "2027-12-12" });
     await api.deleteTemplate(template?.id ?? "");
     expect(await api.templates()).toEqual([]);
+  });
+});
+
+describe("the rest of an account", () => {
+  test("an emailed code signs a person in", async () => {
+    jar = new Map();
+    const email = `meera-${crypto.randomUUID().slice(0, 6)}@example.com`;
+    expect(await api.sendCode(email)).toMatchObject({ success: true });
+    const { user } = await api.verifyCode(email, devOutbox.get(email) ?? "");
+    expect(user).toMatchObject({ email });
+    expect(await api.activity()).toEqual([]);
+  });
+
+  test("Google sign-in is refused where it isn't set up", async () => {
+    const to = { callbackURL: "/", newUserCallbackURL: "/new", errorCallbackURL: "/sign-in" };
+    expect(await api.google(to).catch((e: unknown) => e)).toBeInstanceOf(ApiError);
+  });
+
+  test("deleting an account takes its plans with it", async () => {
+    await newGuest("Kiran");
+    await api.createPlan(wedding());
+    expect(await api.deleteAccount()).toMatchObject({ deleted: 1 });
+    expect(await api.me()).toBeNull();
+  });
+});
+
+describe("links, members and photos", () => {
+  test("a link is revoked, the site renamed, and a member removed", async () => {
+    await newGuest("Ananya");
+    const ev = wedding();
+    await api.createPlan(ev);
+    const album = await api.linkFor(ev.id, "album");
+    await api.revokeLink(ev.id, album.token);
+    expect((await api.links(ev.id)).map((l) => l.token)).not.toContain(album.token);
+    const slug = `ananya-${crypto.randomUUID().slice(0, 6)}`;
+    expect(await api.renameSite(ev.id, slug)).toMatchObject({ token: slug, kind: "site" });
+
+    const { token } = await api.createInvite(ev.id, "viewer");
+    const ownerJar = jar;
+    await newGuest("Rohan");
+    await api.acceptInvite(token);
+    const rohan = (await api.me())?.id ?? "";
+    jar = ownerJar;
+    await api.removeMember(ev.id, rohan);
+    expect((await api.members(ev.id)).map((m) => m.name)).toEqual(["Ananya"]);
+  });
+
+  test("photos go up to the event and to a shared album, and a failed upload says why", async () => {
+    await newGuest("Ananya");
+    const ev = wedding();
+    await api.createPlan(ev);
+    expect((await api.eventPhoto(ev.id, jpeg())).url).toContain(`/albums/${ev.id}/`);
+    const { token } = await api.linkFor(ev.id, "album");
+
+    jar = new Map();
+    expect(await api.albumPhoto(token, jpeg(), "Meera")).toMatchObject({ kind: "album" });
+    const text = new Blob(["not a photo"], { type: "text/plain" });
+    expect(await api.albumPhoto(token, text, "Meera").catch((e: unknown) => e)).toMatchObject({
+      status: 415,
+    });
+    online = false;
+    try {
+      const offline = await api.albumPhoto(token, jpeg(), "Meera").catch((e: unknown) => e);
+      expect(offline).toMatchObject({ status: 0, message: expect.stringContaining("offline") });
+    } finally {
+      online = true;
+    }
+  });
+
+  test("share and join addresses start from the page's own origin", () => {
+    Reflect.set(globalThis, "window", { location: new URL("https://plannr.example/today") });
+    try {
+      expect(publicUrl("rsvp", "abc")).toBe(`https://plannr.example/${PUBLIC_PATH.rsvp}/abc`);
+      expect(inviteUrl("xyz")).toBe("https://plannr.example/join/xyz");
+    } finally {
+      Reflect.deleteProperty(globalThis, "window");
+    }
   });
 });

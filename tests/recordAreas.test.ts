@@ -1,6 +1,6 @@
 /** Records by area: money, the day's schedule, the mela's committee and vendors. */
 import { describe, expect, test } from "bun:test";
-import { fundTotals, settleUp, splitBalances } from "../src/shared/balances";
+import { fundTotals, giftTotals, settleUp, splitBalances } from "../src/shared/balances";
 import { nowAndNext, runsheetFor, vendorSummary } from "../src/shared/derive";
 import { describeAction } from "../src/shared/describeAction";
 import { applyEventAction, replay, stamp } from "../src/shared/engine";
@@ -57,6 +57,15 @@ describe("money", () => {
       }),
     );
     expect(settleUp(splitBalances(settled))).toEqual([]);
+  });
+
+  test("gifts add up their cash and count the thank-yous still owed", () => {
+    const gifts = [
+      { id: "g1", from: "Menon family", amount: 5001, thanked: true },
+      { id: "g2", from: "Nair family", item: "Silver lamp" },
+      { id: "g3", from: "Varghese family", amount: 2001 },
+    ];
+    expect(giftTotals({ ...wedding, gifts })).toEqual({ count: 3, cash: 7002, toThank: 2 });
   });
 });
 

@@ -64,6 +64,18 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   "permissions-policy": PERMISSIONS_POLICY,
 };
 
+/**
+ * Puts the production headers on a response from the self-hosted server. Over plain HTTP (local use, or behind
+ * a proxy that ends TLS) the policy can't ask the browser to upgrade requests, so that one directive is left out;
+ * HSTS still holds browsers to HTTPS once they've seen the site over it.
+ */
+export function withSecurityHeaders(res: Response, url: URL): Response {
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.headers.set(name, value);
+  if (url.protocol === "http:")
+    res.headers.set("content-security-policy", CSP_HEADER.replace("; upgrade-insecure-requests", ""));
+  return res;
+}
+
 /** A built page with the policy as a meta tag, so `vite preview` and saved copies are covered too. */
 export function withCspMeta(html: string): string {
   return html.replace(

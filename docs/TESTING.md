@@ -11,7 +11,7 @@ what needs a browser runs in one.
 | Logic | `tests/*.test.ts` | The plan engine, records, money, dates, intake parsing, watch rules, templates, the ripple preview, history lines and every assistant proposal give the right answer for worked examples taken from the demo plans | `bun test` |
 | Properties | `tests/properties/` | Laws that hold for any input fast-check can generate, not just the examples: replaying a history is deterministic and never changes the plan it starts from; a family split always adds up and settling up evens every side; moving any date and moving it back gives the same date; anything a browser or Gemini sends gets a clean answer or a clean refusal | `bun test` |
 | Server | `tests/server/` | Every route through real HTTP on an in-memory Postgres (PGlite): sign-in, roles, history and undo, shared links and what each one may see, invites, comments, the AI allowance, reminders, backups. `fuzz.test.ts` sends hundreds of random bodies to every route that takes one and fails on any 500 | `bun test` |
-| AI | `tests/ai/` | The Gemini routes with Gemini stubbed at `fetch`: request checks, the size cap and allowance, retries and the fallback model, streaming, and that each answer is cleaned against its schema before use. The key never reaches a response | `bun test` |
+| AI | `tests/ai/` | The Gemini routes with Gemini stubbed at `fetch`: request checks, the size cap and allowance, retries and the fallback model, streaming, and that each answer is cleaned against its schema before use. A snapshot pins the JSON schema each route sends Gemini, and checks it uses only keywords Gemini reads. The key never reaches a response | `bun test` |
 | Contract | `tests/apiClient.test.ts` | The browser's API client against the real server in one process, so the two can't drift apart | `bun test` |
 | Security | `tests/security.test.ts` | Every security header and content security policy directive, that no `'unsafe-'` source or wildcard creeps in, that the headers route comes first in production, and that an API failure never leaks its internals | `bun test` |
 | Interface pieces | `tests/components.test.tsx`, `tests/storeProvider.test.tsx` | Shared components rendered to HTML: their words, roles and labels, and that values from data never become a `style` attribute. The store loads saved state, and starts fresh when it can't | `bun test` |
@@ -46,7 +46,7 @@ just eval                        # Gemini against the eval cases; needs GEMINI_A
 
 ## The floors CI holds
 
-- **Coverage** of the code the unit tests load: at least 94% of lines and 91% of functions
+- **Coverage** of the code the unit tests load: at least 99% of lines and 95% of functions
   (`scripts/coverage-gate.ts`). Screens are covered by the browser journeys instead, so the floor is on the
   total rather than per file.
 - **Accessibility**: no serious or critical axe finding on any main page, at either size.

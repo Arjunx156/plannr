@@ -1,16 +1,26 @@
+import { z } from "zod";
 import {
-  BadRequest,
+  calendarDay,
+  choice,
   clip,
-  int,
-  isObject,
-  isoDate,
-  type Json,
+  geminiSchema,
+  type JsonSchema,
   LANG_NAMES,
   LIMITS,
+  maybe,
   oneOf,
-  requireText,
-  str,
+  parseAnswer,
+  parseRequest,
+  passedOn,
+  prose,
+  record,
+  requestBody,
+  requestDate,
+  requiredText,
+  rows,
+  text,
   VOICE,
+  whole,
 } from "./kit";
 
 // ---------------------------------------------------------------- assistant proposals
@@ -28,109 +38,66 @@ export const PROPOSAL_KINDS = [
   "addChecklist",
 ] as const;
 
-/** The JSON schema for the plan changes the assistant may propose. */
-export const proposalSchema = {
-  type: "array",
-  description:
-    "Only when the planner asks to change something: the changes, using ids exactly as they appear in the event data. Empty for questions.",
-  items: {
-    type: "object",
-    properties: {
-      kind: { type: "string", enum: [...PROPOSAL_KINDS] },
-      taskId: { type: "string" },
-      title: { type: "string", description: "Task title, at most eight words" },
-      due: { type: "string", description: "YYYY-MM-DD" },
-      who: { type: "string" },
-      guests: { type: "integer" },
-      categoryId: { type: "string" },
-      amount: { type: "integer", description: "Whole rupees" },
-      text: { type: "string", description: "For remember and announce" },
-      fnId: { type: "string" },
-      date: { type: "string", description: "YYYY-MM-DD, for moveFunction" },
-      label: { type: "string", description: "For addChecklist" },
-    },
-    required: ["kind"],
-  },
-} as const;
+/** The most changes one answer may propose. */
+const MAX_PROPOSALS = 6;
 
-/** Keeps only proposals with a known kind and the fields that kind needs. */
-export function sanitizeProposals(raw: unknown): Json[] {
-  if (!Array.isArray(raw)) return [];
-  const out: Json[] = [];
-  for (const p of raw.filter(isObject).slice(0, 6)) {
-    const kind = oneOf(p["kind"], PROPOSAL_KINDS);
-    if (!kind) continue;
-    const clean: Json = { kind };
-    const put = (k: string, v: unknown) => {
-      if (v !== undefined) clean[k] = v;
-    };
-    put("taskId", str(p["taskId"], 80));
-    put("title", str(p["title"], 120));
-    put("due", isoDate(p["due"]));
-    put("who", str(p["who"], 60));
-    put("guests", int(p["guests"], 1, 100000));
-    put("categoryId", str(p["categoryId"], 80));
-    put("amount", int(p["amount"], 0, 1000000000));
-    put("text", str(p["text"], 400));
-    put("fnId", str(p["fnId"], 80));
-    put("date", isoDate(p["date"]));
-    put("label", str(p["label"], 120));
-    out.push(clean);
-  }
-  return out;
-}
+/** One proposed change: a known kind and the fields that kind needs. */
+const proposal = z.object({
+  kind: choice(PROPOSAL_KINDS),
+  taskId: maybe(text(80)),
+  title: maybe(text(120)).describe("Task title, at most eight words"),
+  due: maybe(calendarDay()).describe("YYYY-MM-DD"),
+  who: maybe(text(60)),
+  guests: maybe(whole(1, 100_000)),
+  categoryId: maybe(text(80)),
+  amount: maybe(whole(0, 1_000_000_000)).describe("Whole rupees"),
+  text: maybe(text(400)).describe("For remember and announce"),
+  fnId: maybe(text(80)),
+  date: maybe(calendarDay()).describe("YYYY-MM-DD, for moveFunction"),
+  label: maybe(text(120)).describe("For addChecklist"),
+});
+
+/** A change the assistant proposes, after cleaning. */
+export type Proposal = z.output<typeof proposal>;
+
 // ---------------------------------------------------------------- assistant
 
+/** One earlier turn of the conversation; a turn with no text is dropped. */
+const turn = z.object({ role: choice(["user", "ai"], "ai"), text: text(LIMITS.turnText) });
+
+const assistantBody = requestBody({
+  event: record("event is required"),
+  text: requiredText("text"),
+  facts: passedOn(),
+  history: rows(turn).transform((turns) => turns.slice(-LIMITS.turns)),
+  today: requestDate(),
+  lang: maybe(z.preprocess((v) => oneOf(v, Object.keys(LANG_NAMES)), z.string())),
+});
+
 /** One question to the assistant, with the plan, its computed facts and the thread so far. */
-export interface AssistantRequest {
-  text: string;
-  event: unknown;
-  facts: unknown;
-  history: { role: "user" | "ai"; text: string }[];
-  today: string;
-  lang?: string | undefined;
-}
+export type AssistantRequest = z.output<typeof assistantBody>;
 
 /** Checks an assistant request's fields; throws BadRequest when one is missing or malformed. */
-export function assistantRequest(body: unknown): AssistantRequest {
-  if (!isObject(body)) throw new BadRequest("Expected a JSON object");
-  if (!isObject(body["event"])) throw new BadRequest("event is required");
-  const history = Array.isArray(body["history"]) ? body["history"] : [];
-  return {
-    text: requireText(body["text"], "text"),
-    event: body["event"],
-    facts: body["facts"] ?? {},
-    history: history
-      .filter(isObject)
-      .map((t) => ({
-        role: t["role"] === "user" ? ("user" as const) : ("ai" as const),
-        text: str(t["text"], LIMITS.turnText) ?? "",
-      }))
-      .filter((t) => t.text)
-      .slice(-LIMITS.turns),
-    today: isoDate(body["today"]) ?? new Date().toISOString().slice(0, 10),
-    lang: oneOf(body["lang"], Object.keys(LANG_NAMES)),
-  };
+export function assistantRequest(raw: unknown): AssistantRequest {
+  return parseRequest(assistantBody, raw);
 }
 
+/** The assistant's answer, as Gemini sends it and as it's cleaned. */
+const assistantAnswer = z.object({
+  text: prose(1500).describe("The answer, at most about 90 words"),
+  source: maybe(text(240)).describe(
+    "Optional one-line grounding in words the family uses: which part of the plan the numbers come from, e.g. 'Budget: catering and attire'. Never field names",
+  ),
+  translation: maybe(text(1500)).describe("English translation of text, only when text is not in English"),
+  actions: maybe(
+    rows(proposal, MAX_PROPOSALS).describe(
+      "Only when the planner asks to change something: the changes, using ids exactly as they appear in the event data. Empty for questions.",
+    ),
+  ),
+});
+
 /** The JSON schema for the assistant's answer. */
-export const assistantSchema = {
-  type: "object",
-  properties: {
-    text: { type: "string", description: "The answer, at most about 90 words" },
-    source: {
-      type: "string",
-      description:
-        "Optional one-line grounding in words the family uses: which part of the plan the numbers come from, e.g. 'Budget: catering and attire'. Never field names",
-    },
-    translation: {
-      type: "string",
-      description: "English translation of text, only when text is not in English",
-    },
-    actions: proposalSchema,
-  },
-  required: ["text"],
-} as const;
+export const assistantSchema: JsonSchema = geminiSchema(assistantAnswer);
 
 /** The assistant's system prompt and the conversation, with the newest question last. */
 export function assistantPrompt(r: AssistantRequest): {
@@ -167,23 +134,10 @@ Event data: ${clip(r.event)}`;
 }
 
 /** The assistant's answer after cleaning: text, its source, and checked proposals. */
-export interface AssistantResult {
-  text: string;
-  source?: string | undefined;
-  translation?: string | undefined;
-  actions?: Json[] | undefined;
-}
+export type AssistantResult = z.output<typeof assistantAnswer>;
 
 /** Cleans the assistant's raw answer: trims the text and keeps only valid proposals. */
 export function sanitizeAssistant(raw: unknown): AssistantResult {
-  const r = isObject(raw) ? raw : {};
-  const text = typeof r["text"] === "string" ? r["text"].trim().slice(0, 1500) : "";
-  if (!text) throw new Error("Empty answer");
-  const actions = sanitizeProposals(r["actions"]);
-  return {
-    text,
-    source: str(r["source"], 240),
-    translation: str(r["translation"], 1500),
-    ...(actions.length > 0 ? { actions } : {}),
-  };
+  const { actions, ...answer } = parseAnswer(assistantAnswer, raw, "Empty answer");
+  return actions && actions.length > 0 ? { ...answer, actions } : answer;
 }

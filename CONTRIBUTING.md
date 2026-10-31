@@ -25,8 +25,10 @@ are in [docs/adr/](docs/adr/).
 - **A new kind of plan change** is a typed action: add its type in `src/shared/`, its reducer entry, its
   zod schema in `server/validation/`, and its one-line description. The engine runs in the browser and on the
   server, so it must stay pure.
-- **Anything that calls Gemini** goes through a route in `server/prompts/`, with a request check, a response
-  schema and a sanitizer. Run `just eval` with a key to score the prompts before and after.
+- **Anything that calls Gemini** goes through a route in `server/prompts/`, with a zod schema for the request
+  and one for the answer, built from the field builders in `kit.ts`; Gemini's JSON schema is generated from the
+  answer's. If you change what Gemini is asked for, update the snapshot with `bun test -u tests/ai/schemas.test.ts`
+  and say why in the commit. Run `just eval` with a key to score the prompts before and after.
 - **Screens** use the classes in `src/index.css` and Tailwind. No `style` props: values that come from data
   are set as CSS variables with `cssVars` (`src/components/cssVars.ts`), so the CSP needs no `'unsafe-inline'`.
 - **Tests** sit beside the area they cover in `tests/` (unit, with Bun) and `e2e/` (browser journeys, with

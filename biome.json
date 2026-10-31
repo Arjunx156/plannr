@@ -20,7 +20,12 @@
         "noUnusedImports": "error",
         "noUnusedVariables": "error"
       },
-      "nursery": { "noFloatingPromises": "error", "useSortedClasses": "error" },
+      "nursery": {
+        "noFloatingPromises": "error",
+        "useSortedClasses": "error",
+        "noMisusedPromises": "error",
+        "useExhaustiveSwitchCases": "error"
+      },
       "style": {
         "noNestedTernary": "error",
         "noNonNullAssertion": "error",

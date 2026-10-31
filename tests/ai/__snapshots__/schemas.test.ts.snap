@@ -1,0 +1,481 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`Gemini's schemas intake asks for the same answer as before 1`] = `
+"{
+  "properties": {
+    "kind": {
+      "enum": [
+        "wedding",
+        "birthday",
+        "community",
+        "other"
+      ],
+      "type": "string"
+    },
+    "style": {
+      "description": "Short style, e.g. 'Kerala-style' or 'Space theme'",
+      "type": "string"
+    },
+    "names": {
+      "description": "Who it is for: 'Ananya & Rohan' for a couple, a first name for a birthday",
+      "type": "string"
+    },
+    "city": {
+      "description": "City or neighbourhood, properly capitalised",
+      "type": "string"
+    },
+    "date": {
+      "description": "Best single date as YYYY-MM-DD",
+      "type": "string"
+    },
+    "dateText": {
+      "description": "Readable label for the date, e.g. 'Late Apr 2027'",
+      "type": "string"
+    },
+    "guests": {
+      "type": "integer"
+    },
+    "budget": {
+      "description": "Total budget in whole rupees (18 lakh = 1800000)",
+      "type": "integer"
+    },
+    "venueStatus": {
+      "enum": [
+        "Booked",
+        "Shortlisted",
+        "Not started"
+      ],
+      "type": "string"
+    },
+    "venues": {
+      "description": "Venue name, or 'A or B' when choosing between two",
+      "type": "string"
+    },
+    "functions": {
+      "items": {
+        "enum": [
+          "Engagement",
+          "Mehendi",
+          "Haldi",
+          "Sangeet",
+          "Ceremony",
+          "Reception"
+        ],
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "traditions": {
+      "type": "string"
+    },
+    "needs": {
+      "description": "Accessibility, dietary or allergy needs as short labels of at most four words, e.g. '2 wheelchair users', 'Vegetarian', '3 nut allergies'",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "moods": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "colours": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "coPlanners": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "reply": {
+      "description": "A short, warm acknowledgement under 25 words, the way a friend who plans events would reply. Never open with 'I have noted' or 'Got it'. Use digits and ₹ for numbers, don't list every detail back (the app shows them), and don't ask a question: the app asks the next one.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "reply"
+  ],
+  "type": "object"
+}"
+`;
+
+exports[`Gemini's schemas assistant asks for the same answer as before 1`] = `
+"{
+  "properties": {
+    "text": {
+      "description": "The answer, at most about 90 words",
+      "type": "string"
+    },
+    "source": {
+      "description": "Optional one-line grounding in words the family uses: which part of the plan the numbers come from, e.g. 'Budget: catering and attire'. Never field names",
+      "type": "string"
+    },
+    "translation": {
+      "description": "English translation of text, only when text is not in English",
+      "type": "string"
+    },
+    "actions": {
+      "description": "Only when the planner asks to change something: the changes, using ids exactly as they appear in the event data. Empty for questions.",
+      "items": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "addTask",
+              "moveTask",
+              "completeTask",
+              "setHeadcount",
+              "setBudgetLine",
+              "remember",
+              "announce",
+              "moveFunction",
+              "addChecklist"
+            ],
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "title": {
+            "description": "Task title, at most eight words",
+            "type": "string"
+          },
+          "due": {
+            "description": "YYYY-MM-DD",
+            "type": "string"
+          },
+          "who": {
+            "type": "string"
+          },
+          "guests": {
+            "type": "integer"
+          },
+          "categoryId": {
+            "type": "string"
+          },
+          "amount": {
+            "description": "Whole rupees",
+            "type": "integer"
+          },
+          "text": {
+            "description": "For remember and announce",
+            "type": "string"
+          },
+          "fnId": {
+            "type": "string"
+          },
+          "date": {
+            "description": "YYYY-MM-DD, for moveFunction",
+            "type": "string"
+          },
+          "label": {
+            "description": "For addChecklist",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "type": "object"
+}"
+`;
+
+exports[`Gemini's schemas plan asks for the same answer as before 1`] = `
+"{
+  "properties": {
+    "summary": {
+      "description": "Two sentences on the shape of this plan",
+      "type": "string"
+    },
+    "budget": {
+      "description": "The budget split for this event: four to ten categories whose percentages add up to exactly 100. Move money toward the family's priorities, what this city and month cost, the guest count and their needs. Keep a contingency line",
+      "items": {
+        "properties": {
+          "name": {
+            "description": "Category, reusing the draft's names where they fit",
+            "type": "string"
+          },
+          "percent": {
+            "description": "Whole percent of the total budget",
+            "type": "integer"
+          },
+          "why": {
+            "description": "One short sentence on why, specific to this event",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "percent",
+          "why"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "timeline": {
+      "description": "Six to eight dated tasks from today to the event day, in order: what to book or decide first given lead times in this city and season, then invitations, the final headcount and the run sheet",
+      "items": {
+        "properties": {
+          "title": {
+            "description": "Starts with a verb, under ten words",
+            "type": "string"
+          },
+          "due": {
+            "description": "YYYY-MM-DD, between today and the event date",
+            "type": "string"
+          },
+          "why": {
+            "description": "One short sentence on why, specific to this event",
+            "type": "string"
+          }
+        },
+        "required": [
+          "due",
+          "title",
+          "why"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "vendors": {
+      "description": "Four to twelve kinds of vendor this event needs to book, most urgent first",
+      "items": {
+        "properties": {
+          "name": {
+            "description": "Kind of vendor, e.g. 'Caterer' or 'Sound and lights'",
+            "type": "string"
+          },
+          "why": {
+            "description": "One short sentence on why, specific to this event",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "why"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "tips": {
+      "description": "Three to five specific, actionable tips for this event, its city, season and priorities",
+      "items": {
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "title"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "watchouts": {
+      "description": "Up to three risks: weather for the month, lead times, budget pressure, accessibility",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "ideas": {
+      "description": "Up to four short décor, food or experience ideas that fit the style and colours",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "budget",
+    "summary",
+    "timeline",
+    "tips",
+    "vendors"
+  ],
+  "type": "object"
+}"
+`;
+
+exports[`Gemini's schemas ideas asks for the same answer as before 1`] = `
+"{
+  "properties": {
+    "ideas": {
+      "description": "Four to six ideas, each answering a different detail of this event",
+      "items": {
+        "properties": {
+          "title": {
+            "description": "The idea in under ten words",
+            "type": "string"
+          },
+          "detail": {
+            "description": "One or two sentences on what to do",
+            "type": "string"
+          },
+          "because": {
+            "description": "The detail of this event it answers, in under 20 words",
+            "type": "string"
+          },
+          "cost": {
+            "description": "Rough extra cost in rupees, 0 when it costs nothing extra",
+            "type": "integer"
+          },
+          "effort": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "type": "string"
+          },
+          "category": {
+            "description": "The budget line it belongs to, named exactly as in the brief, or empty",
+            "type": "string"
+          }
+        },
+        "required": [
+          "because",
+          "detail",
+          "effort",
+          "title"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "ideas"
+  ],
+  "type": "object"
+}"
+`;
+
+exports[`Gemini's schemas write asks for the same answer as before 1`] = `
+"{
+  "properties": {
+    "text": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "type": "object"
+}"
+`;
+
+exports[`Gemini's schemas read asks for the same answer as before 1`] = `
+"{
+  "properties": {
+    "kind": {
+      "enum": [
+        "bill",
+        "quote",
+        "contract",
+        "other"
+      ],
+      "type": "string"
+    },
+    "vendor": {
+      "description": "The business that issued it",
+      "type": "string"
+    },
+    "category": {
+      "description": "The closest of the budget categories given, exactly as written",
+      "type": "string"
+    },
+    "total": {
+      "description": "Total in whole rupees; for a per-plate price, the price per plate",
+      "type": "integer"
+    },
+    "perGuest": {
+      "description": "True when the main price is per plate or per guest",
+      "type": "boolean"
+    },
+    "date": {
+      "description": "Document date, YYYY-MM-DD",
+      "type": "string"
+    },
+    "items": {
+      "items": {
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "amount",
+          "label"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "payments": {
+      "description": "Instalments the document sets out, e.g. an advance and a balance, with due dates when stated",
+      "items": {
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "label"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "inclusions": {
+      "description": "What is included, one line, without a leading 'Includes'",
+      "type": "string"
+    },
+    "terms": {
+      "description": "Payment and cancellation terms, one line",
+      "type": "string"
+    },
+    "summary": {
+      "description": "What it is for, at most six words",
+      "type": "string"
+    }
+  },
+  "required": [
+    "items",
+    "kind",
+    "payments"
+  ],
+  "type": "object"
+}"
+`;

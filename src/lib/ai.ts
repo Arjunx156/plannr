@@ -110,13 +110,16 @@ export interface ReadResult {
 
 const MAX_READ_BYTES = 3 * 1024 * 1024;
 
-function base64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
+/** Bytes turned into characters at a time, so a 3 MB file doesn't overflow the call stack. */
+const BASE64_CHUNK = 0x8000;
+
+/** A file's bytes as base64, the way the read route takes them. */
+async function base64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK)
+    binary += String.fromCharCode(...bytes.subarray(i, i + BASE64_CHUNK));
+  return btoa(binary);
 }
 
 /**

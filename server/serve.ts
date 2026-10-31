@@ -7,6 +7,7 @@ import { mkdirSync } from "node:fs";
 import { join, normalize } from "node:path";
 import { createApp } from "./app";
 import { readEnv } from "./env";
+import { withSecurityHeaders } from "./security";
 import { matchShare, sharePage } from "./share";
 
 const DIST = join(import.meta.dir, "..", "dist");
@@ -26,23 +27,38 @@ const db = await database();
 const api = createApp({ db, env });
 const indexHtml = await Bun.file(join(DIST, "index.html")).text();
 
+/** A path under dist/, or undefined when the URL's escapes don't decode. */
+function distPath(pathname: string): string | undefined {
+  try {
+    return normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
+  } catch {
+    return undefined;
+  }
+}
+
+/** The API, a shared link's page, a built file, or the app for any client-side route. */
+async function respond(req: Request, url: URL): Promise<Response> {
+  if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return api.fetch(req);
+  if (matchShare(url.pathname))
+    return new Response(await sharePage(db, indexHtml, url), { headers: { "content-type": "text/html" } });
+  const path = distPath(url.pathname);
+  if (path === undefined) return new Response("Bad request", { status: 400 });
+  const file = Bun.file(join(DIST, path));
+  if (path !== "/" && (await file.exists())) {
+    const immutable = path.startsWith("/assets/");
+    return new Response(file, {
+      headers: immutable ? { "cache-control": "public, max-age=31536000, immutable" } : {},
+    });
+  }
+  // Client-side routes all render index.html.
+  return new Response(Bun.file(join(DIST, "index.html")), { headers: { "content-type": "text/html" } });
+}
+
 const server = Bun.serve({
   port,
   async fetch(req) {
     const url = new URL(req.url);
-    if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return api.fetch(req);
-    if (matchShare(url.pathname))
-      return new Response(await sharePage(db, indexHtml, url), { headers: { "content-type": "text/html" } });
-    const path = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, "");
-    const file = Bun.file(join(DIST, path));
-    if (path !== "/" && (await file.exists())) {
-      const immutable = path.startsWith("/assets/");
-      return new Response(file, {
-        headers: immutable ? { "cache-control": "public, max-age=31536000, immutable" } : {},
-      });
-    }
-    // Client-side routes all render index.html.
-    return new Response(Bun.file(join(DIST, "index.html")), { headers: { "content-type": "text/html" } });
+    return withSecurityHeaders(await respond(req, url), url);
   },
 });
 

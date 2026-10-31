@@ -2,21 +2,53 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { pastEvents, seedEvents, seedNotifications } from "../src/data/seed";
 import { reply } from "../src/lib/assistant";
 import {
+  addDays,
   dateRange,
+  dayLabel,
   dayLine,
   daysUntil,
   demoShift,
+  dueLabel,
   fridayOnOrBefore,
   fullDate,
+  greeting,
+  monthShort,
+  monthYear,
   parseDate,
   STORY_DAY,
   setToday,
+  shortDate,
+  stamp,
 } from "../src/lib/dates";
 import { initialState, reducer } from "../src/store/reducer";
 import { migrate } from "../src/store/store";
 import { community, demo, personal, present } from "./support";
 
 afterEach(() => setToday(STORY_DAY));
+
+describe("short labels", () => {
+  test("a stamp, a month with its year, and a month alone", () => {
+    expect(stamp("2026-10-05")).toBe("5 OCT");
+    expect(monthYear("2027-04-12")).toBe("Apr 2027");
+    expect(monthShort("2027-04-12")).toBe("Apr");
+  });
+
+  test("a due date reads as late, today, a weekday this week, or a date further off", () => {
+    expect(dueLabel(addDays(STORY_DAY, -1))).toEqual({ text: "1 day late", late: true });
+    expect(dueLabel(addDays(STORY_DAY, -3))).toEqual({ text: "3 days late", late: true });
+    expect(dueLabel(STORY_DAY)).toEqual({ text: "Today", late: false });
+    const soon = addDays(STORY_DAY, 2);
+    expect(dueLabel(soon)).toEqual({ text: dayLabel(soon), late: false });
+    const later = addDays(STORY_DAY, 30);
+    expect(dueLabel(later)).toEqual({ text: shortDate(later), late: false });
+  });
+
+  test("the greeting follows the hour", () => {
+    expect(greeting(new Date(2026, 9, 1, 8))).toBe("Good morning");
+    expect(greeting(new Date(2026, 9, 1, 14))).toBe("Good afternoon");
+    expect(greeting(new Date(2026, 9, 1, 19))).toBe("Good evening");
+  });
+});
 
 describe("date helpers", () => {
   test("ranges collapse the shared month and year", () => {

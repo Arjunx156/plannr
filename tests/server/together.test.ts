@@ -69,6 +69,22 @@ describe("planning together", () => {
     );
   });
 
+  test("a stronger invite raises a member's role, and a weaker one leaves it", async () => {
+    const priya = new Client(app);
+    await priya.guest();
+    const ev = wedding();
+    await priya.call("/api/events", { body: { event: ev } });
+    const rohan = new Client(app);
+    await rohan.guest();
+    const join = async (role: string) => {
+      const invite = await priya.call(`/api/events/${ev.id}/invites`, { body: { role } });
+      return (await rohan.call(`/api/invites/${invite.json.token}/accept`, { body: {} })).json;
+    };
+    expect(await join("viewer")).toEqual({ eventId: ev.id, role: "viewer" });
+    expect(await join("planner")).toEqual({ eventId: ev.id, role: "planner" });
+    expect(await join("viewer")).toEqual({ eventId: ev.id, role: "planner" });
+  });
+
   test("the inbox shows co-planners' changes across plans", async () => {
     const priya = new Client(app);
     await priya.guest();

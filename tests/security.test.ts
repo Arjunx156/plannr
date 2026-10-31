@@ -3,7 +3,15 @@ import { describe, expect, test } from "bun:test";
 import { outputConfig } from "../scripts/vercelOutput";
 import { createApp } from "../server/app";
 import { createLocalDb } from "../server/db/local";
-import { CSP, CSP_HEADER, PERMISSIONS_POLICY, SECURITY_HEADERS, withCspMeta } from "../server/security";
+import {
+  CSP,
+  CSP_HEADER,
+  PERMISSIONS_POLICY,
+  plannrCsp,
+  SECURITY_HEADERS,
+  withCspMeta,
+  withSecurityHeaders,
+} from "../server/security";
 import { OWN_DB_MS } from "./server/fixtures";
 
 /** The policy as directive → sources. */
@@ -59,6 +67,7 @@ describe("content security policy", () => {
     const page = withCspMeta('<head><meta charset="UTF-8" /></head>');
     expect(page).toContain(`<meta http-equiv="Content-Security-Policy" content="${CSP}" />`);
     expect(CSP_HEADER.startsWith(CSP)).toBe(true);
+    expect(plannrCsp()).toMatchObject({ apply: "build", transformIndexHtml: withCspMeta });
   });
 });
 
@@ -103,6 +112,22 @@ describe("headers on every response", () => {
     expect(on.sort()).toEqual(["camera", "microphone"]);
     expect(features.get("geolocation")).toBe("()");
     expect(features.get("payment")).toBe("()");
+  });
+});
+
+describe("the self-hosted server", () => {
+  test("sends every production header, over HTTPS exactly as on Vercel", () => {
+    const res = withSecurityHeaders(new Response("ok"), new URL("https://plannr.example/events"));
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) expect(res.headers.get(name)).toBe(value);
+  });
+
+  test("over plain HTTP keeps the whole policy but the upgrade a local server can't honour", () => {
+    const res = withSecurityHeaders(new Response("ok"), new URL("http://localhost:3000/"));
+    const policy = res.headers.get("content-security-policy") ?? "";
+    expect(policy).not.toContain("upgrade-insecure-requests");
+    expect(policy).toContain("require-trusted-types-for 'script'");
+    expect(policy).toContain("frame-ancestors 'none'");
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
   });
 });
 

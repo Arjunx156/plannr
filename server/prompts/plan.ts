@@ -1,95 +1,87 @@
-import { BadRequest, clip, int, isObject, isoDate, type Json, str, strList, VOICE } from "./kit";
+import { z } from "zod";
+import {
+  calendarDay,
+  clip,
+  geminiSchema,
+  type JsonSchema,
+  maybe,
+  parseAnswer,
+  parseRequest,
+  record,
+  requestBody,
+  requestDate,
+  rows,
+  text,
+  texts,
+  VOICE,
+  whole,
+} from "./kit";
 
 // ---------------------------------------------------------------- plan draft
 
+/** Plannr's standard draft, passed on whole; its event day, when it names one, is what the tasks are dated against. */
+const draft = z.looseObject({ date: maybe(calendarDay()) }).catch({});
+
+const planBody = requestBody(
+  { profile: record("profile is required"), plan: draft, today: requestDate() },
+  "profile is required",
+);
+
 /** A plan request: the profile, Plannr's standard draft and today's date. */
-export interface PlanRequest {
-  profile: unknown;
-  plan: unknown;
-  today: string;
-  /** The event day the draft is dated against, when the draft names one. */
-  date?: string | undefined;
-}
+export type PlanRequest = z.output<typeof planBody>;
 
 /** Checks a plan request; throws BadRequest when the profile is missing. */
-export function planRequest(body: unknown): PlanRequest {
-  if (!isObject(body) || !isObject(body["profile"])) throw new BadRequest("profile is required");
-  return {
-    profile: body["profile"],
-    plan: body["plan"] ?? {},
-    today: isoDate(body["today"]) ?? new Date().toISOString().slice(0, 10),
-    date: isObject(body["plan"]) ? isoDate(body["plan"]["date"]) : undefined,
-  };
+export function planRequest(raw: unknown): PlanRequest {
+  return parseRequest(planBody, raw);
 }
-const reason = { type: "string", description: "One short sentence on why, specific to this event" };
+
+// Asked for on every line, but a line without its reason is still worth keeping.
+const reason = text(160).catch("").describe("One short sentence on why, specific to this event");
+
+const budgetLine = z.object({
+  name: text(40).describe("Category, reusing the draft's names where they fit"),
+  percent: whole(1, 90).describe("Whole percent of the total budget"),
+  why: reason,
+});
+
+const task = z.object({
+  title: text(90).describe("Starts with a verb, under ten words"),
+  due: calendarDay().describe("YYYY-MM-DD, between today and the event date"),
+  why: reason,
+});
+
+const vendor = z.object({
+  name: text(40).describe("Kind of vendor, e.g. 'Caterer' or 'Sound and lights'"),
+  why: reason,
+});
+
+const tip = z.object({ title: text(80), detail: text(320) });
+
+/** Gemini's notes on a draft, as it sends them and as they're cleaned. */
+const planAnswer = z.object({
+  summary: text(600).describe("Two sentences on the shape of this plan"),
+  budget: rows(budgetLine, 10).describe(
+    "The budget split for this event: four to ten categories whose percentages add up to exactly 100. Move money toward the family's priorities, what this city and month cost, the guest count and their needs. Keep a contingency line",
+  ),
+  timeline: rows(task, 10).describe(
+    "Six to eight dated tasks from today to the event day, in order: what to book or decide first given lead times in this city and season, then invitations, the final headcount and the run sheet",
+  ),
+  vendors: rows(vendor, 12).describe(
+    "Four to twelve kinds of vendor this event needs to book, most urgent first",
+  ),
+  tips: rows(tip, 5).describe(
+    "Three to five specific, actionable tips for this event, its city, season and priorities",
+  ),
+  watchouts: texts(3, 240)
+    .default([])
+    .describe("Up to three risks: weather for the month, lead times, budget pressure, accessibility"),
+  ideas: texts(4, 160)
+    .default([])
+    .describe("Up to four short décor, food or experience ideas that fit the style and colours"),
+});
 
 /** The JSON schema for Gemini's notes on a draft. */
-export const planSchema = {
-  type: "object",
-  properties: {
-    summary: { type: "string", description: "Two sentences on the shape of this plan" },
-    budget: {
-      type: "array",
-      description:
-        "The budget split for this event: four to ten categories whose percentages add up to exactly 100. Move money toward the family's priorities, what this city and month cost, the guest count and their needs. Keep a contingency line",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string", description: "Category, reusing the draft's names where they fit" },
-          percent: { type: "integer", description: "Whole percent of the total budget" },
-          why: reason,
-        },
-        required: ["name", "percent", "why"],
-      },
-    },
-    timeline: {
-      type: "array",
-      description:
-        "Six to eight dated tasks from today to the event day, in order: what to book or decide first given lead times in this city and season, then invitations, the final headcount and the run sheet",
-      items: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "Starts with a verb, under ten words" },
-          due: { type: "string", description: "YYYY-MM-DD, between today and the event date" },
-          why: reason,
-        },
-        required: ["title", "due", "why"],
-      },
-    },
-    vendors: {
-      type: "array",
-      description: "Four to twelve kinds of vendor this event needs to book, most urgent first",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string", description: "Kind of vendor, e.g. 'Caterer' or 'Sound and lights'" },
-          why: reason,
-        },
-        required: ["name", "why"],
-      },
-    },
-    tips: {
-      type: "array",
-      description: "Three to five specific, actionable tips for this event, its city, season and priorities",
-      items: {
-        type: "object",
-        properties: { title: { type: "string" }, detail: { type: "string" } },
-        required: ["title", "detail"],
-      },
-    },
-    watchouts: {
-      type: "array",
-      items: { type: "string" },
-      description: "Up to three risks: weather for the month, lead times, budget pressure, accessibility",
-    },
-    ideas: {
-      type: "array",
-      items: { type: "string" },
-      description: "Up to four short décor, food or experience ideas that fit the style and colours",
-    },
-  },
-  required: ["summary", "tips", "budget", "timeline", "vendors"],
-} as const;
+export const planSchema: JsonSchema = geminiSchema(planAnswer);
 
 /** The plan prompt: tailor the standard draft to this family, keeping its shape. */
 export function planPrompt(r: PlanRequest): { system: string; user: string } {
@@ -101,64 +93,16 @@ The draft you are given is Plannr's standard starting point for this kind of eve
 city, month, guest count, priorities, needs and traditions, and give a reason for every line.
 Write in English, as the plan's screens are; the family's own words for things (sadhya, mehendi, muhurtham) are welcome.
 Every number is checked before the family sees it: the percentages must add up to 100 and every date must fall
-between today (${r.today}) and the event day${r.date ? ` (${r.date})` : ""}.`,
+between today (${r.today}) and the event day${r.plan.date ? ` (${r.plan.date})` : ""}.`,
     user: `Event profile: ${clip(r.profile, 6000)}
 Standard draft: ${clip(r.plan, 8000)}`,
   };
 }
 
 /** Gemini's notes on a draft, after cleaning. */
-export interface PlanResult {
-  summary: string;
-  tips: { title: string; detail: string }[];
-  watchouts: string[];
-  ideas: string[];
-  budget: { name: string; percent: number; why: string }[];
-  timeline: { title: string; due: string; why: string }[];
-  vendors: { name: string; why: string }[];
-}
-/** The model's rows that are objects, cleaned by `clean`, without the ones it rejects, capped at `max`. */
-function rows<T>(v: unknown, max: number, clean: (row: Json) => T | undefined): T[] {
-  const out: T[] = [];
-  for (const row of Array.isArray(v) ? v.filter(isObject) : []) {
-    const cleaned = clean(row);
-    if (cleaned) out.push(cleaned);
-    if (out.length >= max) break;
-  }
-  return out;
-}
-function budgetRow(row: Json): PlanResult["budget"][number] | undefined {
-  const name = str(row["name"], 40);
-  const percent = int(row["percent"], 1, 90);
-  return name && percent ? { name, percent, why: str(row["why"], 160) ?? "" } : undefined;
-}
-function taskRow(row: Json): PlanResult["timeline"][number] | undefined {
-  const title = str(row["title"], 90);
-  const due = isoDate(row["due"]);
-  return title && due ? { title, due, why: str(row["why"], 160) ?? "" } : undefined;
-}
-function vendorRow(row: Json): PlanResult["vendors"][number] | undefined {
-  const name = str(row["name"], 40);
-  return name ? { name, why: str(row["why"], 160) ?? "" } : undefined;
-}
+export type PlanResult = z.output<typeof planAnswer>;
 
 /** Cleans the draft's shape; whether the numbers hold together is checked in the browser (src/lib/plan.ts). */
 export function sanitizePlan(raw: unknown): PlanResult {
-  const r = isObject(raw) ? raw : {};
-  const summary = str(r["summary"], 600);
-  if (!summary) throw new Error("Empty plan notes");
-  const tips = rows(r["tips"], 5, (t) => {
-    const title = str(t["title"], 80);
-    const detail = str(t["detail"], 320);
-    return title && detail ? { title, detail } : undefined;
-  });
-  return {
-    summary,
-    tips,
-    watchouts: strList(r["watchouts"], 3, 240),
-    ideas: strList(r["ideas"], 4, 160),
-    budget: rows(r["budget"], 10, budgetRow),
-    timeline: rows(r["timeline"], 10, taskRow),
-    vendors: rows(r["vendors"], 12, vendorRow),
-  };
+  return parseAnswer(planAnswer, raw, "Empty plan notes");
 }

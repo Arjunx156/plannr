@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { Message } from "../src/data/messageTypes";
 import { describeAction } from "../src/shared/describeAction";
 import { applyEventAction, type EventAction, isEventAction, replay, stamp } from "../src/shared/engine";
-import { demo, noticedWedding, personal } from "./support";
+import { community, demo, noticedWedding, personal } from "./support";
 
 const { events, wedding, birthday, mela, empty } = demo();
 
@@ -166,5 +166,44 @@ describe("history", () => {
     expect(isEventAction({ type: "dropTables" })).toBe(false);
     const stamped = stamp({ type: "addTip", eventId: wedding.id }, "2026-09-27", "2026-09-27T10:00:00.000Z");
     expect(applyEventAction(wedding, stamped)).toEqual(applyEventAction(wedding, stamped));
+  });
+});
+
+describe("the volunteer rota", () => {
+  type ShiftEdit = Omit<Extract<EventAction, { type: "editShifts" }>, "type" | "eventId">;
+  const edit = (ev: typeof mela, op: ShiftEdit) =>
+    community(applyEventAction(ev, { type: "editShifts", eventId: ev.id, ...op }));
+  const entry = mela.shifts.roles[0];
+  if (!entry) throw new Error("the demo mela has volunteer roles");
+
+  test("a volunteer and a role are added once, names compared without case", () => {
+    const joined = edit(mela, { op: "addVolunteer", name: "Neha" });
+    expect(joined.volunteers).toContain("Neha");
+    expect(edit(joined, { op: "addVolunteer", name: "Neha" }).volunteers).toEqual(joined.volunteers);
+    const parking = edit(mela, { op: "addRole", role: "Lost and found" });
+    const added = parking.shifts.roles.at(-1);
+    expect(added?.role).toBe("Lost and found");
+    expect(added?.slots.every((slot) => slot.need === 2 && slot.names.length === 0)).toBe(true);
+    expect(edit(parking, { op: "addRole", role: "LOST and Found" }).shifts.roles).toHaveLength(
+      parking.shifts.roles.length,
+    );
+  });
+
+  test("a slot's need is kept between 0 and 99, and a name comes off one slot only", () => {
+    const need = (n: number) =>
+      edit(mela, { op: "setNeed", role: entry.role, slot: 0, need: n }).shifts.roles[0];
+    expect(need(4.4)?.slots[0]?.need).toBe(4);
+    expect(need(-3)?.slots[0]?.need).toBe(0);
+    expect(need(500)?.slots[0]?.need).toBe(99);
+    const name = entry.slots[0]?.names[0] ?? "";
+    const off = edit(mela, { op: "unassign", role: entry.role, slot: 0, name }).shifts.roles[0];
+    expect(off?.slots[0]?.names).not.toContain(name);
+    expect(off?.slots[1]).toEqual(entry.slots[1]);
+  });
+
+  test("a family event has no rota to edit", () => {
+    expect(
+      applyEventAction(wedding, { type: "editShifts", eventId: wedding.id, op: "addRole", role: "Ushers" }),
+    ).toBe(wedding);
   });
 });
