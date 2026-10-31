@@ -4,9 +4,10 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { anonymous, emailOTP } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import type { SignInMethods } from "../src/shared/types";
-import { schema, user } from "./db/schema";
+import { user } from "./db/authSchema";
+import { schema } from "./db/schema";
 import type { Db } from "./db/types";
-import { moveOwnership } from "./plans";
+import { moveOwnership } from "./members";
 
 /**
  * Sign-in for Plannr. Three ways in, each switched on by configuration:

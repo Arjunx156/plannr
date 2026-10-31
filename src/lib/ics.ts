@@ -3,6 +3,8 @@
  * without a time becomes an all-day entry.
  */
 
+import { download } from "./download";
+
 export interface CalendarItem {
   id: string;
   title: string;
@@ -70,13 +72,7 @@ export function icsFile(items: CalendarItem[], stampedAt = new Date()): string {
 
 /** Offers the file as a download. */
 export function downloadIcs(name: string, items: CalendarItem[]): void {
-  const blob = new Blob([icsFile(items)], { type: "text/calendar" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${name.replace(/[^\w-]+/g, "-").toLowerCase()}.ics`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  download(`${name.replace(/[^\w-]+/g, "-").toLowerCase()}.ics`, icsFile(items), "text/calendar");
 }
 
 export function mapLink(place: string): string {

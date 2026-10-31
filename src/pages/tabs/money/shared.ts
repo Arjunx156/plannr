@@ -1,4 +1,4 @@
-import type { PayMethod } from "../../../data/types";
+import type { PayMethod } from "../../../data/budgetTypes";
 
 /** How a payment was made, in words. */
 export const METHOD_LABEL: Record<PayMethod, string> = {

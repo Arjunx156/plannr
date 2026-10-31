@@ -1,14 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedEvents } from "../src/data/seed";
 import type { PersonalEvent } from "../src/data/types";
-import {
-  aiEnabled,
-  aiWrite,
-  extractWithAi,
-  planNotes,
-  streamAssistantAnswer,
-  suggestIdeas,
-} from "../src/lib/ai";
+import { aiEnabled, aiWrite, planNotes, suggestIdeas } from "../src/lib/ai";
+import { extractWithAi } from "../src/lib/aiIntake";
+import { streamAssistantAnswer } from "../src/lib/assistantClient";
 import { emptyProfile } from "../src/lib/intake";
 import { draftPlan } from "../src/lib/plan";
 
@@ -105,7 +100,7 @@ describe("the assistant's streamed answer", () => {
   test("asks the ordinary way when streaming isn't available", async () => {
     routes["/api/ai/assistant/stream"] = () => json({ error: "Not here" }, 404);
     routes["/api/ai/assistant"] = () => json({ text: "Ordinary answer" });
-    expect(await streamAssistantAnswer(wedding, [], "Hi", undefined, () => {})).toEqual({
+    expect(await streamAssistantAnswer(wedding, [], "Hi", undefined, () => undefined)).toEqual({
       text: "Ordinary answer",
     });
   });
@@ -113,11 +108,13 @@ describe("the assistant's streamed answer", () => {
   test("an error before anything showed falls back; after text showed it stops there", async () => {
     routes["/api/ai/assistant/stream"] = () => sse(['event: error\ndata: {"error":"busy"}\n\n']);
     routes["/api/ai/assistant"] = () => json({ text: "Fallback" });
-    expect(await streamAssistantAnswer(wedding, [], "Hi", undefined, () => {})).toEqual({ text: "Fallback" });
+    expect(await streamAssistantAnswer(wedding, [], "Hi", undefined, () => undefined)).toEqual({
+      text: "Fallback",
+    });
     const before = sent("/api/ai/assistant").length;
     routes["/api/ai/assistant/stream"] = () =>
       sse(['event: text\ndata: {"text":"Part"}\n\n', 'event: error\ndata: {"error":"busy"}\n\n']);
-    expect(await streamAssistantAnswer(wedding, [], "Hi", undefined, () => {})).toBeUndefined();
+    expect(await streamAssistantAnswer(wedding, [], "Hi", undefined, () => undefined)).toBeUndefined();
     expect(sent("/api/ai/assistant")).toHaveLength(before);
   });
 });

@@ -4,6 +4,7 @@ import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 import { reply } from "../src/lib/assistant";
 import {
   dateRange,
+  dayLine,
   daysUntil,
   demoShift,
   fridayOnOrBefore,
@@ -12,7 +13,8 @@ import {
   STORY_DAY,
   setToday,
 } from "../src/lib/dates";
-import { initialState, migrate, reducer } from "../src/store/store";
+import { initialState, reducer } from "../src/store/reducer";
+import { migrate } from "../src/store/store";
 
 afterEach(() => setToday(STORY_DAY));
 
@@ -21,6 +23,17 @@ describe("date helpers", () => {
     expect(dateRange("2027-04-22", "2027-04-25")).toBe("22–25 Apr 2027");
     expect(dateRange("2027-04-29", "2027-05-02")).toBe("29 Apr–2 May 2027");
     expect(dateRange("2026-12-30", "2027-01-02")).toBe("30 Dec 2026–2 Jan 2027");
+  });
+
+  test("a one-day range is just the day", () => {
+    expect(dateRange("2027-05-30", "2027-05-30")).toBe("30 May 2027");
+  });
+
+  test("a day line keeps only the details that are known", () => {
+    expect(dayLine("2027-04-25", "7 PM", undefined, "Lotus Lawns")).toBe(
+      "Sun 25 Apr 2027 · 7 PM · Lotus Lawns",
+    );
+    expect(dayLine("2027-04-25", undefined, false)).toBe("Sun 25 Apr 2027");
   });
 
   test("finds the Friday on or before a date", () => {

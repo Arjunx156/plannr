@@ -1,4 +1,4 @@
-import type { PlannrEvent } from "../data/types";
+import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../data/types";
 import { addDays, daysBetween } from "../lib/dates";
 
 /**
@@ -22,10 +22,10 @@ export function shiftDates<T>(value: T, days: number): T {
   return value;
 }
 
-/** What carries over: the shape of the plan and what it cost, not what happened. */
-export function toTemplate(ev: PlannrEvent): PlannrEvent {
-  const copy = structuredClone(ev);
-  if (copy.layout === "empty") return copy;
+type Planned = PersonalEvent | CommunityEvent;
+
+/** Every plan's lists start over: no ticks, answers, chat, photos or gifts, and the website offline. */
+function resetCommon(copy: Planned): void {
   copy.archived = undefined;
   copy.tasks = {
     total: copy.tasks.list.length,
@@ -57,57 +57,67 @@ export function toTemplate(ev: PlannrEvent): PlannrEvent {
     chosenQuote: undefined,
     quotes: v.quotes.map((q) => ({ ...q, label: `Last time: ${q.label.replace(/^Last time: /, "")}` })),
   }));
-  if (copy.layout === "personal") {
-    copy.budget = {
-      ...copy.budget,
-      committed: 0,
-      categories: copy.budget.categories.map((c) => ({
-        ...c,
-        // What it really cost becomes this time's plan.
-        planned: Math.max(c.spent, c.projected ?? c.planned),
-        spent: 0,
-        projected: undefined,
-        status: "Last time's cost",
-        tone: "idle" as const,
-        items: c.items.map((i) => ({ ...i, status: "quote" as const, estimate: true })),
-      })),
-      payments: [],
-      split: copy.budget.split
-        ? {
-            ...copy.budget.split,
-            sides: copy.budget.split.sides.map((s) => ({ ...s, paid: 0 })),
-            settlements: [],
-          }
-        : undefined,
-      dueSoon: [],
-    };
-  } else {
-    copy.funds = {
-      ...copy.funds,
+}
+
+/** What it really cost becomes this time's plan; payments and the family split start over. */
+function resetBudget(copy: PersonalEvent): void {
+  const { budget } = copy;
+  copy.budget = {
+    ...budget,
+    committed: 0,
+    categories: budget.categories.map((c) => ({
+      ...c,
+      planned: Math.max(c.spent, c.projected ?? c.planned),
       spent: 0,
-      sources: copy.funds.sources.map((s) => ({
-        ...s,
-        received: 0,
-        note: "to collect",
-        tone: "idle" as const,
-      })),
-      approvals: [],
-    };
-    copy.stallList = (copy.stallList ?? []).map((s) => ({ ...s, paid: false, status: "requested" as const }));
-    copy.sponsors = (copy.sponsors ?? []).map((s) => ({ ...s, received: 0 }));
-    copy.passList = [];
-    copy.passes = { ...copy.passes, issued: 0 };
-    copy.permits = copy.permits.map((p) => ({
-      ...p,
-      status: p.permit ? "To apply" : "To book",
+      projected: undefined,
+      status: "Last time's cost",
       tone: "idle" as const,
-      letter: undefined,
-    }));
-    copy.shifts = {
-      ...copy.shifts,
-      roles: copy.shifts.roles.map((r) => ({ ...r, slots: r.slots.map((s) => ({ ...s, names: [] })) })),
-    };
-  }
+      items: c.items.map((i) => ({ ...i, status: "quote" as const, estimate: true })),
+    })),
+    payments: [],
+    split: budget.split
+      ? { ...budget.split, sides: budget.split.sides.map((s) => ({ ...s, paid: 0 })), settlements: [] }
+      : undefined,
+    dueSoon: [],
+  };
+}
+
+/** Money in, stalls, passes, permits and shifts start over; each keeps its shape. */
+function resetCommunity(copy: CommunityEvent): void {
+  copy.funds = {
+    ...copy.funds,
+    spent: 0,
+    sources: copy.funds.sources.map((s) => ({
+      ...s,
+      received: 0,
+      note: "to collect",
+      tone: "idle" as const,
+    })),
+    approvals: [],
+  };
+  copy.stallList = (copy.stallList ?? []).map((s) => ({ ...s, paid: false, status: "requested" as const }));
+  copy.sponsors = (copy.sponsors ?? []).map((s) => ({ ...s, received: 0 }));
+  copy.passList = [];
+  copy.passes = { ...copy.passes, issued: 0 };
+  copy.permits = copy.permits.map((p) => ({
+    ...p,
+    status: p.permit ? "To apply" : "To book",
+    tone: "idle" as const,
+    letter: undefined,
+  }));
+  copy.shifts = {
+    ...copy.shifts,
+    roles: copy.shifts.roles.map((r) => ({ ...r, slots: r.slots.map((s) => ({ ...s, names: [] })) })),
+  };
+}
+
+/** What carries over: the shape of the plan and what it cost, not what happened. */
+export function toTemplate(ev: PlannrEvent): PlannrEvent {
+  const copy = structuredClone(ev);
+  if (copy.layout === "empty") return copy;
+  resetCommon(copy);
+  if (copy.layout === "personal") resetBudget(copy);
+  else resetCommunity(copy);
   return copy;
 }
 

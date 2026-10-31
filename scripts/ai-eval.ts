@@ -1,9 +1,13 @@
 /**
- * Checks Plannr's AI against real cases in four languages: reading a description, proposing
- * plan changes, suggesting ideas, drafting messages and reading a bill. It calls the live model, so it needs
+ * Checks Plannr's AI against real cases in four languages: reading a description, drafting a plan,
+ * proposing plan changes, suggesting ideas, drafting messages and reading a bill. It calls the live model, so it needs
  * GEMINI_API_KEY and isn't part of CI. Usage: `bun run ai:eval`.
  */
-import { aiConfig, handleAi } from "../server/ai";
+import { handleAi } from "../server/ai";
+import { aiConfig } from "../server/gemini";
+import { emptyProfile, parseDescription } from "../src/lib/intake";
+import { draftPlan } from "../src/lib/plan";
+import { type PlanNotes, tailorPlan } from "../src/lib/tailor";
 
 const config = aiConfig();
 if (!config.apiKey) {
@@ -52,11 +56,55 @@ const has = (script: RegExp, label: string) => (out: Body) =>
     ? undefined
     : `expected ${label} text, got: ${String(out.text).slice(0, 80)}`;
 
+/**
+ * A plan-drafting case: the standard draft for a description goes to Gemini, and its answer must pass
+ * every check the browser runs (tailor.ts) for all three parts, then `fits` on the tailored plan.
+ */
+function draftCase(
+  name: string,
+  description: string,
+  fits: (plan: ReturnType<typeof draftPlan>) => string | undefined,
+): Case {
+  const profile = parseDescription(description, emptyProfile());
+  const base = draftPlan(profile);
+  return {
+    name,
+    route: "plan",
+    body: { profile, plan: base, today: TODAY },
+    check: (o) => {
+      const plan = tailorPlan(base, o as unknown as PlanNotes, TODAY);
+      const failed = Object.entries(plan.byGemini)
+        .filter(([, ok]) => !ok)
+        .map(([part]) => part);
+      return failed.length > 0 ? `fell back to the standard ${failed.join(", ")}` : fits(plan);
+    },
+  };
+}
+
+const share = (plan: ReturnType<typeof draftPlan>, name: RegExp) =>
+  plan.budget.lines.filter((l) => name.test(l.name)).reduce((s, l) => s + l.amount, 0) / plan.budget.total;
+
 const MALAYALAM = /[ഀ-ൿ]/;
 const DEVANAGARI = /[ऀ-ॿ]/;
 const TAMIL = /[஀-௿]/;
 
 const CASES: Case[] = [
+  draftCase(
+    "plan · a Kerala wedding where food matters most",
+    "Kerala wedding in Thrissur for 300 guests, budget 20 lakh, in January. Food matters most to us.",
+    (plan) =>
+      share(plan, /cater|food|sadhya/i) > 0.25
+        ? undefined
+        : `food got ${(share(plan, /cater|food|sadhya/i) * 100).toFixed(0)}%, no more than the standard 25%`,
+  ),
+  draftCase(
+    "plan · a residents' mela needs its permits dated",
+    "Onam mela for our residents' association in Kochi, 800 people, budget 3 lakh, with stalls and a cultural night.",
+    (plan) =>
+      plan.timeline.some((t) => /permi|police|licen/i.test(t.title))
+        ? undefined
+        : `no permit task in: ${plan.timeline.map((t) => t.title).join("; ")}`,
+  ),
   {
     name: "intake · English wedding",
     route: "intake",

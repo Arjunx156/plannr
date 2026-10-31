@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { seedEvents } from "../src/data/seed";
 import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 import { addDays } from "../src/lib/dates";
+import { functionsOf, vendorsOf } from "../src/shared/eventLists";
 import {
   basics,
   entryCode,
@@ -9,11 +10,11 @@ import {
   linkExpiry,
   PUBLIC_PATH,
   passCode,
-  projectView,
   readEntryCode,
   readPassCode,
 } from "../src/shared/public";
-import { functionsOf, list, vendorsOf } from "../src/shared/records";
+import { projectView } from "../src/shared/publicViews";
+import { list } from "../src/shared/records";
 
 /**
  * What each shared link shows. Links are opened without an account, so every view must carry

@@ -1,24 +1,31 @@
-import type { Kind, Profile } from "../data/types";
-import { addDays, monthShort, parseDate, TODAY } from "./dates";
+import type { Kind } from "../data/baseTypes";
+import type { Profile } from "../data/types";
+import { addDays, parseDate, TODAY } from "./dates";
+import { type DraftTask, type DraftVendor, timelineFor, vendorsFor } from "./draftLists";
 
 export interface BudgetLine {
   name: string;
   amount: number;
   color: string;
+  /** Why this share, when Gemini drafted the split. */
+  why?: string;
 }
 
 export interface PlanDraft {
   title: string;
   kind: Kind;
   basis: string;
+  /** The event day everything is dated against. */
+  date: string;
   budget: { total: number; lines: BudgetLine[] };
-  timeline: { when: string; what: string }[];
+  timeline: DraftTask[];
   tasks: number;
-  vendors: string[];
+  vendors: DraftVendor[];
   vendorNote: string;
-  vendorFocus: string[];
   guests: { total: number; groups: { name: string; count: number }[]; note?: string };
   ideas: string;
+  /** Which parts Gemini drafted; the rest are Plannr's standard draft. */
+  byGemini: { budget: boolean; timeline: boolean; vendors: boolean };
 }
 
 const SPLITS: Record<Kind, [string, number][]> = {
@@ -74,19 +81,37 @@ function roundTo(total: number): number {
   return 500;
 }
 
-/** Split a budget by category for the event type. Lines always add up to the total. */
-export function splitBudget(kind: Kind, total: number): BudgetLine[] {
+export interface Share {
+  name: string;
+  /** Fraction of the total, 0 to 1. */
+  share: number;
+  why?: string;
+}
+
+/**
+ * Amounts for each share of the total, rounded to a step that suits its size. The line at `sink`
+ * absorbs the rounding, so the lines always add up to the total exactly.
+ */
+export function budgetLines(total: number, shares: Share[], sink = shares.length - 1): BudgetLine[] {
   const step = roundTo(total);
-  const split = SPLITS[kind];
-  const lines = split.map(([name, share], i) => ({
+  const lines: BudgetLine[] = shares.map(({ name, share, why }, i) => ({
     name,
     amount: Math.round((total * share) / step) * step,
     color: SPLIT_COLORS[i] ?? REST_COLOR,
+    ...(why ? { why } : {}),
   }));
   const drift = total - lines.reduce((s, l) => s + l.amount, 0);
-  const last = lines[lines.length - 1];
-  if (last) last.amount += drift;
+  const absorber = lines[sink];
+  if (absorber) absorber.amount += drift;
   return lines;
+}
+
+/** Split a budget by category for the event type. Lines always add up to the total. */
+export function splitBudget(kind: Kind, total: number): BudgetLine[] {
+  return budgetLines(
+    total,
+    SPLITS[kind].map(([name, share]) => ({ name, share })),
+  );
 }
 
 export function countTasks(kind: Kind, functions: number, guests: number): number {
@@ -94,56 +119,6 @@ export function countTasks(kind: Kind, functions: number, guests: number): numbe
   if (kind === "birthday") return 18;
   if (kind === "community") return 30 + Math.min(24, Math.round(guests / 25));
   return 24;
-}
-
-function vendorsFor(p: Profile): { list: string[]; focus: string[]; note: string } {
-  const city = p.city ?? "local";
-  const month = p.date ? parseDate(p.date).toLocaleString("en-IN", { month: "long" }) : "the date";
-  if (p.kind === "wedding") {
-    const kerala = p.style === "Kerala-style";
-    const ritual = kerala ? ["Vadhyar", "Chenda melam", "Nadaswaram"] : ["Priest", "Band or dhol", "DJ"];
-    const list = [
-      "Venue",
-      kerala ? "Sadhya caterer" : "Caterer",
-      "Decorator",
-      "Photo & video",
-      "Bridal makeup",
-      ...ritual,
-      ...(p.functions.includes("Mehendi") ? ["Mehendi artist"] : []),
-      "Invitations",
-      "Guest transport",
-    ];
-    return {
-      list,
-      focus: ritual.map((r) => r.toLowerCase()),
-      note: `Photographer first: ${city} studios book about 6 months out for ${month}.`,
-    };
-  }
-  if (p.kind === "birthday")
-    return {
-      list: ["Cake", "Entertainer", "Snacks caterer", "Return gifts", "Balloon décor"],
-      focus: ["the entertainer", "the cake", "return gifts"],
-      note: "Order the cake 10 days out: shaped cakes need it.",
-    };
-  if (p.kind === "community")
-    return {
-      list: [
-        "Sound & lighting",
-        "Stall tents",
-        "Security",
-        "Sanitation",
-        "Food stalls",
-        "Pass printing",
-        "Stage",
-      ],
-      focus: ["sound and lighting", "security", "sanitation"],
-      note: "File police permission for amplified sound first: it takes about 3 weeks.",
-    };
-  return {
-    list: ["Venue", "Caterer", "Decorator", "Photographer", "Invitations"],
-    focus: ["the venue", "a caterer", "a photographer"],
-    note: "Venue first: everything else keys off the date and the room.",
-  };
 }
 
 /** How a guest list usually divides, by kind of event. */
@@ -190,37 +165,6 @@ function guestGroups(p: Profile, total: number): PlanDraft["guests"] {
   return { total, note: guestNote(p.needs), groups };
 }
 
-function timelineFor(kind: Kind, date: string): PlanDraft["timeline"] {
-  const mon = (iso: string) => monthShort(iso).toUpperCase();
-  if (kind === "wedding")
-    return [
-      { when: `NOW–${mon(addDays(TODAY, 30))}`, what: "Venue, photographer, caterer tasting" },
-      { when: mon(addDays(date, -90)), what: "Invitations printed, makeup trial" },
-      { when: mon(addDays(date, -30)), what: "Final headcount to caterer" },
-      { when: "WEEK OF", what: "Run sheet shared, balances paid" },
-    ];
-  if (kind === "birthday")
-    return [
-      { when: "THIS WEEK", what: "Theme, guest list, entertainer" },
-      { when: "2 WEEKS OUT", what: "Cake ordered, return gifts bought" },
-      { when: "WEEK OF", what: "Décor, snacks, run sheet" },
-      { when: "ON THE DAY", what: "Set up two hours before guests arrive" },
-    ];
-  if (kind === "community")
-    return [
-      { when: `NOW–${mon(addDays(TODAY, 21))}`, what: "Committee roles, sponsors, permits filed" },
-      { when: mon(addDays(date, -14)), what: "Stall sign-ups, volunteer shifts" },
-      { when: "WEEK OF", what: "Passes, sound check, safety walk" },
-      { when: "ON THE DAY", what: "Gates, stalls, the evening programme" },
-    ];
-  return [
-    { when: "NOW", what: "Venue and guest list" },
-    { when: mon(addDays(date, -30)), what: "Invitations out, menu chosen" },
-    { when: "WEEK OF", what: "Final headcount, run sheet" },
-    { when: "ON THE DAY", what: "Set up and enjoy it" },
-  ];
-}
-
 const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six"];
 
 /** How the plan summary names the event: "Ananya & Rohan", "Aarav's birthday", "your event". */
@@ -233,7 +177,7 @@ export function planTitle(p: Profile): string {
 
 /** The colours ideas are drawn in: the family's own, else ones that suit the event. */
 function ideaColours(p: Profile, kind: Kind): string {
-  if (p.colours.length) return p.colours.map((c) => c.toLowerCase()).join(" and ");
+  if (p.colours.length > 0) return p.colours.map((c) => c.toLowerCase()).join(" and ");
   if (kind === "wedding" && p.style === "Kerala-style") return "kasavu gold and ivory";
   return kind === "birthday" ? "the party theme" : "festive marigold and green";
 }
@@ -249,7 +193,7 @@ export function draftDate(p: Profile): string {
   return p.date ?? addDays(TODAY, DEFAULT_LEAD_DAYS);
 }
 
-/** Everything the plan summary shows, derived from the profile alone. */
+/** Plannr's standard draft: everything the plan summary shows, from the profile alone. */
 export function draftPlan(p: Profile): PlanDraft {
   const kind = p.kind ?? "other";
   const total = p.budget ?? DEFAULT_BUDGET;
@@ -268,13 +212,14 @@ export function draftPlan(p: Profile): PlanDraft {
     title: planTitle(p),
     kind,
     basis: `Based on ${basisBits.join(", ")}${priorities ? `, and ${priorities} as priorities` : ""}.`,
+    date,
     budget: { total, lines: splitBudget(kind, total) },
-    timeline: timelineFor(kind, date),
+    timeline: timelineFor(kind, date, TODAY),
     tasks: countTasks(kind, fnCount, guests),
-    vendors: vendors.list,
+    vendors: vendors.list.map((name) => ({ name })),
     vendorNote: vendors.note,
-    vendorFocus: vendors.focus,
     guests: guestGroups({ ...p, kind }, guests),
     ideas: `Ideas in ${colours}`,
+    byGemini: { budget: false, timeline: false, vendors: false },
   };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { handleAi } from "../server/ai.ts";
-import { ideasRequest, sanitizeIdeas } from "../server/ideaPrompts.ts";
+import { ideasRequest, sanitizeIdeas } from "../server/prompts/ideas.ts";
 import { seedEvents } from "../src/data/seed";
 import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 import { toCsv } from "../src/lib/csv";

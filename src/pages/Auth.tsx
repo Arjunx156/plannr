@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Spinner, usePageMeta } from "../components/ui";
+import { usePageMeta } from "../components/pageMeta";
+import { Spinner } from "../components/ui";
 import { ApiError, api } from "../lib/api";
-import { draftPlan } from "../lib/plan";
+import { planFor } from "../lib/tailor";
 import type { AccountUser, SignInMethods } from "../shared/types";
 import { useAccount } from "../store/account";
-import { type AppState, toast, useStore } from "../store/store";
+import { toast, useStore } from "../store/store";
+import type { AppState } from "../store/types";
 import { type Attempt, EmailSignIn } from "./auth/EmailSignIn";
 import {
   AccountsOff,
@@ -85,26 +87,15 @@ function destination(next: string | null): string {
   return next?.startsWith("/") ? next : "/events";
 }
 
-export function Auth({ mode }: { mode: Mode }) {
-  const signup = mode === "signup";
-  const { state, dispatch } = useStore();
+/** Signing in: each step's progress and error, and where to go once it works. */
+function useSignIn(mode: Mode, next: string | null, query: string, failed: boolean) {
+  const { dispatch } = useStore();
   const { signedIn } = useAccount();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const next = params.get("next");
-  const methods = state.account.methods;
-  const variant = variantFor(state, mode);
-  const upgrading = variant === "upgrade";
-  const copy = COPY[variant];
-  usePageMeta(copy.title, { private: true });
-  const draft = state.draft;
-  const plan = draft.generated ? draftPlan(draft.profile) : undefined;
-
   const [busy, setBusy] = useState<Busy>("");
-  const [error, setError] = useState(params.get("error") ? "Google sign-in didn't finish. Try again." : "");
-  const query = next ? `?next=${encodeURIComponent(next)}` : "";
+  const [error, setError] = useState(failed ? "Google sign-in didn't finish. Try again." : "");
 
-  /** Where to go once signed in: a name first if we don't have one, then wherever they were headed. */
+  /** A name first if we don't have one, then wherever they were headed. */
   const finish = (user: AccountUser | null) => {
     if (!user) {
       setBusy("");
@@ -112,11 +103,11 @@ export function Auth({ mode }: { mode: Mode }) {
       return;
     }
     if (needsName(user)) {
-      navigate(`/onboarding${query}`);
+      void navigate(`/onboarding${query}`);
       return;
     }
-    dispatch(toast(`Welcome${signup ? "" : " back"}, ${firstName(user)}.`));
-    navigate(destination(next));
+    dispatch(toast(`Welcome${mode === "signup" ? "" : " back"}, ${firstName(user)}.`));
+    void navigate(destination(next));
   };
 
   /** Runs one sign-in step, showing its error in the form if it fails. Success usually navigates away. */
@@ -136,29 +127,43 @@ export function Auth({ mode }: { mode: Mode }) {
       const { url } = await api.google(googleCallbacks(mode, next, query));
       window.location.assign(url);
     });
-
   const guest = () =>
     attempt("guest", async () => {
       await api.signInGuest();
       finish(await signedIn());
     });
+  const verified = async () => finish(await signedIn());
+  return { busy, release: () => setBusy(""), error, setError, attempt, google, guest, verified };
+}
+
+/** /signin, /signup: Google, an emailed code or a guest account, whichever this server offers. */
+export function Auth({ mode }: { mode: Mode }) {
+  const { state, dispatch } = useStore();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = params.get("next");
+  const query = next ? `?next=${encodeURIComponent(next)}` : "";
+  const methods = state.account.methods;
+  const variant = variantFor(state, mode);
+  const upgrading = variant === "upgrade";
+  const copy = COPY[variant];
+  usePageMeta(copy.title, { private: true });
+  const { draft } = state;
+  const plan = draft.generated ? planFor(draft.profile, draft.notes) : undefined;
+  const signIn = useSignIn(mode, next, query, !!params.get("error"));
 
   const demo = () => {
     dispatch({ type: "enterDemo" });
-    navigate(next === "accept" ? ACCEPT_DRAFT : "/events");
+    void navigate(next === "accept" ? ACCEPT_DRAFT : "/events");
   };
-
   const accountsOff = methods && !hasAnyMethod(methods);
-  const verifyLabel = variant === "signup" && plan ? "Verify and save plan" : copy.verify;
 
   return (
     <div className="grid min-h-dvh bg-paper lg:grid-cols-[480px_minmax(0,1fr)]">
       <AuthAside lead={copy.lead} intro={INTRO[mode]} plan={plan} profile={draft.profile} />
-
       <main id="main" className="flex flex-col justify-center gap-5 px-5 py-12 sm:px-[72px]">
         <div className="mx-auto flex w-full max-w-[440px] flex-col gap-5">
           <h2 className="font-serif text-[34px] leading-[1.1]">{copy.heading}</h2>
-
           {!methods && (
             <div className="flex min-h-[200px] items-center justify-center">
               <Spinner label="Checking sign-in options" />
@@ -166,28 +171,13 @@ export function Auth({ mode }: { mode: Mode }) {
           )}
           {accountsOff && <AccountsOff onDemo={demo} />}
           {methods && !accountsOff && (
-            <>
-              {methods.google && <GoogleButton busy={busy} onClick={google} />}
-              {methods.google && methods.email && <Divider />}
-
-              {methods.email && (
-                <EmailSignIn
-                  busy={busy}
-                  error={error}
-                  setError={setError}
-                  attempt={attempt}
-                  release={() => setBusy("")}
-                  submitLabel={verifyLabel}
-                  onVerified={async () => finish(await signedIn())}
-                />
-              )}
-
-              <FormError error={error} />
-
-              {methods.guest && !upgrading && <GuestOption methods={methods} busy={busy} onGuest={guest} />}
-            </>
+            <SignInOptions
+              methods={methods}
+              signIn={signIn}
+              verifyLabel={variant === "signup" && plan ? "Verify and save plan" : copy.verify}
+              guestAllowed={!upgrading}
+            />
           )}
-
           <AuthFooter
             variant={variant}
             query={query}
@@ -196,5 +186,36 @@ export function Auth({ mode }: { mode: Mode }) {
         </div>
       </main>
     </div>
+  );
+}
+
+interface OptionsProps {
+  methods: SignInMethods;
+  signIn: ReturnType<typeof useSignIn>;
+  verifyLabel: string;
+  /** A guest upgrading to a full account isn't offered another guest account. */
+  guestAllowed: boolean;
+}
+
+function SignInOptions({ methods, signIn, verifyLabel, guestAllowed }: OptionsProps) {
+  const { busy, error } = signIn;
+  return (
+    <>
+      {methods.google && <GoogleButton busy={busy} onClick={signIn.google} />}
+      {methods.google && methods.email && <Divider />}
+      {methods.email && (
+        <EmailSignIn
+          busy={busy}
+          error={error}
+          setError={signIn.setError}
+          attempt={signIn.attempt}
+          release={signIn.release}
+          submitLabel={verifyLabel}
+          onVerified={signIn.verified}
+        />
+      )}
+      <FormError error={error} />
+      {methods.guest && guestAllowed && <GuestOption methods={methods} busy={busy} onGuest={signIn.guest} />}
+    </>
   );
 }

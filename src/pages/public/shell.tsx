@@ -1,9 +1,11 @@
 import { type ReactNode, useState } from "react";
 import { Link } from "react-router";
-import { Logo, SkipLink, Toran } from "../../components/ui";
-import { dateRange } from "../../lib/dates";
+import { Logo, Toran } from "../../components/brand";
+import { SkipLink } from "../../components/ui";
+import { dateRange, dayLine } from "../../lib/dates";
 import { timeAgo } from "../../lib/format";
-import { type GuestLang, guestLang, LANG_NAME } from "../../lib/guestText";
+import { type GuestLang, type GuestText, guestLang, LANG_NAME } from "../../lib/guestText";
+import { mapLink } from "../../lib/ics";
 import { linkText } from "../../lib/linkText";
 import type { PublicBasics } from "../../shared/public";
 
@@ -70,7 +72,7 @@ export function PublicShell({
                   type="button"
                   aria-pressed={lang === l}
                   onClick={() => onLang(l)}
-                  className={`rounded-md border px-2 py-0.5 font-mono text-[11px] ${lang === l ? "border-gold-soft bg-gold-soft text-maroon-deep" : "border-[rgba(241,217,166,.5)] text-gold-soft"}`}
+                  className={`rounded-md border px-2 py-0.5 font-mono text-xs ${lang === l ? "border-gold-soft bg-gold-soft text-maroon-deep" : "border-[rgba(241,217,166,.5)] text-gold-soft"}`}
                 >
                   {LANG_NAME[l]}
                 </button>
@@ -92,7 +94,7 @@ export function PublicShell({
         {children}
       </main>
       <footer className="mx-auto flex max-w-[720px] flex-col items-center gap-2 px-5 pt-4 pb-10 text-center">
-        <span className="font-mono text-[10px] tracking-[0.08em] text-muted uppercase">Made with</span>
+        <span className="font-mono text-xs tracking-[0.08em] text-muted uppercase">Made with</span>
         <Logo to="/" />
         <Link to="/" className="link text-xs text-muted">
           Plan your own celebration
@@ -115,6 +117,38 @@ function Announcements({ items }: { items: PublicBasics["announcements"] }) {
         </p>
       ))}
     </section>
+  );
+}
+
+/** A place that opens in the phone's maps app. */
+export function MapLink({
+  place,
+  address,
+  label,
+}: {
+  place: string;
+  address?: string | undefined;
+  label: string;
+}) {
+  return (
+    <a href={mapLink(address ?? place)} target="_blank" rel="noopener noreferrer" className="link text-sm">
+      {place} · {label}
+    </a>
+  );
+}
+
+/** When a function is, where (with a map), and what to wear. */
+export function FunctionFacts({ f, t }: { f: PublicBasics["functions"][number]; t: GuestText }) {
+  return (
+    <>
+      <span className="text-sm text-body">{dayLine(f.date, f.time)}</span>
+      {f.place && <MapLink place={f.place} address={f.address} label={t.map} />}
+      {f.dress && (
+        <span className="text-xs text-muted">
+          {t.dress}: {f.dress}
+        </span>
+      )}
+    </>
   );
 }
 

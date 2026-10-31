@@ -1,7 +1,8 @@
 import { Link, useParams } from "react-router";
+import { usePageMeta } from "../components/pageMeta";
 import { QrCode } from "../components/qr";
-import { usePageMeta } from "../components/ui";
-import type { Pass, PlannrEvent } from "../data/types";
+import type { Pass } from "../data/communityTypes";
+import type { PlannrEvent } from "../data/types";
 import { longDate } from "../lib/dates";
 import { passCode } from "../shared/public";
 import { list } from "../shared/records";
@@ -46,7 +47,7 @@ export function PassSheet() {
 /** A printable grid of passes, each with its QR for the gate. */
 function PassGrid({ ev, passes }: { ev: PlannrEvent | undefined; passes: Pass[] }) {
   if (!ev) return <p className="m-0 text-body">This event isn't on this device.</p>;
-  if (!passes.length)
+  if (passes.length === 0)
     return <p className="m-0 text-body">No passes issued yet. Issue them on the Stalls & passes page.</p>;
   return (
     <ul className="m-0 grid list-none grid-cols-2 gap-0 p-0 sm:grid-cols-3 print:grid-cols-3">

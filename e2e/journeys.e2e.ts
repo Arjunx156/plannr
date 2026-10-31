@@ -73,7 +73,7 @@ test.describe("planning a new event", () => {
     await expect(page.getByRole("menu", { name: "Account" })).toContainText(email);
   });
 
-  test("Gemini fills what the parser misses, adds notes to the plan, and its ideas start the board", async ({
+  test("Gemini fills what the parser misses, drafts the split, dates and vendors, and its ideas start the board", async ({
     page,
   }) => {
     await mockAi(page, {
@@ -94,6 +94,24 @@ test.describe("planning a new event", () => {
         tips: [{ title: "Check the ramps", detail: "Visit the venue with the wheelchair route in mind." }],
         watchouts: ["January is peak wedding season."],
         ideas: ["Tender coconut welcome drinks"],
+        budget: [
+          { name: "Sadhya catering", percent: 36, why: "Food for 300 is where the money goes in Palakkad." },
+          { name: "Venue", percent: 20, why: "A mandapam for 300 in January." },
+          { name: "Décor", percent: 14, why: "Jasmine and kasavu, kept simple." },
+          { name: "Photography & video", percent: 12, why: "One team for both functions." },
+          { name: "Attire & jewellery", percent: 12, why: "The bride's family's call." },
+          { name: "Contingency", percent: 6, why: "January is peak season; prices move." },
+        ],
+        timeline: [
+          { title: "Book the kalyana mandapam", due: "2026-10-05", why: "January halls go a season ahead." },
+          { title: "Taste two sadhya caterers", due: "2026-10-20", why: "Before the menu is fixed." },
+          { title: "Send the invitations", due: "2026-11-20", why: "Six weeks out for family abroad." },
+        ],
+        vendors: [
+          { name: "Sadhya caterer", why: "Food is the priority." },
+          { name: "Venue", why: "Everything keys off the hall." },
+          { name: "Nadaswaram", why: "For the muhurtham." },
+        ],
       },
     });
     await page.goto("/new?fresh=1");
@@ -109,6 +127,10 @@ test.describe("planning a new event", () => {
 
     await page.getByRole("button", { name: "Draft my plan" }).click();
     await expect(page.getByRole("heading", { name: "Plannr's notes" })).toBeVisible();
+    // The split, the dates and the vendors are Gemini's, each with its reason, and say so.
+    await expect(page.getByText("◆ Drafted by Gemini")).toHaveCount(3);
+    await expect(page.getByText("Food for 300 is where the money goes in Palakkad.")).toBeVisible();
+    await expect(page.getByText("Book the kalyana mandapam")).toBeVisible();
     await expect(page.getByText("Check the ramps")).toBeVisible();
     await expect(page.getByText("January is peak wedding season.")).toBeVisible();
 
@@ -122,6 +144,9 @@ test.describe("planning a new event", () => {
     await expect(
       page.getByRole("region", { name: "Ideas board" }).getByText("Tender coconut welcome drinks"),
     ).toBeVisible();
+    // Gemini's dated tasks are the live plan's first tasks.
+    await page.getByRole("link", { name: "Timeline", exact: true }).click();
+    await expect(page.getByText("Book the kalyana mandapam")).toBeVisible();
   });
 });
 

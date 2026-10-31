@@ -48,7 +48,7 @@ p { font-size: 25px; line-height: 1.4; color: #4a4239; margin-top: 26px; max-wid
 <div class="logo">Plannr<i></i></div>
 <h1>Describe the day.<br><em>Get a plan you can run.</em></h1>
 <p>Weddings, birthdays and community events, planned together in your language.</p>
-</div><div class="card"><span class="eyebrow">◆ Drafted in 18 seconds</span><span class="title">Kerala wedding, 250 guests</span>
+</div><div class="card"><span class="eyebrow">◆ Drafted from one sentence</span><span class="title">Kerala wedding, 250 guests</span>
 ${bars.map(([n, a, w, c]) => `<div class="row"><span>${n}</span><span class="bar" style="width:${w}%;background:${c}"></span><span class="num">${a}</span></div>`).join("")}
 <div class="chips"><span>71 tasks</span><span>11 vendors</span><span>4 guest groups</span></div>
 </div></div></body></html>`;

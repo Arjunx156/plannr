@@ -1,22 +1,24 @@
 import { type ComponentType, lazy, Suspense, useEffect, useRef } from "react";
 import { Link, Navigate, NavLink, useLocation, useParams, useSearchParams } from "react-router";
 import { AssistantPanel } from "../components/assistant";
+import { usePageMeta } from "../components/pageMeta";
 import { AppShell } from "../components/shell";
-import { TaskSheet, useEditable } from "../components/tasks";
-import { HUE_COLOR, Spinner, usePageMeta } from "../components/ui";
+import { useEditable } from "../components/taskHooks";
+import { TaskSheet } from "../components/taskSheet";
+import { HUE_COLOR, Spinner } from "../components/ui";
 import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../data/types";
 import { daysUntil } from "../lib/dates";
+import { tabsFor } from "../lib/eventTabs";
 import { ROLE_LABEL } from "../shared/types";
 import { usePlanFreshness } from "../store/account";
 import { useStore } from "../store/store";
 import { Community } from "./overview/Community";
 import { Personal } from "./overview/Personal";
-import { tabsFor } from "./tabs/list";
 
 const TimelineTab = lazy(() => import("./tabs/TimelineTab").then((m) => ({ default: m.TimelineTab })));
 const IdeasTab = lazy(() => import("./tabs/IdeasTab").then((m) => ({ default: m.IdeasTab })));
-const HistoryTab = lazy(() => import("./EventTabs").then((m) => ({ default: m.HistoryTab })));
-const PeopleTab = lazy(() => import("./EventTabs").then((m) => ({ default: m.PeopleTab })));
+const HistoryTab = lazy(() => import("./tabs/HistoryTab").then((m) => ({ default: m.HistoryTab })));
+const PeopleTab = lazy(() => import("./tabs/PeopleTab").then((m) => ({ default: m.PeopleTab })));
 
 const GuestsTab = lazy(() => import("./tabs/GuestsTab").then((m) => ({ default: m.GuestsTab })));
 const SiteTab = lazy(() => import("./tabs/SiteTab").then((m) => ({ default: m.SiteTab })));
@@ -80,7 +82,7 @@ export function EventPage() {
   }
   // The timeline used to be called Tasks; old links and bookmarks still land on it.
   if (tab === "tasks")
-    return <Navigate to={`/events/${ev.id}/timeline${params.size ? `?${params}` : ""}`} replace />;
+    return <Navigate to={`/events/${ev.id}/timeline${params.size > 0 ? `?${params}` : ""}`} replace />;
   if (!current) return <Navigate to={`/events/${ev.id}`} replace />;
   const Screen = TAB_SCREENS[tab];
   return (
@@ -164,7 +166,7 @@ function EventBar({ ev }: { ev: PlannrEvent }) {
             /
           </span>
           <span className="font-semibold">{ev.name}</span>
-          <span className="font-mono text-[11px] text-muted">
+          <span className="font-mono text-xs text-muted">
             {remote ? `${ROLE_LABEL[remote.role]}${remote.side ? ` · ${remote.side}` : ""}` : ev.role}
           </span>
         </div>

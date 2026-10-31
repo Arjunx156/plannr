@@ -1,4 +1,7 @@
-import type { Household, PlanRecords, Vendor } from "../types";
+import type { Household } from "../guestTypes";
+import type { PlanRecords } from "../recordTypes";
+import type { Vendor } from "../vendorTypes";
+import { answerFor } from "./answers";
 
 /**
  * The demo wedding's guests, vendors, run sheets and gifts.
@@ -87,13 +90,7 @@ const NOT_SENT = new Set(["Panicker family, Kollam", "Cricket club friends", "Fa
 export function households(): Household[] {
   return ROWS.map(([name, side, expected, functions, answer, extra], i) => {
     const rsvp: Household["rsvp"] = {};
-    for (const fn of functions)
-      rsvp[fn] =
-        answer === "no"
-          ? { status: "no", count: 0 }
-          : answer === null
-            ? { status: "pending", count: 0 }
-            : { status: "yes", count: answer };
+    for (const fn of functions) rsvp[fn] = answerFor(answer);
     const sent = !NOT_SENT.has(name);
     return {
       id: `h${i + 1}`,

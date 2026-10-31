@@ -1,16 +1,13 @@
 import { lazy, type ReactNode, Suspense } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router";
+import { Logo } from "./components/brand";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { Toasts } from "./components/overlays";
+import { type Preloadable, preloadable } from "./components/preloadable";
 import { RouteAnnouncer } from "./components/RouteAnnouncer";
 import { ScrollToTop } from "./components/ScrollToTop";
-import { Logo, Spinner, Toasts } from "./components/ui";
+import { Spinner } from "./components/ui";
 import { Landing } from "./pages/Landing";
-import { Birthdays, Community as CommunityGuide, HowItWorks, Pricing, Weddings } from "./pages/site/Guides";
-import { Privacy, Terms } from "./pages/site/Legal";
-import { ToolsIndex } from "./pages/site/Tools";
-import { BudgetCalculator } from "./pages/site/tools/BudgetCalculator";
-import { FestivalChecklist, KeralaChecklist } from "./pages/site/tools/Checklists";
-import { ShagunRegister } from "./pages/site/tools/ShagunRegister";
 import { AccountSync } from "./store/account";
 import { demoLoading, useStore } from "./store/store";
 
@@ -29,8 +26,50 @@ const Inbox = lazy(() => import("./pages/Inbox").then((m) => ({ default: m.Inbox
 const Account = lazy(() => import("./pages/Account").then((m) => ({ default: m.Account })));
 const Admin = lazy(() => import("./pages/Admin").then((m) => ({ default: m.Admin })));
 const PassSheet = lazy(() => import("./pages/PassSheet").then((m) => ({ default: m.PassSheet })));
-// Public pages are pre-rendered at build time, so they load with the app rather than lazily:
-// the HTML a visitor first sees is swapped for the same page with nothing in between.
+// The landing page is where most visits start, so it comes with the app. The other public pages
+// are pre-rendered too, and loaded before the first render when a visitor lands on one (preloadPage).
+const guides = () => import("./pages/site/guidePages");
+const Weddings = preloadable(() => guides().then((m) => m.Weddings));
+const Birthdays = preloadable(() => guides().then((m) => m.Birthdays));
+const CommunityGuide = preloadable(() => guides().then((m) => m.Community));
+const HowItWorks = preloadable(() => guides().then((m) => m.HowItWorks));
+const Pricing = preloadable(() => guides().then((m) => m.Pricing));
+const legal = () => import("./pages/site/legalPages");
+const Privacy = preloadable(() => legal().then((m) => m.Privacy));
+const Terms = preloadable(() => legal().then((m) => m.Terms));
+const ToolsIndex = preloadable(() => import("./pages/site/ToolsIndex").then((m) => m.ToolsIndex));
+const BudgetCalculator = preloadable(() =>
+  import("./pages/site/tools/BudgetCalculator").then((m) => m.BudgetCalculator),
+);
+const checklists = () => import("./pages/site/tools/checklistPages");
+const KeralaChecklist = preloadable(() => checklists().then((m) => m.KeralaChecklist));
+const FestivalChecklist = preloadable(() => checklists().then((m) => m.FestivalChecklist));
+const ShagunRegister = preloadable(() =>
+  import("./pages/site/tools/ShagunRegister").then((m) => m.ShagunRegister),
+);
+
+/** The pre-rendered pages loaded on demand, by path. */
+const PRERENDERED: Record<string, Preloadable<object>> = {
+  "/weddings": Weddings,
+  "/birthdays": Birthdays,
+  "/community": CommunityGuide,
+  "/how-it-works": HowItWorks,
+  "/pricing": Pricing,
+  "/privacy": Privacy,
+  "/terms": Terms,
+  "/tools": ToolsIndex,
+  "/tools/budget-calculator": BudgetCalculator,
+  "/tools/kerala-wedding-checklist": KeralaChecklist,
+  "/tools/festival-checklist": FestivalChecklist,
+  "/tools/shagun-register": ShagunRegister,
+};
+
+/** Loads the code for the page at `path` when it's one of the pre-rendered ones; resolves at once otherwise. */
+export function preloadPage(path: string): Promise<unknown> {
+  const page = PRERENDERED[path.length > 1 ? path.replace(/\/$/, "") : path];
+  return page ? page.preload() : Promise.resolve();
+}
+
 // The component gallery exists in development and in the build the journey tests run against.
 const SHOW_GALLERY = import.meta.env.DEV || import.meta.env.VITE_GALLERY === "1";
 const Gallery = SHOW_GALLERY

@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { SEED_IDS } from "../src/data/demoMeta";
 import { seedEvents } from "../src/data/seed";
 import type { ActivityEntry } from "../src/shared/types";
-import { demoLoading, initialState, migrate, reducer } from "../src/store/store";
+import { initialState, reducer } from "../src/store/reducer";
+import { demoLoading, migrate } from "../src/store/store";
 
 const change = (at: string): ActivityEntry => ({
   id: at,

@@ -1,15 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import type { Message } from "../src/data/messageTypes";
 import { seedEvents } from "../src/data/seed";
-import type { CommunityEvent, Message, PersonalEvent, PlannrEvent } from "../src/data/types";
+import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../src/data/types";
 import { budgetTotals } from "../src/lib/metrics";
-import {
-  applyEventAction,
-  describeAction,
-  type EventAction,
-  isEventAction,
-  replay,
-  stamp,
-} from "../src/shared/engine";
+import { describeAction } from "../src/shared/describeAction";
+import { applyEventAction, type EventAction, isEventAction, replay, stamp } from "../src/shared/engine";
 
 const events = seedEvents();
 const wedding = events.find((e) => e.id === "ananya-rohan") as PersonalEvent;

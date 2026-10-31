@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { seedEvents } from "../src/data/seed";
-import type { CommunityEvent, PersonalEvent, Vendor } from "../src/data/types";
+import type { CommunityEvent, PersonalEvent } from "../src/data/types";
+import type { Vendor } from "../src/data/vendorTypes";
 import { TODAY } from "../src/lib/dates";
 import { buildTimeline, checklistProgress, vendorChecklist } from "../src/shared/planning";
 import { linkExpiry } from "../src/shared/public";

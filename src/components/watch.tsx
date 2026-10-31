@@ -4,10 +4,11 @@ import type { CommunityEvent, PersonalEvent } from "../data/types";
 import { addDays, TODAY } from "../lib/dates";
 import { useRain } from "../lib/weather";
 import { headcountRipple, type Ripple } from "../shared/ripple";
-import { rainWatch, type Watch, type WatchAction, watchPlan } from "../shared/watch";
+import { rainWatch, watchPlan } from "../shared/watch";
+import type { Watch, WatchAction } from "../shared/watchRule";
 import { toast, useStore } from "../store/store";
 import { RippleDialog } from "./ripple";
-import { useEditable } from "./tasks";
+import { useEditable } from "./taskHooks";
 
 import { NOTICE_CARD, Pill } from "./ui";
 
@@ -49,11 +50,11 @@ export function WatchList({ ev }: { ev: PersonalEvent | CommunityEvent }) {
   const [all, setAll] = useState(false);
   const [, rerender] = useState(0);
   const [ripple, setRipple] = useState<Ripple | null>(null);
-  if (!watches.length) return null;
+  if (watches.length === 0) return null;
   const shown = all ? watches : watches.slice(0, 4);
 
   const run = (a: WatchAction) => {
-    if (a.kind === "go") navigate(a.to);
+    if (a.kind === "go") void navigate(a.to);
     else if (a.kind === "headcount" && ev.layout === "personal") setRipple(headcountRipple(ev, a.guests));
     else if (a.kind === "apply") {
       for (const x of a.actions) dispatch(x as Parameters<typeof dispatch>[0]);

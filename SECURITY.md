@@ -15,13 +15,13 @@ for anything that exposes someone's data. You'll get a reply within three days.
 | Sign-in | Better Auth sessions in `HttpOnly`, `Secure`, `SameSite=Lax` cookies; Google sign-in and guest accounts; 60-day sessions renewed daily. Sign-in is rate-limited with counters in the database, so every server instance enforces the same limit | `server/auth.ts` |
 | Who can change a plan | Every write checks the member's role (owner, co-planner, viewer) on the server; viewers can't write | `server/plans.ts` |
 | Cross-site requests | Writes are refused unless `Origin` is Plannr's own; a request without `Origin` is refused when `Sec-Fetch-Site` says it came from another site | `server/app.ts` |
-| Input | Every change is validated against a zod schema before it reaches the plan; unknown fields and oversized batches are refused | `server/validate.ts` |
+| Input | Each of the 34 kinds of plan change has its own zod schema, and a change of any other kind is refused. A whole plan (a new event, or a rewrite) is checked for shape, depth, text length and item count, then every task and record list is checked row by row. Unknown fields are dropped, and a batch of more than 50 changes is refused | `server/validate.ts`, `server/routes/events.ts` |
 | Shared links | Tokens are 96 random bits; each link shows one household, helper or vendor only what they need; links can be revoked, stop when the event is archived, and expire 30 days after the event (180 for the album and fund report) | `server/links.ts`, `src/shared/public.ts` |
 | Photos | Only images on Plannr's own Blob store are accepted into an album | `server/photos.ts` |
 | Exports | Guest lists and reports export as CSV with every cell quoted; a cell that would start a spreadsheet formula (`=`, `+`, `-`, `@`) is opened as text | `src/lib/csv.ts` |
 | Browser | A content security policy sent as a header refuses scripts and stylesheets from anywhere but Plannr (no inline scripts, no `<style>` blocks), refuses framing and upgrades to HTTPS; also `X-Content-Type-Options`, `Referrer-Policy`, `Cross-Origin-Opener-Policy`, HSTS and a narrow `Permissions-Policy`. Links to WhatsApp and maps open in a new tab cut off from Plannr (no `window.opener`) | `scripts/vercel-build.ts`, `server/security.ts` |
-| AI | The Gemini key stays on the server; the browser can only call Plannr's fixed routes. Text from guests and vendors is passed to the model as data, never as instructions, and every answer is checked against a schema and cleaned before use. The ideas brief carries guests as counts, never names or phone numbers | `server/ai.ts`, `server/prompts.ts`, `src/lib/ideas.ts` |
-| Cost and abuse | Per-IP rate limits on AI, public pages and uploads, which a flood of new addresses can't reset; a daily AI allowance per account (60 calls for visitors); oversized AI requests and unknown AI routes are refused before they count | `server/app.ts`, `server/ai.ts`, `server/routes/ai.ts` |
+| AI | The Gemini key stays on the server; the browser can only call Plannr's fixed routes. Text from guests and vendors is passed to the model as data, never as instructions, and every answer is checked against a schema and cleaned before use. The ideas brief carries guests as counts, never names or phone numbers | `server/ai.ts`, `server/prompts/`, `src/lib/ideas.ts` |
+| Cost and abuse | Per-IP rate limits on AI, public pages and uploads, counted in memory first and then in the database, so every server instance enforces the same limit and a flood of new addresses can't reset it; a daily AI allowance per account (60 calls for visitors). Request bodies are capped per route while they stream, so a body that lies about its length is cut off; unknown AI routes are refused before they count | `server/limits.ts`, `server/app.ts`, `server/ai.ts` |
 | Secrets | Keys live only in Vercel's environment variables; `.env.local` is git-ignored | `.gitignore` |
 | Backups | Nightly, encrypted with AES-256-GCM under `BACKUP_KEY`, kept 14 days | `server/backup.ts` |
 | People's control | Anyone can export everything Plannr holds about them, or delete their account and its plans | `server/account.ts` |
@@ -32,7 +32,9 @@ for anything that exposes someone's data. You'll get a reply within three days.
 ## Tests that guard these
 
 `tests/server.test.ts` covers refused cross-site writes, role checks, link scoping, expired links, oversized
-requests, photo URLs and the sign-in rate limit. `tests/aiRoutes.test.ts` covers the AI gate: size cap, daily
+requests, photo URLs and the sign-in rate limit. `tests/limits.test.ts` covers the shared rate limit across two
+servers, its window reset and its pruning. `tests/validate.test.ts` checks that every kind of change has a
+schema, that unknown kinds are refused, and that a whole plan is refused when too deep, too long or malformed. `tests/aiRoutes.test.ts` covers the AI gate: size cap, daily
 allowance and unknown routes. `tests/public.test.ts` checks that each shared link shows only its own household,
 helper or vendor. `tests/ideas.test.ts` checks that the ideas brief carries no guest names and that CSV
 cells can't run as formulas. Every browser journey fails on a console error, so a page breaking its own content

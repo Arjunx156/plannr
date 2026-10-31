@@ -34,4 +34,6 @@ blob-report
 coverage
 
 # Demo video and screenshots: kept locally, never committed
-demo/
+/demo/
+Plannr-demo/
+Plannr-demo.zip

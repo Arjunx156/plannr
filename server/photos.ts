@@ -43,7 +43,7 @@ export async function readPhoto(req: Request): Promise<{ bytes: Uint8Array; type
   const length = Number(req.headers.get("content-length") ?? 0);
   if (length > MAX_PHOTO_BYTES) throw new HttpError(413, "That photo is too large. Try a smaller one.");
   const bytes = new Uint8Array(await req.arrayBuffer());
-  if (!bytes.length) throw new HttpError(400, "The photo didn't come through");
+  if (bytes.length === 0) throw new HttpError(400, "The photo didn't come through");
   if (bytes.length > MAX_PHOTO_BYTES) throw new HttpError(413, "That photo is too large. Try a smaller one.");
   const type = imageType(bytes);
   if (!type) throw new HttpError(415, "Plannr takes JPG, PNG or WebP photos");

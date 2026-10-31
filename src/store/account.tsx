@@ -56,7 +56,8 @@ export function AccountSync() {
 
   useEffect(() => {
     let live = true;
-    api.methods().then((methods) => live && dispatch({ type: "methods", methods }));
+    // methods() answers with every option off when the server can't be reached; it never rejects.
+    void api.methods().then((methods) => live && dispatch({ type: "methods", methods }));
     api
       .me()
       .then(async (user) => {

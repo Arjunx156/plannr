@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { AddImages, InspirationTile, imagesFrom } from "../../components/intake";
 import { addOnce, Block, type StepProps, toggle } from "./fields";
 
 /** The look-and-feel step: mood words, colours and inspiration images or links. */
@@ -106,54 +107,29 @@ function Colours({ p, set }: StepProps) {
 
 function Inspiration({ p, set, previews, addPreviews }: StepProps) {
   const [link, setLink] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
-  /** Previews chosen or dropped images on this device; the profile keeps their names. */
-  const addImages = (files: Iterable<File>) => {
-    const added = [...files]
-      .filter((f) => f.type.startsWith("image/"))
-      .map((f) => ({ name: f.name, url: URL.createObjectURL(f) }));
+  const addImages = (files: FileList) => {
+    const added = imagesFrom(files);
     addPreviews(added);
     set({ inspiration: [...p.inspiration, ...added.map((a) => a.name)] });
   };
   return (
     <Block label="Inspiration">
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(4,minmax(0,1fr))_minmax(0,1.4fr)]">
-        {p.inspiration.slice(-3).map((name) => {
-          const img = previews.find((i) => i.name === name);
-          return (
-            <div
-              key={name}
-              className="hatch relative flex h-[110px] items-end overflow-hidden rounded-[10px] p-2 font-mono text-[10px] leading-[1.2] font-medium break-all text-muted"
-            >
-              {img ? (
-                <img src={img.url} alt={name} className="absolute inset-0 h-full w-full object-cover" />
-              ) : (
-                name
-              )}
-            </div>
-          );
-        })}
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={(e) => addImages(e.target.files ?? [])}
-        />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            addImages(e.dataTransfer.files);
-          }}
-          className="flex h-[110px] flex-col items-center justify-center gap-1 rounded-[10px] border-[1.5px] border-dashed border-line-2 text-[13px] font-medium text-body hover:border-ink"
+        {p.inspiration.slice(-3).map((name) => (
+          <InspirationTile
+            key={name}
+            name={name}
+            url={previews.find((i) => i.name === name)?.url}
+            className="h-[110px] rounded-[10px] p-2 text-[10px]"
+          />
+        ))}
+        <AddImages
+          onAdd={addImages}
+          className="flex h-[110px] flex-col items-center justify-center gap-1 rounded-[10px] text-[13px]"
         >
           <span>Upload</span>
-          <span className="text-[11px] text-muted">or drop images</span>
-        </button>
+          <span className="text-xs text-muted">or drop images</span>
+        </AddImages>
         <form
           className="col-span-2 flex flex-col justify-center gap-1.5 sm:col-span-1"
           onSubmit={(e) => {

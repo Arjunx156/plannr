@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { EventAction } from "../shared/engine";
 import { chosenActions, type Ripple } from "../shared/ripple";
 import { toast, useStore } from "../store/store";
-import { Modal } from "./ui";
+import { Modal } from "./overlays";
 
 /**
  * The ripple preview: every consequence of a change, each with a tick box, and nothing
@@ -21,7 +21,7 @@ export function RipplePreview({
 }) {
   const { dispatch } = useStore();
   const [kept, setKept] = useState(
-    () => new Set(ripple.lines.filter((l) => l.optional && l.actions.length).map((l) => l.id)),
+    () => new Set(ripple.lines.filter((l) => l.optional && l.actions.length > 0).map((l) => l.id)),
   );
   const actionable = ripple.lines.filter((l) => l.actions.length);
   const apply = (all: boolean) => {
@@ -41,9 +41,7 @@ export function RipplePreview({
         <span className="font-semibold">
           {ripple.title} · {actionable.length} connected {actionable.length === 1 ? "change" : "changes"}
         </span>
-        <span className="rounded-full bg-peacock px-2 py-0.5 text-[11px] font-semibold text-white">
-          Preview
-        </span>
+        <span className="rounded-full bg-peacock px-2 py-0.5 text-xs font-semibold text-white">Preview</span>
       </div>
       <ul className="m-0 flex list-none flex-col p-0">
         {ripple.lines.map((l) => (
@@ -51,7 +49,7 @@ export function RipplePreview({
             key={l.id}
             className="grid grid-cols-[20px_minmax(0,110px)_1fr] items-baseline gap-2 border-t border-peacock-line py-2 text-sm first:border-0"
           >
-            {l.actions.length ? (
+            {l.actions.length > 0 ? (
               <input
                 type="checkbox"
                 aria-label={l.title}

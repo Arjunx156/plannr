@@ -8,16 +8,46 @@
     "rules": {
       "preset": "recommended",
       "complexity": {
-        "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } }
+        "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } },
+        "noExcessiveLinesPerFunction": {
+          "level": "error",
+          "options": { "maxLines": 60, "skipBlankLines": true }
+        }
       },
-      "style": { "noNestedTernary": "error", "noNonNullAssertion": "error" },
-      "suspicious": { "noConsole": { "level": "error", "options": { "allow": ["error", "warn", "info"] } } }
+      "correctness": {
+        "noUnusedFunctionParameters": "error",
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error"
+      },
+      "nursery": { "noFloatingPromises": "error" },
+      "style": {
+        "noNestedTernary": "error",
+        "noNonNullAssertion": "error",
+        "noParameterAssign": "error",
+        "useExplicitLengthCheck": "error",
+        "useFilenamingConvention": "error",
+        "useNodejsImportProtocol": "error"
+      },
+      "suspicious": {
+        "noConsole": { "level": "error", "options": { "allow": ["error", "warn", "info"] } },
+        "noEmptyBlockStatements": "error",
+        "useAwait": "error"
+      }
     }
   },
   "overrides": [
     {
       "includes": ["scripts/**"],
       "linter": { "rules": { "suspicious": { "noConsole": "off" } } }
+    },
+    {
+      "includes": ["tests/**", "e2e/**"],
+      "linter": {
+        "rules": {
+          "complexity": { "noExcessiveLinesPerFunction": "off" },
+          "suspicious": { "useAwait": "off" }
+        }
+      }
     }
   ],
   "css": { "parser": { "tailwindDirectives": true } },

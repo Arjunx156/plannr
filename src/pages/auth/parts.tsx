@@ -1,6 +1,6 @@
 import { Link } from "react-router";
-import { saveHint } from "../../components/shell";
-import { Kolam, Logo, Toran } from "../../components/ui";
+import { saveHint } from "../../components/accountMenu";
+import { Kolam, Logo, Toran } from "../../components/brand";
 import type { Profile } from "../../data/types";
 import { longDate } from "../../lib/dates";
 import { inr } from "../../lib/format";

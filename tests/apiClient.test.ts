@@ -24,7 +24,7 @@ beforeAll(async () => {
     if (!online) throw new TypeError("Failed to fetch");
     const headers = new Headers(init?.headers);
     headers.set("origin", ORIGIN);
-    if (jar.size) headers.set("cookie", [...jar].map(([k, v]) => `${k}=${v}`).join("; "));
+    if (jar.size > 0) headers.set("cookie", [...jar].map(([k, v]) => `${k}=${v}`).join("; "));
     const res = await app.request(String(input), { ...init, headers });
     for (const cookie of res.headers.getSetCookie()) {
       const [pair = ""] = cookie.split(";");

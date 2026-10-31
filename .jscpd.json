@@ -1,0 +1,6 @@
+{
+  "format": ["typescript", "tsx"],
+  "ignore": ["**/data/demo/**"],
+  "reporters": ["console"],
+  "exitCode": 1
+}

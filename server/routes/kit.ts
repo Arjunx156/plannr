@@ -1,9 +1,10 @@
 import type { Context, Hono } from "hono";
 import type { BlankSchema } from "hono/types";
 import type { z } from "zod";
-import { type AiConfig, MAX_BODY } from "../ai";
+import { MAX_BODY } from "../ai";
 import type { Auth, AuthEnv } from "../auth";
 import type { Db } from "../db/types";
+import type { AiConfig } from "../gemini";
 import { HttpError } from "../plans";
 import type { PushSender } from "../reminders";
 
@@ -34,8 +35,8 @@ export interface RouteDeps {
   push: PushSender | undefined;
   /** Stores an uploaded photo for an event and returns its address. */
   store: (eventId: string, req: Request) => Promise<string>;
-  /** A burst limiter per server instance, keyed by purpose and address. */
-  allow: (key: string) => boolean;
+  /** A burst limiter shared by every server instance, keyed by purpose and address. */
+  allow: (key: string) => Promise<boolean>;
 }
 
 /** The caller's address, as Vercel's proxy reports it. */

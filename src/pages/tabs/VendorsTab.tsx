@@ -1,16 +1,19 @@
 import { useMemo, useState } from "react";
+import { Modal } from "../../components/overlays";
 import { RippleDialog } from "../../components/ripple";
-import { useEditable } from "../../components/tasks";
-import { Modal } from "../../components/ui";
-import type { PlannrEvent, Quote, Vendor } from "../../data/types";
+import { useEditable } from "../../components/taskHooks";
+import type { PlannrEvent } from "../../data/types";
+import type { Quote, Vendor, VendorStage } from "../../data/vendorTypes";
 import { dayMonth, TODAY } from "../../lib/dates";
 import { inr } from "../../lib/format";
+import { bookingRipple } from "../../shared/bookingRipple";
 import { quoteTotal, STAGE_LABEL } from "../../shared/derive";
 import { type ChecklistItem, checklistProgress, vendorChecklist } from "../../shared/planning";
 import { list } from "../../shared/records";
-import { bookingRipple, type Ripple } from "../../shared/ripple";
+import type { Ripple } from "../../shared/ripple";
 import { useStore } from "../../store/store";
-import { newId, Section, Stat, TabPage } from "./common";
+import { newId } from "./ids";
+import { Section, Stat, TabPage } from "./layout";
 import { Compare } from "./vendors/Compare";
 import { guestsOf, STAGES } from "./vendors/shared";
 import { AddVendor, VendorSheet } from "./vendors/VendorSheet";
@@ -35,60 +38,26 @@ export function VendorsTab({ ev }: { ev: PlannrEvent }) {
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [ripple, setRipple] = useState<Ripple | null>(null);
-  const booked = vendors.filter((v) => v.stage === "booked");
-  const categories = [...new Set(vendors.map((v) => v.category))];
-  // Worth comparing: a category with more than one quote, from one shortlist or several vendors.
-  const comparable = categories.filter(
-    (c) => vendors.filter((v) => v.category === c).reduce((n, v) => n + v.quotes.length, 0) > 1,
+  const add = (v: Vendor) => {
+    dispatch({ type: "addRecord", eventId: ev.id, coll: "vendors", record: v });
+    setOpen(v.id);
+  };
+  const addButton = editable && (
+    <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
+      + Add a vendor
+    </button>
   );
-  const current = vendors.find((v) => v.id === open);
-  const committed = booked.reduce((s, v) => s + (bestQuote(ev, v)?.total ?? 0), 0);
 
   return (
-    <TabPage
-      eyebrow={ev.name}
-      title="Vendors"
-      wide
-      aside={
-        editable && (
-          <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
-            + Add a vendor
-          </button>
-        )
-      }
-    >
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {STAGES.map((s) => (
-          <Stat
-            key={s}
-            label={STAGE_LABEL[s]}
-            value={vendors.filter((v) => v.stage === s).length}
-            sub={
-              s === "booked" && committed
-                ? `${inr(committed)} committed`
-                : vendors
-                    .filter((v) => v.stage === s)
-                    .map((v) => v.category)
-                    .slice(0, 3)
-                    .join(", ") || "—"
-            }
-            tone={s === "booked" ? "text-leaf-ink" : undefined}
-          />
-        ))}
-      </div>
-
+    <TabPage eyebrow={ev.name} title="Vendors" wide aside={addButton}>
+      <StageStats ev={ev} vendors={vendors} />
       <Checklist
         ev={ev}
         editable={editable}
         onOpen={setOpen}
-        onAdd={(category) => {
-          const v: Vendor = { id: newId("v"), category, name: "", stage: "needed", quotes: [] };
-          dispatch({ type: "addRecord", eventId: ev.id, coll: "vendors", record: v });
-          setOpen(v.id);
-        }}
+        onAdd={(category) => add({ id: newId("v"), category, name: "", stage: "needed", quotes: [] })}
       />
-
-      {comparable.map((c) => (
+      {comparable(vendors).map((c) => (
         <Compare
           key={c}
           ev={ev}
@@ -98,52 +67,10 @@ export function VendorsTab({ ev }: { ev: PlannrEvent }) {
           onOpen={setOpen}
         />
       ))}
-
-      <div className="grid gap-4 lg:grid-cols-4">
-        {STAGES.map((stage) => {
-          const items = vendors.filter((v) => v.stage === stage);
-          return (
-            <section
-              key={stage}
-              aria-label={STAGE_LABEL[stage]}
-              className="flex min-w-0 flex-col gap-2 rounded-2xl border border-line bg-surface p-3.5"
-            >
-              <h2 className="eyebrow text-muted">
-                {STAGE_LABEL[stage]} · {items.length}
-              </h2>
-              <ul className="m-0 flex list-none flex-col gap-2 p-0">
-                {items.map((v) => {
-                  const b = bestQuote(ev, v);
-                  return (
-                    <li key={v.id}>
-                      <button
-                        type="button"
-                        onClick={() => setOpen(v.id)}
-                        className="flex w-full flex-col gap-0.5 rounded-xl bg-sand p-3 text-left text-sm hover:bg-sand-2"
-                      >
-                        <span className="font-semibold">{v.category}</span>
-                        <span className="text-body">{v.name || "Still looking"}</span>
-                        {b && (
-                          <span className="text-xs tabular text-muted">
-                            {inr(b.total)}
-                            {b.q.perGuest ? ` · ${inr(b.q.amount)} a plate` : ""}
-                            {v.quotes.length > 1 ? ` · ${v.quotes.length} quotes` : ""}
-                          </span>
-                        )}
-                      </button>
-                    </li>
-                  );
-                })}
-                {!items.length && <li className="text-xs text-muted">None</li>}
-              </ul>
-            </section>
-          );
-        })}
-      </div>
-
+      <Board ev={ev} vendors={vendors} onOpen={setOpen} />
       <VendorSheet
         ev={ev}
-        vendor={current}
+        vendor={vendors.find((v) => v.id === open)}
         editable={editable}
         onClose={() => setOpen(null)}
         onBook={(v, q) => setRipple(bookingRipple(ev, v.id, q?.id))}
@@ -152,14 +79,105 @@ export function VendorsTab({ ev }: { ev: PlannrEvent }) {
         <AddVendor
           ev={ev}
           onAdd={(v) => {
-            dispatch({ type: "addRecord", eventId: ev.id, coll: "vendors", record: v });
             setAdding(false);
-            setOpen(v.id);
+            add(v);
           }}
         />
       </Modal>
       <RippleDialog ripple={ripple} onClose={() => setRipple(null)} />
     </TabPage>
+  );
+}
+
+/** Categories worth comparing: more than one quote, from one shortlist or several vendors. */
+function comparable(vendors: Vendor[]): string[] {
+  const quotes = new Map<string, number>();
+  for (const v of vendors) quotes.set(v.category, (quotes.get(v.category) ?? 0) + v.quotes.length);
+  return [...quotes].filter(([, n]) => n > 1).map(([c]) => c);
+}
+
+/** How many vendors sit at each stage, with the money committed to the booked ones. */
+function StageStats({ ev, vendors }: { ev: PlannrEvent; vendors: Vendor[] }) {
+  const at = (s: VendorStage) => vendors.filter((v) => v.stage === s);
+  const committed = at("booked").reduce((s, v) => s + (bestQuote(ev, v)?.total ?? 0), 0);
+  const sub = (s: VendorStage) =>
+    s === "booked" && committed
+      ? `${inr(committed)} committed`
+      : at(s)
+          .map((v) => v.category)
+          .slice(0, 3)
+          .join(", ") || "—";
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {STAGES.map((s) => (
+        <Stat
+          key={s}
+          label={STAGE_LABEL[s]}
+          value={at(s).length}
+          sub={sub(s)}
+          tone={s === "booked" ? "text-leaf-ink" : undefined}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** One column per stage, each vendor a card with its best price. */
+function Board({
+  ev,
+  vendors,
+  onOpen,
+}: {
+  ev: PlannrEvent;
+  vendors: Vendor[];
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-4">
+      {STAGES.map((stage) => {
+        const items = vendors.filter((v) => v.stage === stage);
+        return (
+          <section
+            key={stage}
+            aria-label={STAGE_LABEL[stage]}
+            className="flex min-w-0 flex-col gap-2 rounded-2xl border border-line bg-surface p-3.5"
+          >
+            <h2 className="eyebrow text-muted">
+              {STAGE_LABEL[stage]} · {items.length}
+            </h2>
+            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+              {items.map((v) => (
+                <VendorCard key={v.id} ev={ev} v={v} onOpen={() => onOpen(v.id)} />
+              ))}
+              {items.length === 0 && <li className="text-xs text-muted">None</li>}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function VendorCard({ ev, v, onOpen }: { ev: PlannrEvent; v: Vendor; onOpen: () => void }) {
+  const b = bestQuote(ev, v);
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full flex-col gap-0.5 rounded-xl bg-sand p-3 text-left text-sm hover:bg-sand-2"
+      >
+        <span className="font-semibold">{v.category}</span>
+        <span className="text-body">{v.name || "Still looking"}</span>
+        {b && (
+          <span className="text-xs tabular text-muted">
+            {inr(b.total)}
+            {b.q.perGuest ? ` · ${inr(b.q.amount)} a plate` : ""}
+            {v.quotes.length > 1 ? ` · ${v.quotes.length} quotes` : ""}
+          </span>
+        )}
+      </button>
+    </li>
   );
 }
 

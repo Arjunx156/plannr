@@ -94,7 +94,7 @@ function VendorGroup({
         {label} · {items.length}
       </span>
       <div className="flex flex-wrap gap-1.5">
-        {items.length ? (
+        {items.length > 0 ? (
           items.map((v) => (
             <Pill key={v} tone={tone}>
               {v}

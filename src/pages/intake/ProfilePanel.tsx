@@ -1,6 +1,7 @@
-import { useRef } from "react";
+import { AddImages, type ImagePreview, InspirationTile } from "../../components/intake";
 import type { Profile } from "../../data/types";
-import { profileRows, type QuestionField } from "../../lib/intake";
+import type { QuestionField } from "../../lib/intakeQuestions";
+import { profileRows } from "../../lib/profileRows";
 
 export function AiMark() {
   return (
@@ -29,13 +30,12 @@ export function ProfilePanel({
 }: {
   profile: Profile;
   asking?: QuestionField;
-  images: { name: string; url: string }[];
+  images: ImagePreview[];
   onAdd: (f: FileList | null) => void;
   onEdit: () => void;
 }) {
   const rows = profileRows(profile, asking);
   const known = rows.filter((r) => r.state === "ok").length;
-  const fileRef = useRef<HTMLInputElement>(null);
   const tiles = profile.inspiration.slice(0, 5);
   return (
     <aside
@@ -72,35 +72,20 @@ export function ProfilePanel({
         ))}
       </dl>
       <div className="mt-0.5 grid grid-cols-3 gap-1.5">
-        {tiles.map((name) => {
-          const img = images.find((i) => i.name === name);
-          return (
-            <div
-              key={name}
-              className="hatch relative flex aspect-square items-end overflow-hidden rounded-lg p-1.5 font-mono text-[9px] leading-[1.2] font-medium text-muted"
-            >
-              {img && (
-                <img src={img.url} alt={name} className="absolute inset-0 h-full w-full object-cover" />
-              )}
-              {!img && <span className="break-all">{name.replace(/^https?:\/\//, "")}</span>}
-            </div>
-          );
-        })}
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={(e) => onAdd(e.target.files)}
-        />
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="flex aspect-square items-center justify-center rounded-lg border-[1.5px] border-dashed border-line-2 text-xs font-medium text-body hover:border-ink hover:text-ink"
+        {tiles.map((name) => (
+          <InspirationTile
+            key={name}
+            name={name}
+            url={images.find((i) => i.name === name)?.url}
+            className="aspect-square rounded-lg p-1.5 text-[9px]"
+          />
+        ))}
+        <AddImages
+          onAdd={onAdd}
+          className="flex aspect-square items-center justify-center rounded-lg text-xs hover:text-ink"
         >
           + Add
-        </button>
+        </AddImages>
       </div>
     </aside>
   );

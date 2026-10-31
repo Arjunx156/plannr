@@ -1,14 +1,17 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { recordError } from "./admin";
-import { type AiConfig, aiConfig, rateLimiter } from "./ai";
+import { MAX_BODY, MAX_READ_BODY } from "./ai";
 import { type Auth, createAuth } from "./auth";
 import type { Db } from "./db/types";
-import { blobStore, readPhoto, type StorePhoto } from "./photos";
+import { type AiConfig, aiConfig } from "./gemini";
+import { sharedLimiter } from "./limits";
+import { blobStore, MAX_PHOTO_BYTES, readPhoto, type StorePhoto } from "./photos";
 import { HttpError } from "./plans";
 import { type PushSender, webPushSender } from "./reminders";
 import { accountRoutes } from "./routes/account";
 import { aiRoutes } from "./routes/ai";
-import { eventRoutes } from "./routes/events";
+import { eventRoutes, MAX_EVENT_BYTES } from "./routes/events";
 import type { Api, AppEnv, RouteDeps, Vars } from "./routes/kit";
 import { publicRoutes } from "./routes/public";
 import { requireSession } from "./routes/session";
@@ -31,7 +34,7 @@ export function createApp(deps: {
 }) {
   const { db, env } = deps;
   const photos = deps.photos ?? blobStore(env.BLOB_READ_WRITE_TOKEN);
-  const limiter = rateLimiter(60, 60000);
+  const limiter = sharedLimiter(db, 60, 60000);
   const routes: RouteDeps = {
     db,
     env,
@@ -46,6 +49,14 @@ export function createApp(deps: {
     allow: (key) => limiter(key),
   };
   const app: Api = new Hono<Vars>().basePath("/api");
+
+  // Bodies are counted as they stream in, so a missing or false Content-Length can't get round the cap.
+  app.use("*", (c, next) =>
+    bodyLimit({
+      maxSize: bodyCap(new URL(c.req.url).pathname),
+      onError: (c) => c.json({ error: "Request too large" }, 413),
+    })(c, next),
+  );
 
   app.onError((err, c) => {
     if (err instanceof HttpError) return c.json({ error: err.message }, err.status as 400);
@@ -68,3 +79,13 @@ export function createApp(deps: {
 }
 
 export type App = ReturnType<typeof createApp>;
+
+/** The most a request body may carry on each kind of route. */
+export function bodyCap(path: string): number {
+  if (path === "/api/ai/read") return MAX_READ_BODY;
+  if (path.startsWith("/api/ai/")) return MAX_BODY;
+  if (path.endsWith("/photo")) return MAX_PHOTO_BYTES;
+  if (path === "/api/events") return MAX_EVENT_BYTES;
+  // Everything else is small JSON: a batch of changes, a comment, a sign-in.
+  return MAX_BODY * 4;
+}

@@ -67,6 +67,11 @@ export function longDate(iso: string): string {
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** "Sun 25 Apr 2027 · 7 PM · Lotus Lawns": the day, then whichever details are known. */
+export function dayLine(iso: string, ...details: (string | false | undefined)[]): string {
+  return [longDate(iso), ...details].filter(Boolean).join(" · ");
+}
+
 /** "Saturday 7 November 2026", for letters. */
 export function fullDate(iso: string): string {
   const d = parseDate(iso);
@@ -86,11 +91,12 @@ export function monthName(iso: string): string {
   return parseDate(iso).toLocaleString("en-IN", { month: "long" });
 }
 
-/** "22–25 Apr 2027", "29 Apr–2 May 2027", "30 Dec 2026–2 Jan 2027" */
+/** "22–25 Apr 2027", "29 Apr–2 May 2027", "30 Dec 2026–2 Jan 2027", or "30 May 2027" for one day */
 export function dateRange(from: string, to: string): string {
   const a = parseDate(from);
   const b = parseDate(to);
   const end = `${b.getDate()} ${MONTHS[b.getMonth()]} ${b.getFullYear()}`;
+  if (from === to) return end;
   if (a.getFullYear() !== b.getFullYear()) return `${plainDate(from)}–${end}`;
   if (a.getMonth() !== b.getMonth()) return `${a.getDate()} ${MONTHS[a.getMonth()]}–${end}`;
   return `${a.getDate()}–${end}`;

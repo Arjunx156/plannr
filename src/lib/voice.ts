@@ -60,7 +60,7 @@ export function listen(
   const Ctor = ctor();
   if (!Ctor) {
     onEnd("unsupported");
-    return () => {};
+    return () => undefined;
   }
   const rec = new Ctor();
   rec.lang = langFor(code);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { PlannrEvent } from "../data/types";
-import { functionsOf } from "../shared/records";
+import { functionsOf } from "../shared/eventLists";
 import type { RainRisk } from "../shared/watch";
 import { addDays, TODAY } from "./dates";
 
@@ -66,9 +66,9 @@ export function useRain(ev: PlannrEvent): RainRisk[] {
   const sig = soon.map((f) => `${f.id}:${f.date}:${f.address ?? f.place}`).join("|");
   // biome-ignore lint/correctness/useExhaustiveDependencies: the signature covers the functions that matter
   useEffect(() => {
-    if (!soon.length || typeof fetch !== "function") return;
+    if (soon.length === 0 || typeof fetch !== "function") return;
     let live = true;
-    (async () => {
+    void (async () => {
       const found: RainRisk[] = [];
       for (const f of soon) {
         const chances = await rainChances(f.address ?? f.place ?? "", TODAY, until).catch(
