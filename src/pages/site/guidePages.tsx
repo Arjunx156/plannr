@@ -1,20 +1,22 @@
+import type { JSX } from "react";
 import { Link } from "react-router";
 import { CallToAction, Prose, SitePage } from "./siteLayout";
 
-function Features({ items }: { items: { t: string; d: string }[] }) {
+function Features({ items }: { items: { title: string; body: string }[] }) {
   return (
     <ul className="m-0 grid list-none gap-4 p-0 sm:grid-cols-2">
       {items.map((f) => (
-        <li key={f.t} className="flex flex-col gap-1.5 rounded-2xl border border-line bg-surface p-5">
-          <span className="font-serif text-[22px] leading-tight">{f.t}</span>
-          <span className="text-[15px] leading-[1.5] text-body">{f.d}</span>
+        <li key={f.title} className="flex flex-col gap-1.5 rounded-2xl border border-line bg-surface p-5">
+          <span className="font-serif text-[22px] leading-tight">{f.title}</span>
+          <span className="text-[15px] text-body leading-[1.5]">{f.body}</span>
         </li>
       ))}
     </ul>
   );
 }
 
-export function Weddings() {
+/** The guide to planning a wedding with Plannr. */
+export function Weddings(): JSX.Element {
   return (
     <SitePage
       title="Plan an Indian wedding"
@@ -27,28 +29,28 @@ export function Weddings() {
       <Features
         items={[
           {
-            t: "One budget, two families",
-            d: "Agree the split once, say 60/40. Every advance is marked with who paid it, and Plannr shows who owes whom and the fewest transfers to settle up.",
+            title: "One budget, two families",
+            body: "Agree the split once, say 60/40. Every advance is marked with who paid it, and Plannr shows who owes whom and the fewest transfers to settle up.",
           },
           {
-            t: "RSVPs by household and function",
-            d: "Each family gets its own link on WhatsApp, in their language. They answer for each function they're invited to, with meal and stay needs, no app or login.",
+            title: "RSVPs by household and function",
+            body: "Each family gets its own link on WhatsApp, in their language. They answer for each function they're invited to, with meal and stay needs, no app or login.",
           },
           {
-            t: "Caterers side by side",
-            d: "Per-plate quotes are multiplied out for your headcount, with what's included and the payment terms. Booking one sets the budget line and the advance and balance dates.",
+            title: "Caterers side by side",
+            body: "Per-plate quotes are multiplied out for your headcount, with what's included and the payment terms. Booking one sets the budget line and the advance and balance dates.",
           },
           {
-            t: "A headcount that moves the plan",
-            d: "When the guest list grows, Plannr previews what it changes: catering, favours, seating and each family's share. Nothing changes until you approve.",
+            title: "A headcount that moves the plan",
+            body: "When the guest list grows, Plannr previews what it changes: catering, favours, seating and each family's share. Nothing changes until you approve.",
           },
           {
-            t: "Seating, rooms and pickups",
-            d: "Drag households onto tables, hold room blocks for out-of-town family, and keep the airport pickups in one list.",
+            title: "Seating, rooms and pickups",
+            body: "Drag households onto tables, hold room blocks for out-of-town family, and keep the airport pickups in one list.",
           },
           {
-            t: "The day itself",
-            d: "A run sheet per function that shifts when you're running late, helper pages for cousins with jobs, entry codes at the gate and a shared photo album.",
+            title: "The day itself",
+            body: "A run sheet per function that shifts when you're running late, helper pages for cousins with jobs, entry codes at the gate and a shared photo album.",
           },
         ]}
       />
@@ -77,7 +79,8 @@ export function Weddings() {
   );
 }
 
-export function Birthdays() {
+/** The guide to planning a birthday with Plannr. */
+export function Birthdays(): JSX.Element {
   return (
     <SitePage
       title="Plan a birthday party"
@@ -90,20 +93,20 @@ export function Birthdays() {
       <Features
         items={[
           {
-            t: "RSVPs with allergy notes",
-            d: "Parents answer from a link and add dietary needs. The headcount and the list of allergies are ready when you order food.",
+            title: "RSVPs with allergy notes",
+            body: "Parents answer from a link and add dietary needs. The headcount and the list of allergies are ready when you order food.",
           },
           {
-            t: "A run sheet for the afternoon",
-            d: "Games, cake and return gifts by the minute, with who's in charge of each. Running late? Shift the rest of the afternoon in one tap.",
+            title: "A run sheet for the afternoon",
+            body: "Games, cake and return gifts by the minute, with who's in charge of each. Running late? Shift the rest of the afternoon in one tap.",
           },
           {
-            t: "Vendors in one place",
-            d: "The cake, the entertainer, the decorator: quotes, payment dates and a UPI link for each, so nothing is paid twice or forgotten.",
+            title: "Vendors in one place",
+            body: "The cake, the entertainer, the decorator: quotes, payment dates and a UPI link for each, so nothing is paid twice or forgotten.",
           },
           {
-            t: "Helpers who know their jobs",
-            d: "Send an aunt her list for the day. She ticks things off from her phone and you see it.",
+            title: "Helpers who know their jobs",
+            body: "Send an aunt her list for the day. She ticks things off from her phone and you see it.",
           },
         ]}
       />
@@ -112,7 +115,8 @@ export function Birthdays() {
   );
 }
 
-export function Community() {
+/** The guide to planning a community event with Plannr. */
+export function Community(): JSX.Element {
   return (
     <SitePage
       title="Plan a community festival"
@@ -125,28 +129,28 @@ export function Community() {
       <Features
         items={[
           {
-            t: "Funds residents can trust",
-            d: "Collections, sponsors and stall fees in one place. A public fund report shows residents what came in and what was spent, live.",
+            title: "Funds residents can trust",
+            body: "Collections, sponsors and stall fees in one place. A public fund report shows residents what came in and what was spent, live.",
           },
           {
-            t: "Expenses the treasurer approves",
-            d: "Committee members claim what they spent; once a treasurer is named, only the treasurer or the owner can approve. Every decision is in the history.",
+            title: "Expenses the treasurer approves",
+            body: "Committee members claim what they spent; once a treasurer is named, only the treasurer or the owner can approve. Every decision is in the history.",
           },
           {
-            t: "Volunteers pick their own shifts",
-            d: "Share one sign-up sheet. Neighbours choose an open slot; the grid fills itself and shows the gaps.",
+            title: "Volunteers pick their own shifts",
+            body: "Share one sign-up sheet. Neighbours choose an open slot; the grid fills itself and shows the gaps.",
           },
           {
-            t: "Stalls and passes",
-            d: "Residents request a stall from a link at the committee's fee. Gate volunteers check passes in from their phones and everyone sees the count.",
+            title: "Stalls and passes",
+            body: "Residents request a stall from a link at the committee's fee. Gate volunteers check passes in from their phones and everyone sees the count.",
           },
           {
-            t: "Permits with the letters written",
-            d: "Police, fire and local-body permissions with their due dates, and the application letters drafted in the right format.",
+            title: "Permits with the letters written",
+            body: "Police, fire and local-body permissions with their due dates, and the application letters drafted in the right format.",
           },
           {
-            t: "Next year starts from this year",
-            d: "Save the festival as a template: tasks, vendors with what they charged, roles and the real costs, with every date moved to next year.",
+            title: "Next year starts from this year",
+            body: "Save the festival as a template: tasks, vendors with what they charged, roles and the real costs, with every date moved to next year.",
           },
         ]}
       />
@@ -164,31 +168,32 @@ export function Community() {
   );
 }
 
-export function HowItWorks() {
+/** How Plannr works, from the first sentence to the day itself. */
+export function HowItWorks(): JSX.Element {
   const steps = [
     {
-      t: "Describe the day",
-      d: "One sentence, typed or spoken, in English, Malayalam, Hindi or Tamil: who it's for, roughly when, how many people and the budget. Plannr asks only what it still needs.",
+      title: "Describe the day",
+      body: "One sentence, typed or spoken, in English, Malayalam, Hindi or Tamil: who it's for, roughly when, how many people and the budget. Plannr asks only what it still needs.",
     },
     {
-      t: "Get a plan you can change",
-      d: "A budget split for your kind of event, tasks worked back from the date, the vendors your traditions need and a guest list structure. Every suggestion says why.",
+      title: "Get a plan you can change",
+      body: "A budget split for your kind of event, tasks worked back from the date, the vendors your traditions need and a guest list structure. Every suggestion says why.",
     },
     {
-      t: "Plan it together",
-      d: "Invite family or the committee as planners or viewers. Everyone sees the same plan; every change shows who made it, and any change can be undone.",
+      title: "Plan it together",
+      body: "Invite family or the committee as planners or viewers. Everyone sees the same plan; every change shows who made it, and any change can be undone.",
     },
     {
-      t: "Changes are previewed first",
-      d: "Ask the assistant to move a function or plan for more guests, or accept something Plannr noticed. You see everything it would change, and nothing moves until you approve.",
+      title: "Changes are previewed first",
+      body: "Ask the assistant to move a function or plan for more guests, or accept something Plannr noticed. You see everything it would change, and nothing moves until you approve.",
     },
     {
-      t: "Share pages, not spreadsheets",
-      d: "Households answer the RSVP from their own link. Vendors get a call sheet, helpers their jobs, volunteers a sign-up sheet. Each link shows only what that person needs.",
+      title: "Share pages, not spreadsheets",
+      body: "Households answer the RSVP from their own link. Vendors get a call sheet, helpers their jobs, volunteers a sign-up sheet. Each link shows only what that person needs.",
     },
     {
-      t: "Run the day from your phone",
-      d: "The run sheet, check-in at the gate, the day's checklist and the shared album, all working without a signal.",
+      title: "Run the day from your phone",
+      body: "The run sheet, check-in at the gate, the day's checklist and the shared album, all working without a signal.",
     },
   ];
   return (
@@ -201,10 +206,10 @@ export function HowItWorks() {
     >
       <ol className="m-0 grid list-none gap-4 p-0 md:grid-cols-2 lg:grid-cols-3">
         {steps.map((s, i) => (
-          <li key={s.t} className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-5">
-            <span className="font-mono text-sm text-amber-ink">{String(i + 1).padStart(2, "0")}</span>
-            <span className="font-serif text-[22px] leading-tight">{s.t}</span>
-            <span className="text-[15px] leading-[1.5] text-body">{s.d}</span>
+          <li key={s.title} className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-5">
+            <span className="font-mono text-amber-ink text-sm">{String(i + 1).padStart(2, "0")}</span>
+            <span className="font-serif text-[22px] leading-tight">{s.title}</span>
+            <span className="text-[15px] text-body leading-[1.5]">{s.body}</span>
           </li>
         ))}
       </ol>
@@ -213,7 +218,8 @@ export function HowItWorks() {
   );
 }
 
-export function Pricing() {
+/** What Plannr costs: free, and what that covers. */
+export function Pricing(): JSX.Element {
   return (
     <SitePage
       title="Pricing"

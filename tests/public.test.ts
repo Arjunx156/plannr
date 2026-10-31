@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { seedEvents } from "../src/data/seed";
-import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 import { addDays } from "../src/lib/dates";
 import { functionsOf, vendorsOf } from "../src/shared/eventLists";
 import {
@@ -15,6 +14,7 @@ import {
 } from "../src/shared/public";
 import { projectView } from "../src/shared/publicViews";
 import { list } from "../src/shared/records";
+import { community, personal, present } from "./support";
 
 /**
  * What each shared link shows. Links are opened without an account, so every view must carry
@@ -22,15 +22,17 @@ import { list } from "../src/shared/records";
  */
 
 const events = seedEvents();
-const wedding = events.find((e) => e.id === "ananya-rohan") as PersonalEvent;
-const mela = events.find((e) => e.id === "green-valley-mela") as CommunityEvent;
+const wedding = personal(events.find((e) => e.id === "ananya-rohan"));
+const mela = community(events.find((e) => e.id === "green-valley-mela"));
 
 describe("link lifetimes", () => {
   test("a link works for a month after the last function; the album and fund report for six", () => {
-    const last = functionsOf(wedding)
-      .map((f) => f.date)
-      .sort()
-      .at(-1) as string;
+    const last = present(
+      functionsOf(wedding)
+        .map((f) => f.date)
+        .sort()
+        .at(-1),
+    );
     expect(linkExpiry(wedding, "rsvp")).toBe(addDays(last, 30));
     expect(linkExpiry(wedding, "album")).toBe(addDays(last, 180));
     expect(linkExpiry(mela, "fund")).toBe(addDays(mela.date, 180));

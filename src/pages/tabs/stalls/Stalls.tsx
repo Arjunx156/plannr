@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { Modal } from "../../../components/overlays";
 import { useEditable } from "../../../components/taskHooks";
 import { Pill } from "../../../components/ui";
@@ -14,7 +14,7 @@ import { Passes } from "./Passes";
 import { StallForm } from "./StallForm";
 
 /** Stalls and passes for a community event: requests to decide, fees to collect, passes to issue. */
-export function Stalls({ ev }: { ev: CommunityEvent }) {
+export function Stalls({ ev }: { ev: CommunityEvent }): JSX.Element {
   const { dispatch } = useStore();
   const editable = useEditable(ev);
   const stalls = list(ev, "stalls");
@@ -141,10 +141,10 @@ function Confirmed({ ev, stalls, editable }: ListProps) {
       {stalls
         .filter((s) => s.status === "confirmed")
         .map((s) => (
-          <li key={s.id} className="flex items-center gap-2 border-t border-sand-2 py-2 text-sm">
+          <li key={s.id} className="flex items-center gap-2 border-sand-2 border-t py-2 text-sm">
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="font-medium">{s.name}</span>
-              <span className="text-xs text-muted">
+              <span className="text-muted text-xs">
                 {s.owner}
                 {s.category ? ` · ${s.category}` : ""}
               </span>

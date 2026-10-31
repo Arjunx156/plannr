@@ -1,11 +1,14 @@
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
+import { cssVars } from "../../components/cssVars";
 import { Field } from "../../components/fields";
 import { Menu, MenuDivider, MenuItem, Modal } from "../../components/overlays";
 import { PreviewCard } from "../../components/proposalCard";
-import { Avatar, Bar, HUE_COLOR, Panel, Pill, Spinner, StatTile } from "../../components/ui";
+import { Avatar, Bar, Panel, Pill, Spinner, StatTile, SWATCH_BG } from "../../components/ui";
 import type { Hue } from "../../data/baseTypes";
 import type { Preview } from "../../data/messageTypes";
 import { toast, useStore } from "../../store/store";
+
+const HUES: Hue[] = ["marigold", "indigo", "leaf", "maroon"];
 
 /**
  * Every shared building block on one page, on paper and in the lamp-lit night theme,
@@ -44,12 +47,13 @@ const SAMPLE: Preview = {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-mono text-xs font-medium tracking-[0.08em] text-muted uppercase">{title}</h2>
+      <h2 className="font-medium font-mono text-muted text-xs uppercase tracking-[0.08em]">{title}</h2>
       {children}
     </section>
   );
 }
-export function Specimens() {
+/** Every shared component in its states, for the gallery page. */
+export function Specimens(): JSX.Element {
   const { dispatch } = useStore();
   const [modal, setModal] = useState(false);
   const [chip, setChip] = useState("Food");
@@ -60,8 +64,8 @@ export function Specimens() {
           {COLORS.map(([name, role]) => (
             <li key={name} className="flex flex-col gap-1 text-xs">
               <span
-                className="h-12 rounded-lg border border-line"
-                style={{ background: `var(--color-${name})` }}
+                ref={cssVars({ "--c": `var(--color-${name})` })}
+                className="h-12 rounded-lg border border-line bg-(--c)"
               />
               <span className="font-semibold text-ink">{name}</span>
               <span className="text-muted">{role}</span>
@@ -69,9 +73,9 @@ export function Specimens() {
           ))}
         </ul>
         <div className="flex flex-wrap gap-2">
-          {(Object.keys(HUE_COLOR) as Hue[]).map((h) => (
+          {HUES.map((h) => (
             <span key={h} className="flex items-center gap-2 text-sm">
-              <span className="h-3 w-3 rounded-full" style={{ background: HUE_COLOR[h] }} />
+              <span className={`h-3 w-3 rounded-full ${SWATCH_BG[h]}`} />
               {h}
             </span>
           ))}
@@ -82,9 +86,9 @@ export function Specimens() {
         <div className="flex flex-col gap-2">
           <span className="font-serif text-[48px] leading-none">Ananya &amp; Rohan</span>
           <span className="font-serif text-[28px] leading-tight">Everything connected</span>
-          <span className="text-lg font-semibold">Pay the venue balance, ₹1,20,000</span>
+          <span className="font-semibold text-lg">Pay the venue balance, ₹1,20,000</span>
           <span className="text-base text-body">Running text sits at 16px with room to breathe.</span>
-          <span className="font-mono text-xs font-medium tracking-[0.06em] uppercase">
+          <span className="font-medium font-mono text-xs uppercase tracking-[0.06em]">
             Sun 25 Apr · 10:42 am
           </span>
         </div>
@@ -156,7 +160,7 @@ export function Specimens() {
           <Field
             label="Package price (₹)"
             htmlFor="g-price"
-            hint={<span className="text-xs text-muted">Whole rupees</span>}
+            hint={<span className="text-muted text-xs">Whole rupees</span>}
           >
             <input id="g-price" className="field" inputMode="numeric" defaultValue="2,40,000" />
           </Field>
@@ -165,24 +169,12 @@ export function Specimens() {
 
       <Section title="Numbers">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatTile
-            label="Readiness"
-            value="41%"
-            sub="2 overdue tasks"
-            bar={0.41}
-            color="var(--color-peacock)"
-          />
-          <StatTile label="Budget" value="₹6.85L" sub="spent of ₹18L" bar={0.38} color="var(--color-leaf)" />
+          <StatTile label="Readiness" value="41%" sub="2 overdue tasks" bar={0.41} fill="peacock" />
+          <StatTile label="Budget" value="₹6.85L" sub="spent of ₹18L" bar={0.38} fill="leaf" />
           <StatTile label="Tasks" value="22/71" sub="10 open on the list" bar={0.31} />
-          <StatTile
-            label="Guests"
-            value="96"
-            sub="confirmed of 268"
-            bar={0.36}
-            color="var(--color-marigold)"
-          />
+          <StatTile label="Guests" value="96" sub="confirmed of 268" bar={0.36} fill="marigold" />
         </div>
-        <Bar value={0.62} color="var(--color-peacock)" label="Example progress" />
+        <Bar value={0.62} fill="peacock" label="Example progress" />
       </Section>
 
       <Section title="Panels, previews and people">
@@ -251,7 +243,7 @@ export function Specimens() {
           <span className="shimmer h-3 w-40 rounded" />
         </div>
         <Modal open={modal} onClose={() => setModal(false)} title="Book the photographer">
-          <p className="m-0 text-sm text-body">
+          <p className="m-0 text-body text-sm">
             Modals use the native dialog: focus trap and Escape come with it.
           </p>
           <button type="button" className="btn btn-primary self-start" onClick={() => setModal(false)}>

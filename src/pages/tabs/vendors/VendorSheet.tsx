@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { bindText, Field, TextField } from "../../../components/fields";
 import { Modal } from "../../../components/overlays";
 import { Pill } from "../../../components/ui";
@@ -15,7 +15,7 @@ import { STAGE_TONE, STAGES } from "./shared";
 import { type PatchVendor, VendorDetails } from "./vendorDetails";
 
 /** Adds a vendor or a category still to find. */
-export function AddVendor({ ev, onAdd }: { ev: PlannrEvent; onAdd: (v: Vendor) => void }) {
+export function AddVendor({ ev, onAdd }: { ev: PlannrEvent; onAdd: (v: Vendor) => void }): JSX.Element {
   const cats = ev.layout === "personal" ? ev.budget.categories : [];
   const [form, setForm] = useState({ category: "", name: "", phone: "", categoryId: "" });
   const field = bindText(form, setForm);
@@ -63,6 +63,7 @@ export function AddVendor({ ev, onAdd }: { ev: PlannrEvent; onAdd: (v: Vendor) =
   );
 }
 
+/** One vendor's details: stage, quotes, payments and notes. */
 export function VendorSheet({
   ev,
   vendor,
@@ -75,7 +76,7 @@ export function VendorSheet({
   editable: boolean;
   onClose: () => void;
   onBook: (v: Vendor, q?: Quote) => void;
-}) {
+}): JSX.Element {
   return (
     <Modal
       open={!!vendor}

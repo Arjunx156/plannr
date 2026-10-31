@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { useEditable } from "../../components/taskHooks";
 import type { Household } from "../../data/guestTypes";
 import type { PlannrEvent } from "../../data/types";
@@ -19,7 +19,7 @@ import { Pickups, Rooms } from "./guests/staySections";
 import { Stat, TabPage } from "./layout";
 
 /** The guest list: answers, headcount by function, invitations, seating, rooms and pickups. */
-export function GuestsTab({ ev }: { ev: PlannrEvent }) {
+export function GuestsTab({ ev }: { ev: PlannrEvent }): JSX.Element {
   const { dispatch } = useStore();
   const editable = useEditable(ev);
   const households = list(ev, "households");

@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { seedEvents } from "../src/data/seed";
-import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../src/data/types";
 import { addDays } from "../src/lib/dates";
 import { list } from "../src/shared/records";
 import { fromTemplate, shiftDates, toTemplate } from "../src/shared/templates";
+import { community, personal, present } from "./support";
 
 const events = seedEvents();
-const wedding = events.find((e) => e.id === "ananya-rohan") as PersonalEvent;
-const mela = events.find((e) => e.id === "green-valley-mela") as CommunityEvent;
-const blank = events.find((e) => e.layout === "empty") as PlannrEvent;
+const wedding = personal(events.find((e) => e.id === "ananya-rohan"));
+const mela = community(events.find((e) => e.id === "green-valley-mela"));
+const blank = present(events.find((e) => e.layout === "empty"));
 
 describe("shiftDates", () => {
   test("moves every ISO date, however deep, and nothing else", () => {
@@ -24,7 +24,7 @@ describe("shiftDates", () => {
 
 describe("toTemplate", () => {
   test("a wedding keeps its shape and real costs, and clears what happened", () => {
-    const t = toTemplate(wedding) as PersonalEvent;
+    const t = personal(toTemplate(wedding));
     expect(t.tasks.list.length).toBe(wedding.tasks.list.length);
     expect(t.tasks.list.every((x) => !x.done)).toBe(true);
     expect(list(t, "households").every((h) => Object.keys(h.rsvp).length === 0 && !h.checkedIn)).toBe(true);
@@ -55,7 +55,7 @@ describe("toTemplate", () => {
   });
 
   test("a mela starts its money, passes and shifts over", () => {
-    const t = toTemplate(mela) as CommunityEvent;
+    const t = community(toTemplate(mela));
     expect(t.funds.sources.every((s) => s.received === 0)).toBe(true);
     expect(t.funds.approvals).toEqual([]);
     expect(list(t, "passes")).toEqual([]);
@@ -77,8 +77,8 @@ describe("fromTemplate", () => {
     const date = addDays(mela.date, 364);
     const next = fromTemplate(toTemplate(mela), { id: "mela-next", name: "Mela next year", date });
     expect(next).toMatchObject({ id: "mela-next", name: "Mela next year", date });
-    const was = (mela as CommunityEvent).tasks.list[0];
-    const now = (next as CommunityEvent).tasks.list[0];
+    const was = community(mela).tasks.list[0];
+    const now = community(next).tasks.list[0];
     if (!was || !now) throw new Error("no tasks");
     expect(now.due).toBe(addDays(was.due, 364));
   });

@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Field } from "../../../components/fields";
 import { Modal } from "../../../components/overlays";
 import type { PlannrEvent } from "../../../data/types";
@@ -7,6 +7,7 @@ import { toast, useStore } from "../../../store/store";
 import { newId } from "../ids";
 import { FunctionPicker, PeopleAndSide, phoneDigits } from "./shared";
 
+/** Adds one household: name, size, contact and the functions they're invited to. */
 export function AddHousehold({
   ev,
   open,
@@ -17,7 +18,7 @@ export function AddHousehold({
   open: boolean;
   onClose: () => void;
   sides: string[];
-}) {
+}): JSX.Element {
   const { dispatch } = useStore();
   const fns = functionsOf(ev);
   const [name, setName] = useState("");
@@ -88,7 +89,7 @@ export function AddHousehold({
         </Field>
         <FunctionPicker fns={fns} value={functions} onChange={setFunctions} name="hh-fn" />
         {error && (
-          <p role="alert" className="m-0 text-sm font-medium text-rust-ink">
+          <p role="alert" className="m-0 font-medium text-rust-ink text-sm">
             {error}
           </p>
         )}

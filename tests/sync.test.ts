@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import type { PlannrEvent } from "../src/data/types";
 import type { EventAction } from "../src/shared/engine";
 import { SyncQueue } from "../src/store/sync";
 import type { Action } from "../src/store/types";
+import { demo, stubFetch } from "./support";
 
 type Reply = { status: number; body?: unknown } | "offline";
 let replies: ((path: string, init?: RequestInit) => Reply)[] = [];
@@ -15,7 +15,7 @@ beforeEach(() => {
   replies = [];
   store.clear();
   // Each request takes the next reply in line; the last one repeats.
-  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+  stubFetch(async (input: string | URL | Request, init?: RequestInit) => {
     const path = String(input);
     sent.push({
       path,
@@ -26,17 +26,17 @@ beforeEach(() => {
     const r = next ? next(path, init) : { status: 200, body: {} };
     if (r === "offline") throw new TypeError("Failed to fetch");
     return new Response(r.body === undefined ? "" : JSON.stringify(r.body), { status: r.status });
-  }) as typeof fetch;
-  (globalThis as { localStorage?: unknown }).localStorage = {
+  });
+  Reflect.set(globalThis, "localStorage", {
     getItem: (k: string) => store.get(k) ?? null,
     setItem: (k: string, v: string) => void store.set(k, v),
     removeItem: (k: string) => void store.delete(k),
-  };
+  });
 });
 
 afterEach(() => {
   globalThis.fetch = realFetch;
-  delete (globalThis as { localStorage?: unknown }).localStorage;
+  Reflect.deleteProperty(globalThis, "localStorage");
 });
 
 /** Lets queued microtasks and the mocked requests finish. */
@@ -47,7 +47,7 @@ const settle = async () => {
 const tick = (id: string, taskId = "t1"): EventAction => ({ type: "toggleTask", eventId: id, taskId });
 /** What the server sends back: only the id matters to the queue. */
 const saved = (id: string, version: number) => ({
-  event: { id } as unknown as PlannrEvent,
+  event: { ...demo().empty, id },
   version,
   role: "owner" as const,
   side: null,

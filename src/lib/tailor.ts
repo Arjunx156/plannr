@@ -88,7 +88,7 @@ export function geminiVendors(proposed: NonNullable<PlanNotes["vendors"]>): Draf
  * The draft with Gemini's budget, timeline and vendors wherever they pass the checks above. Each part
  * falls back to Plannr's standard draft on its own, and `byGemini` says which is which.
  */
-export function tailorPlan(base: PlanDraft, notes: PlanNotes | undefined, today = TODAY): PlanDraft {
+export function tailorPlan(base: PlanDraft, notes: PlanNotes | undefined, today: string = TODAY): PlanDraft {
   if (!notes) return base;
   const lines = geminiBudget(base.budget.total, notes.budget ?? []);
   const timeline = geminiTimeline(notes.timeline ?? [], today, base.date);

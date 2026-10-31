@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { checkPlan, parseAction } from "../server/validate";
 import { seedEvents } from "../src/data/seed";
-import type { PersonalEvent } from "../src/data/types";
 import { EVENT_ACTION_TYPES } from "../src/shared/engine";
+import { personal } from "./support";
 
-const wedding = () => structuredClone(seedEvents()[0] as PersonalEvent);
+const wedding = () => structuredClone(personal(seedEvents()[0]));
 const error = (r: { ok: boolean; error?: string }) => (r.ok ? undefined : r.error);
 
 describe("single changes", () => {
@@ -31,7 +31,7 @@ describe("single changes", () => {
 
   test("unknown fields are dropped from a change", () => {
     const out = parseAction({ type: "toggleTask", taskId: "t1", sneaky: "<script>" });
-    expect(out.ok && (out.action as unknown)).toEqual({ type: "toggleTask", taskId: "t1" });
+    expect<unknown>(out.ok && out.action).toEqual({ type: "toggleTask", taskId: "t1" });
   });
 
   test("an assistant message is bounded, proposals included", () => {

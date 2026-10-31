@@ -1,3 +1,8 @@
+/** One lakh rupees: ₹1,00,000. */
+export const LAKH = 100_000;
+/** One crore rupees: ₹1,00,00,000. */
+export const CRORE: number = 100 * LAKH;
+
 const inrFormat = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
 
 /** ₹18,00,000 — Indian lakh grouping. */
@@ -15,8 +20,8 @@ export function inrSigned(amount: number): string {
 /** ₹6.85L, ₹18L, ₹2.5L for lakhs; full figures below one lakh. */
 export function inrShort(amount: number): string {
   const abs = Math.abs(amount);
-  if (abs < 100000) return inr(amount);
-  const lakhs = abs / 100000;
+  if (abs < LAKH) return inr(amount);
+  const lakhs = abs / LAKH;
   const text = lakhs >= 10 ? trim(lakhs.toFixed(1)) : trim(lakhs.toFixed(2));
   return `${amount < 0 ? "−" : ""}₹${text}L`;
 }
@@ -25,15 +30,18 @@ function trim(n: string): string {
   return n.replace(/\.?0+$/, "");
 }
 
+/** A part of a whole as a whole-number percentage; 0 when there's no whole. */
 export function pct(part: number, whole: number): number {
   if (whole <= 0) return 0;
   return Math.round((part / whole) * 100);
 }
 
+/** A number held between two bounds, 0 to 1 by default. */
 export function clamp(n: number, lo = 0, hi = 1): number {
   return Math.min(hi, Math.max(lo, n));
 }
 
+/** A count with its noun: "1 guest", "3 guests". */
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
@@ -46,6 +54,7 @@ export function initials(name: string): string {
   return (first + last).toUpperCase();
 }
 
+/** Text as a lowercase, hyphenated slug for URLs. */
 export function slug(text: string): string {
   return text
     .toLowerCase()
@@ -57,7 +66,7 @@ export function slug(text: string): string {
 }
 
 /** "just now", "5 min ago", "3 h ago", "yesterday", "4 days ago", then a date. Real time, not the demo's. */
-export function timeAgo(iso: string, now = Date.now()): string {
+export function timeAgo(iso: string, now: number = Date.now()): string {
   const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
   if (s < 45) return "just now";
   if (s < 3600) return `${Math.max(1, Math.round(s / 60))} min ago`;
@@ -70,8 +79,8 @@ export function timeAgo(iso: string, now = Date.now()): string {
 
 /** "l"/"lakh" → 1,00,000; "cr"/"crore" → 1,00,00,000; "k"/"thousand" → 1,000; nothing → 1. */
 function unitMultiplier(unit: string): number {
-  if (unit.startsWith("l")) return 100_000;
-  if (unit.startsWith("c")) return 10_000_000;
+  if (unit.startsWith("l")) return LAKH;
+  if (unit.startsWith("c")) return CRORE;
   return unit ? 1000 : 1;
 }
 

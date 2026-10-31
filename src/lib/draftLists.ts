@@ -2,6 +2,7 @@ import type { Kind } from "../data/baseTypes";
 import type { Profile } from "../data/types";
 import { addDays, parseDate } from "./dates";
 
+/** The vendors a draft should book for this profile, with a note on the season. */
 export function vendorsFor(p: Profile): { list: string[]; note: string } {
   const city = p.city ?? "local";
   const month = p.date ? parseDate(p.date).toLocaleString("en-IN", { month: "long" }) : "the date";
@@ -115,6 +116,7 @@ export interface DraftTask {
   why?: string;
 }
 
+/** A vendor the draft suggests booking, and why. */
 export interface DraftVendor {
   name: string;
   why?: string;

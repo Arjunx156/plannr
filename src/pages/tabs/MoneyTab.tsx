@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { Link } from "react-router";
 import { RippleDialog } from "../../components/ripple";
 import { useEditable } from "../../components/taskHooks";
@@ -20,7 +20,7 @@ import { Split } from "./money/Split";
 import { ReadDocument } from "./ReadDocument";
 
 /** /events/:id/budget — the money: what it costs, what's paid, who owes whom, and gifts in. */
-export function MoneyTab({ ev }: { ev: PlannrEvent }) {
+export function MoneyTab({ ev }: { ev: PlannrEvent }): JSX.Element {
   if (ev.layout !== "personal")
     return (
       <TabPage eyebrow={ev.name} title="Budget">
@@ -106,12 +106,12 @@ function WhatIf({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
   return (
     <Section
       title="What if the guest list changes?"
-      aside={<span className="text-sm text-muted">Planned for {ev.guests}</span>}
+      aside={<span className="text-muted text-sm">Planned for {ev.guests}</span>}
     >
       <div className="flex flex-col gap-2">
         <label htmlFor="whatif-guests" className="flex items-baseline justify-between text-sm">
           <span className="font-medium">Guests</span>
-          <span className="font-serif text-[28px] leading-none tabular">{guests}</span>
+          <span className="tabular font-serif text-[28px] leading-none">{guests}</span>
         </label>
         <input
           id="whatif-guests"
@@ -123,7 +123,7 @@ function WhatIf({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
           onChange={(e) => setGuests(Number(e.target.value))}
           className="w-full accent-[var(--color-peacock)]"
         />
-        <span className="flex justify-between text-xs text-muted">
+        <span className="flex justify-between text-muted text-xs">
           <span>{range.min}</span>
           {replies > 0 && <span>Replies so far point to about {replies}</span>}
           <span>{range.max}</span>
@@ -134,7 +134,7 @@ function WhatIf({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
           {result.deltas.map((d) => (
             <li
               key={d.category}
-              className="flex justify-between gap-3 border-t border-sand-2 py-1.5 first:border-0"
+              className="flex justify-between gap-3 border-sand-2 border-t py-1.5 first:border-0"
             >
               <span>{d.category}</span>
               <span className="tabular">
@@ -142,7 +142,7 @@ function WhatIf({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
               </span>
             </li>
           ))}
-          <li className="flex justify-between gap-3 border-t border-line py-1.5 font-semibold">
+          <li className="flex justify-between gap-3 border-line border-t py-1.5 font-semibold">
             <span>Heading for</span>
             <span className={`tabular ${result.headroom < 0 ? "text-rust-ink" : "text-leaf-ink"}`}>
               {inr(result.projection)} ·{" "}

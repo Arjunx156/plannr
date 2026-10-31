@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Link } from "react-router";
 import { saveHint } from "../../components/accountMenu";
 import { Kolam, Logo, Toran } from "../../components/brand";
@@ -21,7 +22,7 @@ export function AuthAside({
   intro: string;
   plan: PlanDraft | undefined;
   profile: Profile;
-}) {
+}): JSX.Element {
   return (
     <aside className="on-dark relative flex flex-col justify-between gap-10 overflow-hidden bg-maroon p-6 text-cream sm:p-10">
       <Kolam className="kolam" />
@@ -30,23 +31,24 @@ export function AuthAside({
         <Logo size={30} tone="light" to="/" />
       </div>
       <div className="relative flex flex-col gap-[18px]">
-        <h1 className="font-serif text-[clamp(32px,4vw,44px)] leading-[1.08] tracking-[-0.015em] text-white">
+        <h1 className="font-serif text-[clamp(32px,4vw,44px)] text-white leading-[1.08] tracking-[-0.015em]">
           {lead}
         </h1>
         {plan ? (
           <DraftWaiting plan={plan} profile={profile} />
         ) : (
-          <p className="m-0 max-w-[380px] text-[15px] leading-normal text-gold-soft">{intro}</p>
+          <p className="m-0 max-w-[380px] text-[15px] text-gold-soft leading-normal">{intro}</p>
         )}
       </div>
-      <span className="relative text-[13px] leading-[1.4] text-gold-soft">
+      <span className="relative text-[13px] text-gold-soft leading-[1.4]">
         Free for one event. No card needed.
       </span>
     </aside>
   );
 }
 
-export function GoogleButton({ busy, onClick }: { busy: Busy; onClick: () => void }) {
+/** Continue with Google. */
+export function GoogleButton({ busy, onClick }: { busy: Busy; onClick: () => void }): JSX.Element {
   return (
     <button
       type="button"
@@ -61,10 +63,10 @@ export function GoogleButton({ busy, onClick }: { busy: Busy; onClick: () => voi
 }
 
 /** The form's error, announced as it appears. The email field points at it with aria-describedby. */
-export function FormError({ error }: { error: string }) {
+export function FormError({ error }: { error: string }): JSX.Element | null {
   if (!error) return null;
   return (
-    <p id="auth-error" role="alert" className="m-0 text-[13px] font-medium text-rust-ink">
+    <p id="auth-error" role="alert" className="m-0 font-medium text-[13px] text-rust-ink">
       {error}
     </p>
   );
@@ -78,10 +80,10 @@ export function AuthFooter({
 }: {
   variant: Variant;
   query: string;
-  onDemo?: () => void;
-}) {
+  onDemo?: (() => void) | undefined;
+}): JSX.Element {
   return (
-    <div className="flex flex-col gap-1.5 border-t border-line pt-3 text-sm text-body">
+    <div className="flex flex-col gap-1.5 border-line border-t pt-3 text-body text-sm">
       <SwitchLink variant={variant} query={query} />
       {onDemo && (
         <span>
@@ -115,10 +117,10 @@ function DraftWaiting({ plan, profile }: { plan: PlanDraft; profile: Profile }) 
 }
 
 /** A copy of Plannr with no sign-in method configured: the demo still works. */
-export function AccountsOff({ onDemo }: { onDemo: () => void }) {
+export function AccountsOff({ onDemo }: { onDemo: () => void }): JSX.Element {
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5">
-      <p className="m-0 text-[15px] leading-normal text-body">
+      <p className="m-0 text-[15px] text-body leading-normal">
         Accounts aren't switched on for this copy of Plannr yet, so plans can't be saved online. You can still
         try everything with demo data. It stays in this browser.
       </p>
@@ -138,7 +140,7 @@ export function GuestOption({
   methods: SignInMethods;
   busy: Busy;
   onGuest: () => void;
-}) {
+}): JSX.Element {
   return (
     <>
       <Divider />
@@ -146,7 +148,7 @@ export function GuestOption({
         <button type="button" className="btn btn-outline btn-lg w-full" onClick={onGuest} disabled={!!busy}>
           {busy === "guest" ? "Setting things up…" : "Continue as a guest"}
         </button>
-        <span className="text-[13px] leading-[1.4] text-muted">
+        <span className="text-[13px] text-muted leading-[1.4]">
           Nothing to sign up for. Your plans are saved online for this browser. {saveHint(methods)} any time
           to use them on your phone too.
         </span>
@@ -182,7 +184,8 @@ function SwitchLink({ variant, query }: { variant: Variant; query: string }) {
   );
 }
 
-export function Divider() {
+/** The "or" line between sign-in methods. */
+export function Divider(): JSX.Element {
   return (
     <div className="flex items-center gap-3 text-[13px] text-muted">
       <span className="h-px flex-1 bg-line" />

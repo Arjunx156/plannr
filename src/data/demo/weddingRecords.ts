@@ -87,6 +87,7 @@ const SIDE = { A: "Ananya's family", R: "Rohan's family" } as const;
 /** Households not yet sent their invitation, so the guest list shows what's still to do. */
 const NOT_SENT = new Set(["Panicker family, Kollam", "Cricket club friends", "Family friends, Ernakulam"]);
 
+/** The wedding demo's households, built from compact rows. */
 export function households(): Household[] {
   return ROWS.map(([name, side, expected, functions, answer, extra], i) => {
     const rsvp: Household["rsvp"] = {};
@@ -273,6 +274,7 @@ const weddingVendors: Vendor[] = [
   { id: "mehendi-artist", category: "Mehendi artist", name: "", stage: "needed", quotes: [] },
 ];
 
+/** Which budget line, vendor and family each demo payment belongs to. */
 export const WEDDING_PAYMENT_LINKS: Record<string, { categoryId: string; vendorId?: string; by?: string }> = {
   p1: { categoryId: "venue", vendorId: "venue", by: "Ananya's family" },
   p2: { categoryId: "catering", vendorId: "catering", by: "Ananya's family" },
@@ -283,6 +285,7 @@ export const WEDDING_PAYMENT_LINKS: Record<string, { categoryId: string; vendorI
   p7: { categoryId: "catering", vendorId: "catering" },
 };
 
+/** The wedding demo's guests, tables, rooms, vendors and lists. */
 export const weddingRecords: PlanRecords = {
   households: households(),
   tables: Array.from({ length: 28 }, (_, i) => ({

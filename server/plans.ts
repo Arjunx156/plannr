@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { PlannrEvent } from "../src/data/types";
 import { describeAction } from "../src/shared/describeAction";
 import { applyEventAction, type EventAction, QUIET_ACTIONS, stamp } from "../src/shared/engine";
@@ -15,8 +16,8 @@ import type { Db } from "./db/types";
  */
 
 export class HttpError extends Error {
-  readonly status: number;
-  constructor(status: number, message: string) {
+  readonly status: ContentfulStatusCode;
+  constructor(status: ContentfulStatusCode, message: string) {
     super(message);
     this.status = status;
   }
@@ -24,6 +25,7 @@ export class HttpError extends Error {
 
 /** How much each role may do; a higher rank includes everything below it. */
 export const RANK: Record<Role, number> = { viewer: 0, planner: 1, owner: 2 };
+/** How many times a change is retried when another one lands first. */
 export const MAX_RETRIES = 5;
 
 /** The caller's role on a plan, or undefined when they aren't a member. */
@@ -49,6 +51,7 @@ export async function requireRole(db: Db, eventId: string, userId: string, min: 
 
 // ---------------------------------------------------------------- plans
 
+/** Every event the person is a member of, with its version and their role. */
 export async function listPlans(db: Db, userId: string): Promise<PlanSummary[]> {
   const rows = await db
     .select({ event: events.data, version: events.version, role: members.role, side: members.side })
@@ -59,6 +62,7 @@ export async function listPlans(db: Db, userId: string): Promise<PlanSummary[]> 
   return rows;
 }
 
+/** One event, for its members. */
 export async function getPlan(db: Db, eventId: string, userId: string): Promise<PlanSummary> {
   const [row] = await db
     .select({ event: events.data, version: events.version, role: members.role, side: members.side })
@@ -69,12 +73,14 @@ export async function getPlan(db: Db, eventId: string, userId: string): Promise<
   return row;
 }
 
+/** An event's current version, so a client can tell whether it has fallen behind. */
 export async function planVersion(db: Db, eventId: string, userId: string): Promise<number> {
   await requireRole(db, eventId, userId, "viewer");
   const [row] = await db.select({ version: events.version }).from(events).where(eq(events.id, eventId));
   return row?.version ?? 0;
 }
 
+/** Saves a new event with the creator as its owner. */
 export async function createPlan(db: Db, userId: string, event: PlannrEvent): Promise<PlanSummary> {
   const [existing] = await db.select({ id: events.id }).from(events).where(eq(events.id, event.id));
   if (existing) throw new HttpError(409, "An event with this id already exists");
@@ -158,7 +164,7 @@ export async function commit(
   incoming: EventAction[],
   check?: (current: PlannrEvent, action: EventAction) => void,
 ): Promise<{ event: PlannrEvent; version: number }> {
-  const actions = incoming.map((a) => stamp({ ...a, eventId } as EventAction));
+  const actions = incoming.map((a) => stamp({ ...a, eventId }));
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const [row] = await db
       .select({ data: events.data, version: events.version })

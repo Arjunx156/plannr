@@ -29,6 +29,7 @@ export type Projectors = {
 };
 /** First names only: the volunteer sheet is for neighbours, not a directory. */
 const firstName = (name: string) => name.split(" ")[0] ?? name;
+/** A household's invitation page, or undefined when the household is gone. */
 export function rsvpView(ev: Planned, target: string): RsvpView | undefined {
   const h = list(ev, "households").find((x) => x.id === target);
   if (!h) return undefined;
@@ -42,11 +43,13 @@ export function rsvpView(ev: Planned, target: string): RsvpView | undefined {
     entry: saidYes ? entryCode(h.id) : undefined,
   };
 }
+/** The event website, only once it is published. */
 export function siteView(ev: Planned): SiteView | undefined {
   if (!ev.site?.published) return undefined;
   const { published: _published, ...site } = ev.site;
   return { kind: "site", event: basics(ev), site };
 }
+/** A helper's own tasks and the contacts they need. */
 export function helperView(ev: Planned, helper: string): HelperView {
   return {
     kind: "helper",
@@ -71,6 +74,7 @@ function vendorRunsheet(ev: Planned, v: Vendor): VendorView["runsheet"] {
       .map((r) => ({ label: f.label, time: clock(r.time), title: r.title })),
   );
 }
+/** A vendor's call sheet, or undefined when the vendor is gone. */
 export function vendorView(ev: Planned, target: string): VendorView | undefined {
   const v = vendorsOf(ev).find((x) => x.id === target);
   if (!v) return undefined;
@@ -93,6 +97,7 @@ export function vendorView(ev: Planned, target: string): VendorView | undefined 
       .map(({ label, amount, date, paid }) => ({ label, amount, date, paid })),
   };
 }
+/** The volunteer shifts page. */
 export function shiftsView(ev: Community): ShiftsView {
   return {
     kind: "shifts",
@@ -104,6 +109,7 @@ export function shiftsView(ev: Community): ShiftsView {
     })),
   };
 }
+/** The fund report residents see: totals, approved spending and what is pending. */
 export function fundView(ev: Community): FundView {
   const f = fundTotals(ev);
   const pending = ev.funds.approvals.filter((a) => a.status === "pending");
@@ -122,6 +128,7 @@ export function fundView(ev: Community): FundView {
     sponsors: (ev.sponsors ?? []).filter((s) => s.received > 0).map(({ name, tier }) => ({ name, tier })),
   };
 }
+/** The stall booking page: open stalls and the fee. */
 export function stallsView(ev: Community): StallsView {
   const { stalls } = fundTotals(ev);
   const stallList = ev.stallList ?? [];
@@ -135,6 +142,7 @@ export function stallsView(ev: Community): StallsView {
     categories: [...new Set(stallList.map((s) => s.category).filter((c): c is string => !!c))],
   };
 }
+/** The gate check-in list. */
 export function gateView(ev: Community): GateView {
   const { passes } = fundTotals(ev);
   return {

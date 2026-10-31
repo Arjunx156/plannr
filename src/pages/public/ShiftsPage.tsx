@@ -1,10 +1,20 @@
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { Pill } from "../../components/ui";
 import { fill } from "../../lib/guestText";
+import { errorMessage } from "../../shared/guards";
 import type { ShiftsView } from "../../shared/public";
 import { type Act, Card, PublicShell, useLinkLang } from "./shell";
 
-export function ShiftsPage({ view, act, preview }: { view: ShiftsView; act?: Act; preview?: ReactNode }) {
+/** The volunteer page: open shifts, and signing up for one. */
+export function ShiftsPage({
+  view,
+  act,
+  preview,
+}: {
+  view: ShiftsView;
+  act?: Act | undefined;
+  preview?: ReactNode;
+}): JSX.Element {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState("");
   const [done, setDone] = useState<string[]>([]);
@@ -25,7 +35,7 @@ export function ShiftsPage({ view, act, preview }: { view: ShiftsView; act?: Act
       await act([{ type: "assignShift", role, slot, name: clean }]);
       setDone((d) => [...d, `${role} · ${view.slots[slot]}`]);
     } catch (e) {
-      setError((e as Error).message);
+      setError(errorMessage(e));
     }
     setBusy("");
   };
@@ -50,12 +60,12 @@ export function ShiftsPage({ view, act, preview }: { view: ShiftsView; act?: Act
           onChange={(e) => setName(e.target.value)}
         />
         {done.length > 0 && (
-          <p role="status" className="m-0 text-sm text-leaf-ink">
+          <p role="status" className="m-0 text-leaf-ink text-sm">
             {fill(t.youreOn, { list: done.join("; ") })}
           </p>
         )}
         {error && (
-          <p role="alert" className="m-0 text-sm font-medium text-rust-ink">
+          <p role="alert" className="m-0 font-medium text-rust-ink text-sm">
             {error}
           </p>
         )}
@@ -70,11 +80,11 @@ export function ShiftsPage({ view, act, preview }: { view: ShiftsView; act?: Act
               return (
                 <li
                   key={view.slots[i]}
-                  className="flex flex-wrap items-center justify-between gap-2 border-t border-sand-2 py-2.5 text-sm first:border-0"
+                  className="flex flex-wrap items-center justify-between gap-2 border-sand-2 border-t py-2.5 text-sm first:border-0"
                 >
                   <span className="flex flex-col">
                     <span className="font-medium">{view.slots[i]}</span>
-                    <span className="text-xs text-muted">
+                    <span className="text-muted text-xs">
                       {s.names.join(", ") || t.nobody} · {fill(t.ofNeed, { filled: s.filled, need: s.need })}
                     </span>
                   </span>

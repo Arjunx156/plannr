@@ -1,4 +1,15 @@
-import { addDays, dateRange, dayMonth, demoShift, longDate, monthName, shortDate, TODAY } from "../lib/dates";
+import {
+  addDays,
+  dateRange,
+  dayMonth,
+  demoShift,
+  isIsoDate,
+  longDate,
+  monthName,
+  shortDate,
+  TODAY,
+} from "../lib/dates";
+import { mapStrings } from "../shared/guards";
 import { birthday } from "./demo/birthday";
 import { mela } from "./demo/mela";
 import { wedding } from "./demo/wedding";
@@ -22,32 +33,29 @@ const anniversary: EmptyEvent = {
 };
 
 const TOKEN = /\{(long|short|dm|month|range):(\d{4}-\d{2}-\d{2})(?::(\d{4}-\d{2}-\d{2}))?\}/g;
-const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+const TOKEN_FORMAT: Record<string, (from: string, to: string) => string> = {
+  long: longDate,
+  short: shortDate,
+  dm: dayMonth,
+  month: monthName,
+  range: dateRange,
+};
+
+function moveTokens(s: string, days: number): string {
+  return s.replace(TOKEN, (_, kind: string, a: string, b?: string) => {
+    const format = TOKEN_FORMAT[kind] ?? longDate;
+    return format(addDays(a, days), addDays(b ?? a, days));
+  });
+}
 
 /** Moves every date in the demo by `days`, and renders dates written into text from the moved dates. */
 export function freshen<T>(value: T, days: number): T {
-  if (typeof value === "string") {
-    if (ISO.test(value)) return addDays(value, days) as T;
-    return value.replace(TOKEN, (_, kind: string, a: string, b?: string) => {
-      const from = addDays(a, days);
-      if (kind === "range") return dateRange(from, addDays(b ?? a, days));
-      if (kind === "short") return shortDate(from);
-      if (kind === "dm") return dayMonth(from);
-      if (kind === "month") return monthName(from);
-      return longDate(from);
-    }) as T;
-  }
-  if (Array.isArray(value)) return value.map((v) => freshen(v, days)) as T;
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) out[k] = freshen(v, days);
-    return out as T;
-  }
-  return value;
+  return mapStrings(value, (s) => (isIsoDate(s) ? addDays(s, days) : moveTokens(s, days)));
 }
 
 /** The demo events, moved so the story starts today. */
-export function seedEvents(today = TODAY): PlannrEvent[] {
+export function seedEvents(today: string = TODAY): PlannrEvent[] {
   return freshen([wedding, birthday, mela, anniversary], demoShift(today));
 }
 
@@ -56,7 +64,8 @@ export function pastEvents(): PastEvent[] {
   return structuredClone(PAST_EVENTS);
 }
 
-export function seedNotifications(today = TODAY): NotificationItem[] {
+/** The demo's notifications, moved to this week. */
+export function seedNotifications(today: string = TODAY): NotificationItem[] {
   return freshen(NOTIFICATIONS, demoShift(today));
 }
 

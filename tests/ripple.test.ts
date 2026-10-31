@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { seedEvents } from "../src/data/seed";
-import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../src/data/types";
 import { introFor, reply } from "../src/lib/assistant";
 import { budgetTotals } from "../src/lib/metrics";
 import { bookingRipple } from "../src/shared/bookingRipple";
@@ -9,13 +8,14 @@ import { replay } from "../src/shared/engine";
 import { proposalActions, proposalRipple } from "../src/shared/proposals";
 import { list } from "../src/shared/records";
 import { chosenActions, genericRipple, headcountRipple, moveFunctionRipple } from "../src/shared/ripple";
+import { community, personal, present } from "./support";
 
 const TODAY = "2026-09-27";
 const events = seedEvents();
-const wedding = events.find((e) => e.id === "ananya-rohan") as PersonalEvent;
-const birthday = events.find((e) => e.id === "aarav-6") as PersonalEvent;
-const mela = events.find((e) => e.id === "green-valley-mela") as CommunityEvent;
-const empty = events.find((e) => e.layout === "empty") as PlannrEvent;
+const wedding = personal(events.find((e) => e.id === "ananya-rohan"));
+const birthday = personal(events.find((e) => e.id === "aarav-6"));
+const mela = community(events.find((e) => e.id === "green-valley-mela"));
+const empty = present(events.find((e) => e.layout === "empty"));
 
 describe("previewing a change before it applies", () => {
   test("more guests reach every per-guest budget line, the total and each family's share", () => {
@@ -28,8 +28,8 @@ describe("previewing a change before it applies", () => {
     );
     // The headcount itself can't be unticked; its consequences can.
     expect(r.lines.find((l) => l.id === "headcount")?.optional).toBe(false);
-    const all = replay(wedding, chosenActions(r, new Set(r.lines.map((l) => l.id)))) as PersonalEvent;
-    const only = replay(wedding, chosenActions(r, new Set())) as PersonalEvent;
+    const all = personal(replay(wedding, chosenActions(r, new Set(r.lines.map((l) => l.id)))));
+    const only = personal(replay(wedding, chosenActions(r, new Set())));
     expect(all.guests).toBe(wedding.guests + 20);
     expect(only.guests).toBe(wedding.guests + 20);
     expect(budgetTotals(all.budget).projected).toBeGreaterThan(budgetTotals(only.budget).projected);
@@ -59,7 +59,7 @@ describe("previewing a change before it applies", () => {
     const r = moveFunctionRipple(wedding, f.id, date);
     expect(r.lines.map((l) => l.id)).toContain("date");
     expect(r.lines.find((l) => l.id === "vendors")?.warn).toBe(true);
-    const after = replay(wedding, chosenActions(r, new Set(r.lines.map((l) => l.id)))) as PersonalEvent;
+    const after = personal(replay(wedding, chosenActions(r, new Set(r.lines.map((l) => l.id)))));
     expect(after.functions.find((x) => x.id === f.id)?.date).toBe(date);
     expect(moveFunctionRipple(empty, f.id, date).lines).toEqual([]);
   });

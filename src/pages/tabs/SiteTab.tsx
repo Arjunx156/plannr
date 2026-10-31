@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useEditable } from "../../components/taskHooks";
 import { useAiOn } from "../../components/useAiOn";
@@ -36,7 +36,7 @@ function useSiteAddress(eventId: string, enabled: boolean) {
 }
 
 /** The event website: what guests read before the day, in the family's languages. */
-export function SiteTab({ ev }: { ev: PlannrEvent }) {
+export function SiteTab({ ev }: { ev: PlannrEvent }): JSX.Element {
   const { state, dispatch } = useStore();
   const editable = useEditable(ev);
   const site: SiteInfo = (ev.layout !== "empty" && ev.site) || { published: false };
@@ -108,14 +108,14 @@ function SiteStatus({ ev, published, account, children }: StatusProps) {
   );
   return (
     <Section title={published ? "Live" : "Not published yet"} aside={share}>
-      <p className="m-0 text-sm text-body">
+      <p className="m-0 text-body text-sm">
         {published
           ? "Anyone with the address can read it: your story, the schedule, venues with maps and answers to common questions. Family-only functions stay off it, and RSVPs come through each household's own link."
           : "Write your story and check the schedule below, then publish. Nothing is public until you do."}
       </p>
       {children}
       {!account && (
-        <p className="m-0 text-xs text-muted">
+        <p className="m-0 text-muted text-xs">
           In the demo the website opens as a preview. With an account it gets its own address, like
           plannr.app/e/ananya-rohan.
         </p>
@@ -135,13 +135,13 @@ function Schedule({ ev, editable }: { ev: PlannrEvent; editable: boolean }) {
         {functionsOf(ev).map((f) => (
           <li
             key={f.id}
-            className="flex flex-wrap items-center justify-between gap-2 border-t border-sand-2 py-2.5 text-sm first:border-0"
+            className="flex flex-wrap items-center justify-between gap-2 border-sand-2 border-t py-2.5 text-sm first:border-0"
           >
             <span className="flex flex-col">
               <span className="font-semibold">{f.label}</span>
-              <span className="text-xs text-muted">{dayLine(f.date, f.time, f.place)}</span>
+              <span className="text-muted text-xs">{dayLine(f.date, f.time, f.place)}</span>
             </span>
-            <label className="flex items-center gap-2 text-xs font-medium">
+            <label className="flex items-center gap-2 font-medium text-xs">
               <input
                 type="checkbox"
                 className="h-4 w-4 accent-[var(--color-leaf)]"
@@ -154,7 +154,7 @@ function Schedule({ ev, editable }: { ev: PlannrEvent; editable: boolean }) {
           </li>
         ))}
       </ul>
-      <span className="text-xs text-muted">
+      <span className="text-muted text-xs">
         Change dates, venues and dress codes in{" "}
         <Link to={`/events/${ev.id}/settings`} className="link">
           Settings

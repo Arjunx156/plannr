@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Scanner } from "../../../components/scanner";
 import type { Pass } from "../../../data/communityTypes";
 import type { PlannrEvent } from "../../../data/types";
@@ -8,7 +9,7 @@ import { Section } from "../layout";
 import { DOOR_ROWS, Finder, Stepper, scanNote, Tally, useFinder } from "./door";
 
 /** Community passes at the gate: scan the printed QR, or find the flat or name. */
-export function PassCheckIn({ ev, editable }: { ev: PlannrEvent; editable: boolean }) {
+export function PassCheckIn({ ev, editable }: { ev: PlannrEvent; editable: boolean }): JSX.Element | null {
   const { dispatch } = useStore();
   const finder = useFinder();
   const passes = list(ev, "passes");
@@ -48,7 +49,7 @@ export function PassCheckIn({ ev, editable }: { ev: PlannrEvent; editable: boole
           <PassRow key={p.id} p={p} editable={editable} onSet={(n) => set(p.id, n)} />
         ))}
       </ul>
-      <span className="text-xs text-muted">
+      <span className="text-muted text-xs">
         Print the passes from Stalls & passes; each has a QR code.
         {scanNote("search by flat or name")}
       </span>
@@ -62,10 +63,10 @@ export function PassCheckIn({ ev, editable }: { ev: PlannrEvent; editable: boole
 function PassRow({ p, editable, onSet }: { p: Pass; editable: boolean; onSet: (n: number) => void }) {
   const n = p.checkedIn ?? 0;
   return (
-    <li className="flex items-center justify-between gap-2 border-t border-sand-2 py-2 text-sm first:border-0">
+    <li className="flex items-center justify-between gap-2 border-sand-2 border-t py-2 text-sm first:border-0">
       <span className="flex min-w-0 flex-col">
         <span className="font-medium">{p.name}</span>
-        <span className="text-xs text-muted">
+        <span className="text-muted text-xs">
           {n} of {p.count} in
         </span>
       </span>

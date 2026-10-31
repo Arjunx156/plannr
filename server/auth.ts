@@ -7,6 +7,7 @@ import type { SignInMethods } from "../src/shared/types";
 import { user } from "./db/authSchema";
 import { schema } from "./db/schema";
 import type { Db } from "./db/types";
+import type { ServerEnv } from "./env";
 import { moveOwnership } from "./members";
 
 /**
@@ -18,21 +19,25 @@ import { moveOwnership } from "./members";
  * - Google: when GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set.
  */
 
-export interface AuthEnv {
-  BETTER_AUTH_SECRET?: string;
-  BETTER_AUTH_URL?: string;
-  GOOGLE_CLIENT_ID?: string;
-  GOOGLE_CLIENT_SECRET?: string;
-  RESEND_API_KEY?: string;
-  EMAIL_FROM?: string;
-  VERCEL_URL?: string;
-  VERCEL_BRANCH_URL?: string;
-  VERCEL_PROJECT_PRODUCTION_URL?: string;
-  /** "production" on a self-hosted server; Vercel deployments are detected on their own. */
-  PLANNR_ENV?: string;
-}
+/** The settings sign-in reads. */
+export type AuthEnv = Pick<
+  ServerEnv,
+  | "BETTER_AUTH_SECRET"
+  | "BETTER_AUTH_URL"
+  | "GOOGLE_CLIENT_ID"
+  | "GOOGLE_CLIENT_SECRET"
+  | "RESEND_API_KEY"
+  | "EMAIL_FROM"
+  | "VERCEL_URL"
+  | "VERCEL_BRANCH_URL"
+  | "VERCEL_PROJECT_PRODUCTION_URL"
+  | "PLANNR_ENV"
+>;
 
 const DEV_SECRET = "plannr-development-secret-not-for-production-use";
+
+/** Sign-in codes expire after five minutes. */
+const CODE_LIFETIME_S = 5 * 60;
 
 /**
  * Better Auth answers "sent" even when an email fails, so nobody can probe which addresses
@@ -57,6 +62,7 @@ export function canEmailEveryone(env: AuthEnv): boolean {
   return !!(env.RESEND_API_KEY && env.EMAIL_FROM) && !/@resend\.dev\b/i.test(env.EMAIL_FROM ?? "");
 }
 
+/** Which ways to sign in this server offers, given its settings. */
 export function signInMethods(env: AuthEnv): SignInMethods {
   return {
     guest: true,
@@ -67,6 +73,7 @@ export function signInMethods(env: AuthEnv): SignInMethods {
 
 const https = (host?: string) => (host ? `https://${host}` : undefined);
 
+/** The origins allowed to sign in: the configured URL, the Vercel URLs and localhost in development. */
 export function trustedOrigins(env: AuthEnv): string[] {
   const list = [
     env.BETTER_AUTH_URL,
@@ -109,6 +116,7 @@ async function sendCode(env: AuthEnv, email: string, otp: string): Promise<void>
   console.info(`[auth] development sign-in code for ${email}: ${otp}`);
 }
 
+/** Better Auth set up for Plannr: guest, email code and Google sign-in, stored in Postgres. */
 export function createAuth(db: Db, env: AuthEnv) {
   const methods = signInMethods(env);
   const origins = trustedOrigins(env);
@@ -152,7 +160,7 @@ export function createAuth(db: Db, env: AuthEnv) {
         ? [
             emailOTP({
               otpLength: 6,
-              expiresIn: 300,
+              expiresIn: CODE_LIFETIME_S,
               sendVerificationOTP: async ({ email, otp }) => sendCode(env, email, otp),
             }),
           ]
@@ -161,4 +169,5 @@ export function createAuth(db: Db, env: AuthEnv) {
   });
 }
 
+/** The configured Better Auth instance. */
 export type Auth = ReturnType<typeof createAuth>;

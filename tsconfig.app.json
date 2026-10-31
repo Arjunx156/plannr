@@ -1,25 +1,15 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "target": "es2023",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "module": "esnext",
     "types": ["vite/client"],
-    "skipLibCheck": true,
-
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "noEmit": true,
     "jsx": "react-jsx",
 
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    // Every export in the app states its own types, so a reader never has to infer a module's contract.
+    // The server can't: Drizzle's table types are thousands of lines when written out.
+    "declaration": true,
+    "isolatedDeclarations": true
   },
   "include": ["src"]
 }

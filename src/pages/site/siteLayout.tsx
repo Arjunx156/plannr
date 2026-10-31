@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 import { Link } from "react-router";
 import { Logo, Toran } from "../../components/brand";
 import { usePageMeta } from "../../components/pageMeta";
@@ -21,12 +21,12 @@ export function SitePage({
   lead?: ReactNode;
   children: ReactNode;
   wide?: boolean;
-}) {
+}): JSX.Element {
   usePageMeta(title, { description });
   return (
     <div className="flex min-h-dvh flex-col bg-paper text-ink">
       <SkipLink />
-      <header className="border-b border-line bg-surface">
+      <header className="border-line border-b bg-surface">
         <nav
           aria-label="Main"
           className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-8"
@@ -57,7 +57,7 @@ export function SitePage({
           <h1 className="font-serif text-[clamp(36px,5vw,52px)] leading-[1.05] tracking-[-0.015em]">
             {heading}
           </h1>
-          {lead && <p className="m-0 max-w-[680px] text-[18px] leading-[1.55] text-body">{lead}</p>}
+          {lead && <p className="m-0 max-w-[680px] text-[18px] text-body leading-[1.55]">{lead}</p>}
         </div>
         {children}
       </main>
@@ -121,27 +121,28 @@ function FooterLinks({ title, links }: { title: string; links: [string, string][
 }
 
 /** A block of prose on a public page. */
-export function Prose({ children }: { children: ReactNode }) {
+export function Prose({ children }: { children: ReactNode }): JSX.Element {
   return (
-    <div className="flex max-w-[720px] flex-col gap-4 text-[16px] leading-[1.65] text-body [&_h2]:mt-4 [&_h2]:font-serif [&_h2]:text-[28px] [&_h2]:leading-tight [&_h2]:text-ink [&_li]:ml-5 [&_ul]:m-0 [&_ul]:flex [&_ul]:list-disc [&_ul]:flex-col [&_ul]:gap-1.5 [&_ul]:p-0">
+    <div className="flex max-w-[720px] flex-col gap-4 text-[16px] text-body leading-[1.65] [&_h2]:mt-4 [&_h2]:font-serif [&_h2]:text-[28px] [&_h2]:text-ink [&_h2]:leading-tight [&_li]:ml-5 [&_ul]:m-0 [&_ul]:flex [&_ul]:list-disc [&_ul]:flex-col [&_ul]:gap-1.5 [&_ul]:p-0">
       {children}
     </div>
   );
 }
 
+/** The closing invitation on a site page, opening the intake with an optional sentence. */
 export function CallToAction({
   prompt,
   label = "Plan yours with Plannr",
 }: {
   prompt?: string;
   label?: string;
-}) {
+}): JSX.Element {
   return (
     <section
       aria-label="Start planning"
       className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-ink p-6 text-paper"
     >
-      <span className="max-w-[520px] font-serif text-[26px] leading-tight text-white">
+      <span className="max-w-[520px] font-serif text-[26px] text-white leading-tight">
         Describe the day in one sentence and get a plan you can run.
       </span>
       <span className="flex flex-wrap gap-2">

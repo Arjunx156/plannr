@@ -6,11 +6,18 @@ import { toast, useStore } from "./store";
 /** How often an open plan checks the server for changes made by co-planners. */
 const FRESHNESS_MS = 8000;
 
+/** Coming back to the tab refreshes the plans at most this often. */
+const REFRESH_GAP_MS = 5000;
+
 /** Signing in and out, and keeping an account's plans in step with the server. */
-export function useAccount() {
+export function useAccount(): {
+  refreshPlans: () => Promise<void>;
+  signedIn: () => Promise<AccountUser | null>;
+  signOut: () => Promise<void>;
+} {
   const { dispatch, sync } = useStore();
 
-  const refreshPlans = useCallback(async () => {
+  const refreshPlans = useCallback(async (): Promise<void> => {
     try {
       const plans = await api.plans();
       dispatch({ type: "setPlans", plans, skip: sync.pendingIds() });
@@ -29,7 +36,7 @@ export function useAccount() {
     return user;
   }, [dispatch, refreshPlans, sync]);
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (): Promise<void> => {
     try {
       await api.signOut();
     } catch {
@@ -86,7 +93,7 @@ export function AccountSync() {
   useEffect(() => {
     let last = 0;
     const back = () => {
-      if (document.hidden || mode.current !== "account" || Date.now() - last < 5000) return;
+      if (document.hidden || mode.current !== "account" || Date.now() - last < REFRESH_GAP_MS) return;
       last = Date.now();
       void refreshPlans();
     };
@@ -133,7 +140,7 @@ async function checkFreshness(c: FreshnessCheck): Promise<void> {
 }
 
 /** While a shared plan is open, picks up co-planners' changes within a few seconds. */
-export function usePlanFreshness(id: string | undefined) {
+export function usePlanFreshness(id: string | undefined): void {
   const { state, dispatch, sync } = useStore();
   const { refreshPlans } = useAccount();
   const version = useRef(0);

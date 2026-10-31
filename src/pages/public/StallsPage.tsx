@@ -1,12 +1,18 @@
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type JSX, type ReactNode, useState } from "react";
 import { Field, TextField } from "../../components/fields";
 import { inr } from "../../lib/format";
 import { fill } from "../../lib/guestText";
 import type { LinkText } from "../../lib/linkText/en";
+import { errorMessage } from "../../shared/guards";
 import type { StallsView } from "../../shared/public";
 import { type Act, Card, PublicShell, useLinkLang } from "./shell";
 
-type StallForm = { stall: string; owner: string; phone: string; category: string };
+interface StallForm {
+  stall: string;
+  owner: string;
+  phone: string;
+  category: string;
+}
 
 /** Digits in an Indian mobile number, without the country code. */
 const MOBILE_DIGITS = 10;
@@ -36,7 +42,15 @@ function stallRequest(form: StallForm, fee: number) {
 }
 
 /** A stallholder's page: how many stalls are left, the fee, and a request form. */
-export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act; preview?: ReactNode }) {
+export function StallsPage({
+  view,
+  act,
+  preview,
+}: {
+  view: StallsView;
+  act?: Act | undefined;
+  preview?: ReactNode;
+}): JSX.Element {
   const { t, shell } = useLinkLang(view.event);
   const [sent, setSent] = useState(false);
   return (
@@ -58,7 +72,7 @@ export function StallsPage({ view, act, preview }: { view: StallsView; act?: Act
 
 interface RequestProps {
   view: StallsView;
-  act?: Act;
+  act?: Act | undefined;
   t: LinkText;
   onSent: () => void;
 }
@@ -87,7 +101,7 @@ function StallRequest({ view, act, t, onSent }: RequestProps) {
       await act([{ type: "addRecord", coll: "stalls", record: stallRequest(form, view.fee) }]);
       onSent();
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
     }
     setBusy(false);
   };
@@ -136,7 +150,7 @@ function StallRequest({ view, act, t, onSent }: RequestProps) {
         </Field>
       )}
       {error && (
-        <p role="alert" className="m-0 text-sm font-medium text-rust-ink">
+        <p role="alert" className="m-0 font-medium text-rust-ink text-sm">
           {error}
         </p>
       )}

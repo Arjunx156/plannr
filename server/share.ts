@@ -1,5 +1,7 @@
 import { dateRange } from "../src/lib/dates";
+import { keysOf } from "../src/shared/guards";
 import { PUBLIC_PATH, type PublicKind, type PublicView } from "../src/shared/public";
+import { assertNever } from "../src/shared/result";
 import type { Db } from "./db/types";
 import { publicView } from "./links";
 
@@ -9,15 +11,13 @@ import { publicView } from "./links";
  * rather than the Plannr home page. Only a published event website may be indexed.
  */
 
-const BY_PATH = Object.fromEntries(Object.entries(PUBLIC_PATH).map(([k, v]) => [v, k])) as Record<
-  string,
-  PublicKind
->;
+/** Each shared page's path segment, back to its kind: "r" → "rsvp". */
+const BY_PATH = new Map(keysOf(PUBLIC_PATH).map((kind) => [PUBLIC_PATH[kind], kind]));
 
 /** "/r/abc123" → { kind: "rsvp", token: "abc123" }. */
 export function matchShare(pathname: string): { kind: PublicKind; token: string } | undefined {
   const m = pathname.match(/^\/(e|r|h|v|s|fund|a|stalls|gate)\/([\w-]{3,64})\/?$/);
-  const kind = m?.[1] ? BY_PATH[m[1]] : undefined;
+  const kind = m?.[1] ? BY_PATH.get(m[1]) : undefined;
   return kind && m?.[2] ? { kind, token: m[2] } : undefined;
 }
 
@@ -99,6 +99,8 @@ function metaFor(v: PublicView, url: string): Meta {
       };
     case "gate":
       return { ...base, title: `Gate check-in · ${name}`, description: `For volunteers at the gate.` };
+    default:
+      return assertNever(v);
   }
 }
 

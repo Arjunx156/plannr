@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { PlannrEvent } from "../data/types";
 import { functionsOf } from "../shared/eventLists";
+import { fieldsOf, isNumber, isRecord, isString, listOf } from "../shared/guards";
 import type { RainRisk } from "../shared/watch";
 import { addDays, TODAY } from "./dates";
 
@@ -22,9 +23,10 @@ async function coords(place: string): Promise<{ lat: number; lon: number } | und
       `https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&format=json&countryCode=IN&name=${encodeURIComponent(name)}`,
     );
     if (!res.ok) continue;
-    const data = (await res.json()) as { results?: { latitude: number; longitude: number }[] };
-    const hit = data.results?.[0];
-    if (hit) return { lat: hit.latitude, lon: hit.longitude };
+    const data: unknown = await res.json();
+    const [hit] = listOf(isRecord(data) ? data["results"] : undefined);
+    if (isRecord(hit) && isNumber(hit["latitude"]) && isNumber(hit["longitude"]))
+      return { lat: hit["latitude"], lon: hit["longitude"] };
   }
   return undefined;
 }
@@ -33,7 +35,7 @@ async function rainChances(place: string, from: string, to: string): Promise<Rec
   const key = cacheKey(place, from);
   try {
     const hit = sessionStorage.getItem(key);
-    if (hit) return JSON.parse(hit) as Record<string, number>;
+    if (hit) return fieldsOf(JSON.parse(hit), isNumber);
   } catch {
     // No session storage: just ask again.
   }
@@ -43,13 +45,13 @@ async function rainChances(place: string, from: string, to: string): Promise<Rec
     `https://api.open-meteo.com/v1/forecast?latitude=${at.lat}&longitude=${at.lon}&daily=precipitation_probability_max&timezone=Asia%2FKolkata&start_date=${from}&end_date=${to}`,
   );
   if (!res.ok) return {};
-  const data = (await res.json()) as {
-    daily?: { time: string[]; precipitation_probability_max: (number | null)[] };
-  };
+  const data: unknown = await res.json();
+  const daily = isRecord(data) && isRecord(data["daily"]) ? data["daily"] : {};
+  const chances = listOf(daily["precipitation_probability_max"]);
   const out: Record<string, number> = {};
-  data.daily?.time.forEach((d, i) => {
-    const p = data.daily?.precipitation_probability_max[i];
-    if (typeof p === "number") out[d] = p;
+  listOf(daily["time"]).forEach((d, i) => {
+    const p = chances[i];
+    if (isString(d) && isNumber(p)) out[d] = p;
   });
   try {
     sessionStorage.setItem(key, JSON.stringify(out));
@@ -59,6 +61,7 @@ async function rainChances(place: string, from: string, to: string): Promise<Rec
   return out;
 }
 
+/** The chance of rain for each function in the next ten days that has a place, from Open-Meteo's forecast. */
 export function useRain(ev: PlannrEvent): RainRisk[] {
   const [risks, setRisks] = useState<RainRisk[]>([]);
   const until = addDays(TODAY, 10);
@@ -72,7 +75,7 @@ export function useRain(ev: PlannrEvent): RainRisk[] {
       const found: RainRisk[] = [];
       for (const f of soon) {
         const chances = await rainChances(f.address ?? f.place ?? "", TODAY, until).catch(
-          () => ({}) as Record<string, number>,
+          (): Record<string, number> => ({}),
         );
         const chance = chances[f.date];
         if (chance !== undefined) found.push({ fnId: f.id, label: f.label, date: f.date, chance });

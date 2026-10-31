@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { Link } from "react-router";
 import type { PlannrEvent } from "../../data/types";
 import { api, publicUrl } from "../../lib/api";
 import { longDate } from "../../lib/dates";
+import { errorMessage } from "../../shared/guards";
 import { linkExpiry, type PublicKind } from "../../shared/public";
 import { toast, useStore } from "../../store/store";
 import { waLink } from "./links";
@@ -11,7 +12,15 @@ import { waLink } from "./links";
  * A shared link for one page. With an account it's a real link anyone can open; in the demo
  * it opens a preview drawn from this browser's plan.
  */
-export function useShareLink(ev: PlannrEvent, kind: PublicKind, target = "") {
+export function useShareLink(
+  ev: PlannrEvent,
+  kind: PublicKind,
+  target = "",
+): {
+  account: boolean;
+  preview: string;
+  get: () => Promise<string | undefined>;
+} {
   const { state, dispatch } = useStore();
   const account = state.mode === "account";
   const preview = `/preview/${kind}/${ev.id}${target ? `/${encodeURIComponent(target)}` : ""}`;
@@ -21,7 +30,7 @@ export function useShareLink(ev: PlannrEvent, kind: PublicKind, target = "") {
       const link = await api.linkFor(ev.id, kind, target);
       return publicUrl(kind, link.token);
     } catch (e) {
-      dispatch(toast(`Couldn't make the link: ${(e as Error).message}`));
+      dispatch(toast(`Couldn't make the link: ${errorMessage(e)}`));
       return undefined;
     }
   };
@@ -43,10 +52,10 @@ export function ShareLink({
   target?: string;
   /** The WhatsApp message; the link is added at the end. */
   message: string;
-  phone?: string;
+  phone?: string | undefined;
   label?: string;
   onShared?: () => void;
-}) {
+}): JSX.Element {
   const { dispatch } = useStore();
   const share = useShareLink(ev, kind, target);
   const [busy, setBusy] = useState(false);

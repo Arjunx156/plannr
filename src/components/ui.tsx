@@ -1,33 +1,60 @@
-import type { ReactNode } from "react";
-import type { Hue, Person, Tone } from "../data/baseTypes";
+import type { JSX, ReactNode } from "react";
+import type { Person, Swatch, Tone } from "../data/baseTypes";
 import { inr } from "../lib/format";
+import { cssVars } from "./cssVars";
 
+/** A horizontal progress bar. */
 export function Bar({
   value,
-  color = "var(--color-ink)",
-  height = 6,
+  fill = "ink",
   label,
+  className = "",
 }: {
   value: number;
-  color?: string;
-  height?: number;
+  fill?: Swatch | undefined;
   label?: string;
-}) {
+  className?: string;
+}): JSX.Element {
   const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
   return (
     <div
-      className="bar"
-      style={{ height }}
+      className={`bar ${className}`}
       role="progressbar"
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={pct}
       aria-label={label}
     >
-      <span style={{ width: `${pct}%`, background: color }} />
+      <span ref={cssVars({ "--w": `${pct}%` })} className={`w-(--w) ${SWATCH_BG[fill]}`} />
     </div>
   );
 }
+
+/** The background class for each swatch. Tailwind finds classes by reading source, so each is written out whole. */
+export const SWATCH_BG: Record<Swatch, string> = {
+  marigold: "bg-marigold",
+  indigo: "bg-indigo",
+  leaf: "bg-leaf",
+  maroon: "bg-maroon",
+  peacock: "bg-peacock",
+  rust: "bg-rust",
+  kasavu: "bg-kasavu",
+  ink: "bg-ink",
+  "line-2": "bg-line-2",
+};
+
+/** The border colour class for each swatch. */
+export const SWATCH_BORDER: Record<Swatch, string> = {
+  marigold: "border-marigold",
+  indigo: "border-indigo",
+  leaf: "border-leaf",
+  maroon: "border-maroon",
+  peacock: "border-peacock",
+  rust: "border-rust",
+  kasavu: "border-kasavu",
+  ink: "border-ink",
+  "line-2": "border-line-2",
+};
 
 const TONE_TEXT: Record<Tone, string> = {
   warn: "text-rust-ink",
@@ -36,12 +63,13 @@ const TONE_TEXT: Record<Tone, string> = {
   idle: "text-muted",
 };
 
+/** The text colour class for a tone. */
 export function toneText(t: Tone): string {
   return TONE_TEXT[t];
 }
 
 /** Jumps past the navigation to the page itself. Every screen's <main> carries id="main". */
-export function SkipLink() {
+export function SkipLink(): JSX.Element {
   return (
     <a
       href="#main"
@@ -53,7 +81,7 @@ export function SkipLink() {
 }
 
 /** "₹40,000 / ₹60,000": money in against money expected. */
-export function FundProgress({ received, expected }: { received: number; expected: number }) {
+export function FundProgress({ received, expected }: { received: number; expected: number }): JSX.Element {
   return (
     <span className="tabular">
       {inr(received)} <span className="text-muted">/ {inr(expected)}</span>
@@ -68,77 +96,68 @@ export const NOTICE_CARD: Record<"ai" | "warn" | "info", string> = {
   info: "border-line bg-surface",
 };
 
-export function Pill({ tone, children }: { tone: Tone | "ai"; children: ReactNode }) {
+/** A small rounded label in a tone's colours. */
+export function Pill({ tone, children }: { tone: Tone | "ai"; children: ReactNode }): JSX.Element {
   return <span className={`pill pill-${tone}`}>{children}</span>;
 }
 
-export function Avatar({ p, size = 30, ring = true }: { p: Person; size?: number; ring?: boolean }) {
+/** A person's initials in a coloured circle. */
+export function Avatar({ p, ring = true }: { p: Person; ring?: boolean }): JSX.Element {
   return (
     <span
       title={p.name}
-      className="inline-flex shrink-0 items-center justify-center rounded-full font-semibold"
-      style={{
-        width: size,
-        height: size,
-        background: p.bg,
-        color: p.fg,
-        fontSize: size > 32 ? 13 : 11,
-        border: ring ? "2px solid var(--color-paper)" : undefined,
-      }}
+      ref={cssVars({ "--bg": p.bg, "--fg": p.fg })}
+      className={`inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-(--bg) font-semibold text-(--fg) text-[11px] ${ring ? "border-2 border-paper" : ""}`}
     >
       {p.initials}
     </span>
   );
 }
 
+// Each dot starts a beat after the one before, so the three make a wave.
+const DOT_DELAYS = ["[animation-delay:0s]", "[animation-delay:0.15s]", "[animation-delay:0.3s]"];
+
 /** Three dots in a wave while the assistant thinks; the caller labels it for screen readers. */
-export function ThinkingDots() {
+export function ThinkingDots(): JSX.Element {
   return (
     <span className="flex gap-1" aria-hidden="true">
-      {[0, 1, 2].map((d) => (
+      {DOT_DELAYS.map((delay) => (
         <span
-          key={d}
-          className="h-1.5 w-1.5 rounded-full bg-peacock"
-          style={{ animation: `wave 0.9s ease-in-out ${d * 0.15}s infinite` }}
+          key={delay}
+          className={`h-1.5 w-1.5 animate-[wave_0.9s_ease-in-out_infinite] rounded-full bg-peacock ${delay}`}
         />
       ))}
     </span>
   );
 }
 
-export function Spinner({ label }: { label?: string }) {
+/** A loading spinner, with a label for screen readers when it stands alone. */
+export function Spinner({ label }: { label?: string }): JSX.Element {
   if (!label) return <span className="spinner" aria-hidden="true" />;
   return <span className="spinner" role="status" aria-label={label} />;
 }
 
 /** Each kind of event keeps its colour everywhere: marigold weddings, indigo birthdays, leaf community events. */
-export const HUE_COLOR: Record<Hue, string> = {
-  marigold: "var(--color-marigold)",
-  indigo: "var(--color-indigo)",
-  leaf: "var(--color-leaf)",
-  maroon: "var(--color-maroon)",
-};
-
 /** A headline number with its progress and one line of context. */
 export function StatTile({
   label,
   value,
   sub,
   bar,
-  color,
+  fill,
 }: {
   label: string;
   value: string;
   sub: string;
   bar: number;
-  color?: string;
-}) {
+  fill?: Swatch;
+}): JSX.Element {
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-line bg-surface p-4">
       <span className="eyebrow text-muted">{label}</span>
-      <span className="font-serif text-[32px] leading-none tabular">{value}</span>
-      <Bar value={bar} color={color} label={label} />
-      <span className="text-xs leading-[1.4] text-body">{sub}</span>
+      <span className="tabular font-serif text-[32px] leading-none">{value}</span>
+      <Bar value={bar} fill={fill} label={label} />
+      <span className="text-body text-xs leading-[1.4]">{sub}</span>
     </div>
   );
 }
@@ -154,11 +173,11 @@ export function Panel({
   aside?: ReactNode;
   children: ReactNode;
   id?: string;
-}) {
+}): JSX.Element {
   return (
     <section
       id={id}
-      className="flex flex-col gap-3.5 rounded-2xl border border-line bg-surface p-5 scroll-mt-4"
+      className="flex scroll-mt-4 flex-col gap-3.5 rounded-2xl border border-line bg-surface p-5"
     >
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="font-serif text-[24px] leading-none">{title}</h2>

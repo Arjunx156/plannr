@@ -1,17 +1,18 @@
-import { type FormEvent, useCallback, useState } from "react";
+import { type FormEvent, type JSX, useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { TextField } from "../../components/fields";
 import { Modal } from "../../components/overlays";
 import { LoadError, useRemote } from "../../components/remote";
 import type { PlannrEvent } from "../../data/types";
 import { api } from "../../lib/api";
-import { addDays, longDate, TODAY } from "../../lib/dates";
+import { addDays, DAY_MS, longDate, TODAY } from "../../lib/dates";
+import { errorMessage } from "../../shared/guards";
 import type { TemplateRow } from "../../shared/types";
 import { toast, useStore } from "../../store/store";
 import { Section } from "./layout";
 
 /** Save this event to start the next one from: next year's mela begins with this year's plan. */
-export function SaveTemplate({ ev }: { ev: PlannrEvent }) {
+export function SaveTemplate({ ev }: { ev: PlannrEvent }): JSX.Element | null {
   const { state, dispatch } = useStore();
   const [name, setName] = useState(`${ev.name} (template)`);
   const [busy, setBusy] = useState(false);
@@ -24,13 +25,13 @@ export function SaveTemplate({ ev }: { ev: PlannrEvent }) {
       await api.saveTemplate(ev.id, name.trim() || ev.name);
       dispatch(toast("Saved. Start your next event from it on My events."));
     } catch (err) {
-      dispatch(toast((err as Error).message));
+      dispatch(toast(errorMessage(err)));
     }
     setBusy(false);
   };
   return (
     <Section title="Use this plan again">
-      <p className="m-0 text-sm text-body">
+      <p className="m-0 text-body text-sm">
         Saves the tasks, vendors with what they charged, the budget as it really turned out, the run sheet and{" "}
         {ev.layout === "community" ? "the committee's lists" : "the guest list"}. Answers, payments, photos
         and check-ins start fresh, and every date moves to the new day.
@@ -56,7 +57,6 @@ export function SaveTemplate({ ev }: { ev: PlannrEvent }) {
 
 /** 52 weeks, so a yearly event keeps its weekday. */
 const YEAR_DAYS = 364;
-const DAY_MS = 86_400_000;
 
 /** When a yearly event next falls: its own date if still ahead, else whole years of 52 weeks on. */
 function nextDate(last: string): string {
@@ -66,7 +66,7 @@ function nextDate(last: string): string {
 }
 
 /** Starts a new event from a saved template. */
-export function TemplatePicker({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function TemplatePicker({ open, onClose }: { open: boolean; onClose: () => void }): JSX.Element {
   const { dispatch } = useStore();
   const load = useCallback(() => api.templates(), []);
   const templates = useRemote(open ? load : undefined, open);
@@ -78,7 +78,7 @@ export function TemplatePicker({ open, onClose }: { open: boolean; onClose: () =
       await api.deleteTemplate(t.id);
       templates.set((l) => (l ?? []).filter((x) => x.id !== t.id));
     } catch (err) {
-      dispatch(toast(`Couldn't remove ${t.name}: ${(err as Error).message}`));
+      dispatch(toast(`Couldn't remove ${t.name}: ${errorMessage(err)}`));
     }
   };
 
@@ -87,9 +87,9 @@ export function TemplatePicker({ open, onClose }: { open: boolean; onClose: () =
       {templates.error && (
         <LoadError what="your templates" error={templates.error} onRetry={templates.reload} />
       )}
-      {list === null && !templates.error && <p className="m-0 text-sm text-muted">Loading…</p>}
+      {list === null && !templates.error && <p className="m-0 text-muted text-sm">Loading…</p>}
       {list?.length === 0 && (
-        <p className="m-0 text-sm text-body">
+        <p className="m-0 text-body text-sm">
           No templates yet. Open a past event's Settings and choose “Save as a template”: next year's plan
           starts there.
         </p>
@@ -114,11 +114,11 @@ function TemplateList({ list, onPick, onRemove }: ListProps) {
       {list.map((t) => (
         <li
           key={t.id}
-          className="flex items-center justify-between gap-2 border-t border-sand-2 py-2.5 first:border-0"
+          className="flex items-center justify-between gap-2 border-sand-2 border-t py-2.5 first:border-0"
         >
           <span className="flex flex-col text-sm">
             <span className="font-semibold">{t.name}</span>
-            <span className="text-xs text-muted">Last held {longDate(t.date)}</span>
+            <span className="text-muted text-xs">Last held {longDate(t.date)}</span>
           </span>
           <span className="flex gap-1.5">
             <button type="button" className="btn btn-primary btn-sm" onClick={() => onPick(t)}>
@@ -162,13 +162,13 @@ function StartForm({ template, onBack, onStarted }: StartProps) {
       onStarted();
       void navigate(`/events/${plan.event.id}`);
     } catch (err) {
-      dispatch(toast((err as Error).message));
+      dispatch(toast(errorMessage(err)));
     }
     setBusy(false);
   };
   return (
     <form onSubmit={start} className="flex flex-col gap-3">
-      <p className="m-0 text-sm text-body">
+      <p className="m-0 text-body text-sm">
         From <strong>{template.name}</strong>, last held on {longDate(template.date)}. Every date moves to the
         new day.
       </p>

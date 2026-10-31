@@ -1,5 +1,6 @@
 import type { PlannrEvent } from "../data/types";
 
+/** One tab on an event's page. */
 export interface TabDef {
   id: string;
   label: string;

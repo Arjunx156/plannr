@@ -1,6 +1,49 @@
+import type { Swatch } from "../../data/baseTypes";
 /** The landing page's words and examples, kept apart from its layout. */
 
-export const NAV = [
+/** A link in the landing page's header. */
+export interface NavLink {
+  href: string;
+  label: string;
+}
+
+/** One budget line in the hero's sample draft; `bar` sizes it to its share of the largest, and colours it. */
+export interface DraftBar {
+  name: string;
+  amount: string;
+  bar: string;
+}
+
+/** A kind of event Plannr plans, as the landing page introduces it. */
+export interface Occasion {
+  type: string;
+  name: string;
+  body: string;
+  span: string;
+  bar: string;
+  ink: string;
+  dashed?: boolean | undefined;
+}
+
+/** A titled paragraph: a step, a feature or an example on the landing page. */
+export interface Blurb {
+  title: string;
+  body: string;
+  swatch?: Swatch | undefined;
+}
+
+/** A sample prompt and the start of the plan Plannr drafts from it. */
+export interface Sample {
+  tab: string;
+  prompt: string;
+  asked: string;
+  tasks: { title: string; when: string; urgent?: boolean | undefined }[];
+  vendors: string[];
+  why: string;
+}
+
+/** The landing page's header links. */
+export const NAV: NavLink[] = [
   { href: "#how", label: "How it works" },
   { href: "#features", label: "Features" },
   { href: "#occasions", label: "Templates" },
@@ -8,23 +51,26 @@ export const NAV = [
   { href: "#faq", label: "FAQ" },
 ];
 
+/** The sentence the hero types out as an example. */
 export const EXAMPLE = "Kerala wedding in Kochi, 250 guests, ₹18 lakh, December";
 
-export const DRAFT_BARS = [
-  { name: "Catering", amount: "₹4,50,000", width: 100, color: "#6E1F2E" },
-  { name: "Venue", amount: "₹3,20,000", width: 71, color: "#D9962B" },
-  { name: "Décor", amount: "₹2,40,000", width: 53, color: "#3D7A4F" },
-  { name: "Attire", amount: "₹2,20,000", width: 49, color: "#1F5F6B" },
-  { name: "Photography", amount: "₹1,80,000", width: 40, color: "#B5452B" },
+/** The sample budget in the hero's draft card. */
+export const DRAFT_BARS: DraftBar[] = [
+  { name: "Catering", amount: "₹4,50,000", bar: "w-full bg-maroon" },
+  { name: "Venue", amount: "₹3,20,000", bar: "w-[71%] bg-marigold" },
+  { name: "Décor", amount: "₹2,40,000", bar: "w-[53%] bg-leaf" },
+  { name: "Attire", amount: "₹2,20,000", bar: "w-[49%] bg-peacock" },
+  { name: "Photography", amount: "₹1,80,000", bar: "w-[40%] bg-rust" },
 ];
 
-export const OCCASIONS = [
+/** The kinds of event Plannr plans. */
+export const OCCASIONS: Occasion[] = [
   {
     type: "wedding",
     name: "Wedding",
     body: "Several functions over several days, each with its own budget and guests. Costs split between families.",
     span: "6–12 months of planning",
-    bar: "#D9962B",
+    bar: "bg-marigold",
     ink: "text-amber-ink",
   },
   {
@@ -32,7 +78,7 @@ export const OCCASIONS = [
     name: "Birthday",
     body: "A few hours, a theme the kids will remember, allergy notes for every guest, and return gifts sorted.",
     span: "1–4 weeks of planning",
-    bar: "#5A6FB8",
+    bar: "bg-indigo",
     ink: "text-indigo-ink",
   },
   {
@@ -40,7 +86,7 @@ export const OCCASIONS = [
     name: "Community event",
     body: "Pooled funds and sponsors, expense approvals, permits, stall sign-ups and volunteer shifts.",
     span: "1–3 months of planning",
-    bar: "#3D7A4F",
+    bar: "bg-leaf",
     ink: "text-leaf-ink",
   },
   {
@@ -48,13 +94,14 @@ export const OCCASIONS = [
     name: "Something else",
     body: "Housewarmings, anniversaries, naming ceremonies, reunions. Describe it and Plannr works out the shape.",
     span: "Any size",
-    bar: "repeating-linear-gradient(90deg,#D9962B 0 12px,#3D7A4F 12px 24px)",
+    bar: "bar-mixed",
     ink: "text-body",
     dashed: true,
   },
 ];
 
-export const STEPS = [
+/** Three steps from a sentence to the day. */
+export const STEPS: Blurb[] = [
   {
     title: "Describe your event",
     body: "Type or speak it in English, Malayalam, Hindi, Tamil and more. Plannr asks only what it still needs.",
@@ -69,39 +116,41 @@ export const STEPS = [
   },
 ];
 
-export const FEATURES = [
+/** What Plannr keeps track of, one card each. */
+export const FEATURES: Blurb[] = [
   {
-    t: "Budget",
-    d: "A split by category for your city and guest count. Track every advance and balance, read receipts, and split costs between families or funds.",
-    c: "#6E1F2E",
+    title: "Budget",
+    body: "A split by category for your city and guest count. Track every advance and balance, read receipts, and split costs between families or funds.",
+    swatch: "maroon",
   },
   {
-    t: "Timeline",
-    d: "Tasks, payments, vendor bookings and the functions in one dated view, phase by phase, with owners and a morning reminder on your phone.",
-    c: "#D9962B",
+    title: "Timeline",
+    body: "Tasks, payments, vendor bookings and the functions in one dated view, phase by phase, with owners and a morning reminder on your phone.",
+    swatch: "marigold",
   },
   {
-    t: "Vendors",
-    d: "A checklist of every vendor your event needs, each with a book-by date, quotes side by side and enquiries drafted for you.",
-    c: "#3D7A4F",
+    title: "Vendors",
+    body: "A checklist of every vendor your event needs, each with a book-by date, quotes side by side and enquiries drafted for you.",
+    swatch: "leaf",
   },
   {
-    t: "Guests",
-    d: "Groups, plus-ones, dietary and stay needs. A no-login RSVP page whose headcount updates catering.",
-    c: "#5A6FB8",
+    title: "Guests",
+    body: "Groups, plus-ones, dietary and stay needs. A no-login RSVP page whose headcount updates catering.",
+    swatch: "indigo",
   },
   {
-    t: "Ideas",
-    d: "Themes, menus, décor and savings personalised to your month, guest count, budget and family notes. Plan one and its task and cost appear.",
-    c: "#B5452B",
+    title: "Ideas",
+    body: "Themes, menus, décor and savings personalised to your month, guest count, budget and family notes. Plan one and its task and cost appear.",
+    swatch: "rust",
   },
   {
-    t: "AI assistant",
-    d: "Ask a question or ask for a change, in your language. You see a preview of every edit before it happens.",
-    c: "#1F5F6B",
+    title: "AI assistant",
+    body: "Ask a question or ask for a change, in your language. You see a preview of every edit before it happens.",
+    swatch: "peacock",
   },
 ];
 
+/** The three sample plans on the landing page. */
 export type SampleId = "wedding" | "birthday" | "mela";
 
 /** The demo event each sample opens. */
@@ -111,27 +160,18 @@ export const SAMPLE_EVENT: Record<SampleId, string> = {
   mela: "green-valley-mela",
 };
 
-export const SAMPLES: Record<
-  SampleId,
-  {
-    tab: string;
-    prompt: string;
-    asked: string;
-    tasks: { t: string; when: string; urgent?: boolean }[];
-    vendors: string[];
-    why: string;
-  }
-> = {
+/** Each sample: the sentence, what Plannr asks next, and the start of its plan. */
+export const SAMPLES: Record<SampleId, Sample> = {
   wedding: {
     tab: "Kerala wedding",
     prompt: "Kerala-style wedding in Kochi with a reception, around 250 guests, ₹18 lakh, end of April.",
     asked: "Venue status · pre-wedding functions · top three priorities",
     tasks: [
-      { t: "Confirm muhurtham with astrologer", when: "Week 1" },
-      { t: "Visit both shortlisted venues", when: "Week 1" },
-      { t: "Book photographer", when: "Week 2", urgent: true },
-      { t: "Draft guest list with both families", when: "Week 3" },
-      { t: "Sadhya tasting, 2 caterers", when: "Week 4" },
+      { title: "Confirm muhurtham with astrologer", when: "Week 1" },
+      { title: "Visit both shortlisted venues", when: "Week 1" },
+      { title: "Book photographer", when: "Week 2", urgent: true },
+      { title: "Draft guest list with both families", when: "Week 3" },
+      { title: "Sadhya tasting, 2 caterers", when: "Week 4" },
     ],
     vendors: [
       "Sadhya caterer",
@@ -149,11 +189,11 @@ export const SAMPLES: Record<
     prompt: "Space-themed 6th birthday at home for Aarav, 30 kids and 20 adults, ₹40,000, in three weeks.",
     asked: "Allergies · entertainer or games · return gifts",
     tasks: [
-      { t: "Book the planetarium show", when: "Week 1" },
-      { t: "Order the rocket cake, nut-free", when: "Week 1", urgent: true },
-      { t: "Send the invite to the class group", when: "Week 1" },
-      { t: "Buy 30 rocket kits for return gifts", when: "Week 2" },
-      { t: "Planet balloons and star backdrop", when: "Week 3" },
+      { title: "Book the planetarium show", when: "Week 1" },
+      { title: "Order the rocket cake, nut-free", when: "Week 1", urgent: true },
+      { title: "Send the invite to the class group", when: "Week 1" },
+      { title: "Buy 30 rocket kits for return gifts", when: "Week 2" },
+      { title: "Planet balloons and star backdrop", when: "Week 3" },
     ],
     vendors: ["Cake baker", "Planetarium show", "Snacks caterer", "Balloon décor", "Return gifts", "+2 more"],
     why: "Why a nut-free cake: Plannr asked about allergies, and 3 of the 30 kids have nut allergies.",
@@ -163,11 +203,11 @@ export const SAMPLES: Record<
     prompt: "Diwali mela for our society: stalls and a cultural night, 600 people, ₹2.5 lakh, 12 volunteers.",
     asked: "Date and grounds · permits already filed · how stalls pay",
     tasks: [
-      { t: "File police permission for sound", when: "Week 1", urgent: true },
-      { t: "Open stall sign-ups at ₹2,500", when: "Week 1" },
-      { t: "Confirm three sponsors", when: "Week 2" },
-      { t: "Build the volunteer shifts", when: "Week 3" },
-      { t: "Fire safety check for diya stalls", when: "Week 4" },
+      { title: "File police permission for sound", when: "Week 1", urgent: true },
+      { title: "Open stall sign-ups at ₹2,500", when: "Week 1" },
+      { title: "Confirm three sponsors", when: "Week 2" },
+      { title: "Build the volunteer shifts", when: "Week 3" },
+      { title: "Fire safety check for diya stalls", when: "Week 4" },
     ],
     vendors: [
       "Sound & lighting",
@@ -182,25 +222,26 @@ export const SAMPLES: Record<
 };
 
 /** Three days Plannr is built for. Examples of what it does, not quotes from customers. */
-export const EXAMPLES = [
+export const EXAMPLES: Blurb[] = [
   {
     title: "A Kerala wedding, two families",
     body: "Both families see one budget. Every advance is marked with who paid it, and the 60/40 split shows who owes whom, settled with one tap.",
-    color: "#D9962B",
+    swatch: "marigold",
   },
   {
     title: "A birthday in ten days",
     body: "A run sheet for the afternoon, RSVPs with allergy notes from each family, and the return-gift order on the same list as the cake.",
-    color: "#5A6FB8",
+    swatch: "indigo",
   },
   {
     title: "A housing society's festival",
     body: "Volunteers pick their own shifts, stallholders request a stall, the treasurer approves expenses, and residents see where the money went.",
-    color: "#3D7A4F",
+    swatch: "leaf",
   },
 ];
 
-export const FAQS = [
+/** Questions families ask before they start. */
+export const FAQS: { q: string; a: string }[] = [
   {
     q: "Will the AI change my plan without asking?",
     a: "No. Every change, whether you asked for it or Plannr noticed something, shows up as a preview first. Nothing in your budget, tasks or guest list moves until you or a co-planner approves it.",

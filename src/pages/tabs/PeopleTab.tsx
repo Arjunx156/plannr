@@ -1,16 +1,21 @@
-import { useCallback } from "react";
+import { type JSX, useCallback } from "react";
 import { LoadError, useRemote } from "../../components/remote";
 import { Pill, Spinner } from "../../components/ui";
 import type { PlannrEvent } from "../../data/types";
 import { api } from "../../lib/api";
 import { initials } from "../../lib/format";
+import { errorMessage, oneOf } from "../../shared/guards";
 import { type Member, ROLE_LABEL, type Role } from "../../shared/types";
 import { canEdit, toast, useStore } from "../../store/store";
 import { TabPage } from "./layout";
 import { NeedsAccount } from "./NeedsAccount";
 import { Invite } from "./people/Invite";
 
-export function PeopleTab({ ev }: { ev: PlannrEvent }) {
+/** The roles an owner can give; there is one owner, and ownership never moves. */
+const GRANTABLE: Exclude<Role, "owner">[] = ["planner", "viewer"];
+
+/** Co-planners and their roles, with invites for new ones. */
+export function PeopleTab({ ev }: { ev: PlannrEvent }): JSX.Element {
   const { state, dispatch } = useStore();
   const me = state.account.user?.id;
   const role = state.remote[ev.id]?.role;
@@ -34,7 +39,7 @@ export function PeopleTab({ ev }: { ev: PlannrEvent }) {
       dispatch(toast(done));
       people.reload();
     } catch (e) {
-      dispatch(toast((e as Error).message));
+      dispatch(toast(errorMessage(e)));
     }
   };
 
@@ -76,7 +81,7 @@ export function PeopleTab({ ev }: { ev: PlannrEvent }) {
       {canEdit(role) ? (
         <Invite ev={ev} />
       ) : (
-        <p className="m-0 text-sm text-body">
+        <p className="m-0 text-body text-sm">
           Only co-planners can invite people. Ask the owner if someone's missing.
         </p>
       )}
@@ -102,19 +107,19 @@ function MemberRow({
   onRemove: () => void;
 }) {
   return (
-    <li className={`flex flex-wrap items-center gap-3 px-5 py-3.5 ${first ? "" : "border-t border-sand-2"}`}>
+    <li className={`flex flex-wrap items-center gap-3 px-5 py-3.5 ${first ? "" : "border-sand-2 border-t"}`}>
       <span
         aria-hidden="true"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-peacock-tint text-xs font-semibold text-peacock-deep"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-peacock-tint font-semibold text-peacock-deep text-xs"
       >
         {initials(m.name || "?")}
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-sm font-semibold">
+        <span className="font-semibold text-sm">
           {m.name || "Unnamed"}
           {you && <span className="font-normal text-muted"> (you)</span>}
         </span>
-        <span className="truncate text-xs text-muted">
+        <span className="truncate text-muted text-xs">
           {m.guest ? "Guest" : m.email}
           {m.side ? ` · ${m.side}` : ""}
         </span>
@@ -126,12 +131,18 @@ function MemberRow({
           </label>
           <select
             id={`role-${m.userId}`}
-            className="field h-9 min-h-0 py-0 text-sm appearance-auto"
+            className="field h-9 min-h-0 appearance-auto py-0 text-sm"
             value={m.role}
-            onChange={(e) => onRole(e.target.value as Exclude<Role, "owner">)}
+            onChange={(e) => {
+              const role = oneOf(e.target.value, GRANTABLE);
+              if (role) onRole(role);
+            }}
           >
-            <option value="planner">{ROLE_LABEL.planner}</option>
-            <option value="viewer">{ROLE_LABEL.viewer}</option>
+            {GRANTABLE.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABEL[r]}
+              </option>
+            ))}
           </select>
           <button type="button" className="btn btn-ghost btn-sm text-rust-ink" onClick={onRemove}>
             Remove

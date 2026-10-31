@@ -1,9 +1,11 @@
 import { ApiError, api } from "../lib/api";
 import type { EventAction } from "../shared/engine";
+import { errorMessage } from "../shared/guards";
 import type { Action } from "./types";
 
 /** The server takes at most this many changes per request. */
 const BATCH = 50;
+const FIRST_DELAY = 1_000;
 const MAX_DELAY = 30_000;
 
 /**
@@ -20,11 +22,12 @@ interface Outbox {
   actions: EventAction[];
 }
 
+/** Sends plan changes to the server in order, per event. Retries with backoff while offline or busy; a refused change is reported and the plan reloaded. */
 export class SyncQueue {
-  private pending = new Map<string, EventAction[]>();
-  private inflight = new Map<string, EventAction[]>();
-  private failures = new Map<string, number>();
-  private timers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly pending = new Map<string, EventAction[]>();
+  private readonly inflight = new Map<string, EventAction[]>();
+  private readonly failures = new Map<string, number>();
+  private readonly timers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly dispatch: (a: Action) => void;
   /** Whose changes these are; the outbox is only kept for a known account. */
   private owner: string | undefined;
@@ -147,7 +150,7 @@ export class SyncQueue {
         list.unshift(...batch);
         const tries = (this.failures.get(id) ?? 0) + 1;
         this.failures.set(id, tries);
-        const delay = Math.min(MAX_DELAY, 1000 * 2 ** (tries - 1));
+        const delay = Math.min(MAX_DELAY, FIRST_DELAY * 2 ** (tries - 1));
         this.timers.set(
           id,
           setTimeout(() => {
@@ -160,7 +163,7 @@ export class SyncQueue {
       }
       this.dispatch({
         type: "toast",
-        toast: { id: `sync-${id}`, text: (e as Error).message || "That change couldn't be saved" },
+        toast: { id: `sync-${id}`, text: errorMessage(e, "That change couldn't be saved") },
       });
       if (this.has(id)) {
         this.report();

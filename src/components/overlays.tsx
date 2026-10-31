@@ -1,5 +1,19 @@
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useStore } from "../store/store";
+
+/** The widths a dialog comes in, in pixels; on a phone it fills the screen less a margin. */
+type ModalWidth = 340 | 420 | 460 | 480 | 520 | 560 | 600 | 620;
+
+const MODAL_WIDTH: Record<ModalWidth, string> = {
+  340: "max-w-[340px]",
+  420: "max-w-[420px]",
+  460: "max-w-[460px]",
+  480: "max-w-[480px]",
+  520: "max-w-[520px]",
+  560: "max-w-[560px]",
+  600: "max-w-[600px]",
+  620: "max-w-[620px]",
+};
 
 /** Native <dialog>: focus trap, Escape and backdrop come for free. */
 export function Modal({
@@ -15,11 +29,11 @@ export function Modal({
   onClose: () => void;
   title?: ReactNode;
   children: ReactNode;
-  width?: number;
+  width?: ModalWidth;
   label?: string;
   /** "right": a full-height sheet for working on one record beside the page. */
   side?: "center" | "right";
-}) {
+}): JSX.Element {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   useEffect(() => {
@@ -40,8 +54,7 @@ export function Modal({
       }}
       aria-labelledby={title ? titleId : undefined}
       aria-label={title ? undefined : label}
-      className={`${side === "right" ? "m-0 ml-auto h-dvh max-h-dvh w-full rounded-none" : "m-auto max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] rounded-2xl"} overflow-auto border-0 bg-surface p-0 text-ink shadow-[0_1px_2px_rgba(0,0,0,.06),0_16px_48px_rgba(60,40,20,.18)] backdrop:bg-[rgba(31,27,22,.45)]`}
-      style={{ maxWidth: width }}
+      className={`${side === "right" ? "m-0 ml-auto h-dvh max-h-dvh w-full rounded-none" : "m-auto max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] rounded-2xl"} ${MODAL_WIDTH[width]} overflow-auto border-0 bg-surface p-0 text-ink shadow-[0_1px_2px_rgba(0,0,0,.06),0_16px_48px_rgba(60,40,20,.18)] backdrop:bg-[rgba(31,27,22,.45)]`}
     >
       {open && (
         <div className="flex flex-col gap-3.5 p-[22px]">
@@ -80,14 +93,14 @@ export function Menu({
   align?: "left" | "right";
   label: string;
   className?: string;
-}) {
+}): JSX.Element {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const id = useId();
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !(e.target instanceof Node && ref.current.contains(e.target))) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -116,6 +129,7 @@ export function Menu({
   );
 }
 
+/** One item in a menu. */
 export function MenuItem({
   children,
   onSelect,
@@ -128,7 +142,7 @@ export function MenuItem({
   danger?: boolean;
   disabled?: boolean;
   hint?: string;
-}) {
+}): JSX.Element {
   return (
     <button
       type="button"
@@ -136,18 +150,20 @@ export function MenuItem({
       disabled={disabled}
       title={hint}
       onClick={onSelect}
-      className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium hover:bg-sand disabled:text-muted disabled:hover:bg-transparent ${danger ? "text-rust-ink" : ""}`}
+      className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left font-medium text-sm hover:bg-sand disabled:text-muted disabled:hover:bg-transparent ${danger ? "text-rust-ink" : ""}`}
     >
       {children}
     </button>
   );
 }
 
-export function MenuDivider() {
+/** A thin line between groups of menu items. */
+export function MenuDivider(): JSX.Element {
   return <span aria-hidden="true" className="mx-1.5 my-1 h-px bg-line" />;
 }
 
-export function Toasts() {
+/** The latest toast, with its undo button, announced to screen readers. */
+export function Toasts(): JSX.Element {
   const { state, dispatch } = useStore();
   const latest = state.toasts[state.toasts.length - 1];
   useEffect(() => {
@@ -158,13 +174,12 @@ export function Toasts() {
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
-      style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}
+      className="above-tabbar pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
     >
       {latest && (
         <div
           key={latest.id}
-          className="rise pointer-events-auto flex max-w-[520px] items-center gap-4 rounded-xl bg-ink px-4 py-3 text-sm text-paper shadow-[0_12px_32px_rgba(40,25,10,.3)]"
+          className="rise pointer-events-auto flex max-w-[520px] items-center gap-4 rounded-xl bg-ink px-4 py-3 text-paper text-sm shadow-[0_12px_32px_rgba(40,25,10,.3)]"
         >
           <span>{latest.text}</span>
           {latest.undo && (

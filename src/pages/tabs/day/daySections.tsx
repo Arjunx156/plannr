@@ -1,4 +1,4 @@
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, type JSX, useRef, useState } from "react";
 import { useEditable } from "../../../components/taskHooks";
 import { Pill } from "../../../components/ui";
 import type { FunctionDay } from "../../../data/baseTypes";
@@ -7,6 +7,7 @@ import { api } from "../../../lib/api";
 import { plural } from "../../../lib/format";
 import { shrinkImage } from "../../../lib/images";
 import { clock, runsheetFor } from "../../../shared/derive";
+import { errorMessage } from "../../../shared/guards";
 import { list } from "../../../shared/records";
 import { toast, useStore } from "../../../store/store";
 import { newId } from "../ids";
@@ -14,7 +15,15 @@ import { Section } from "../layout";
 import { ShareLink } from "../ShareLink";
 
 /** The day's checklist for one function, ticked off by whoever is on it. */
-export function Checklist({ ev, fn, editable }: { ev: PlannrEvent; fn: FunctionDay; editable: boolean }) {
+export function Checklist({
+  ev,
+  fn,
+  editable,
+}: {
+  ev: PlannrEvent;
+  fn: FunctionDay;
+  editable: boolean;
+}): JSX.Element {
   const { dispatch } = useStore();
   const items = list(ev, "checklist").filter((c) => !c.fnId || c.fnId === fn.id);
   const [label, setLabel] = useState("");
@@ -33,13 +42,13 @@ export function Checklist({ ev, fn, editable }: { ev: PlannrEvent; fn: FunctionD
   return (
     <Section
       title="Don't forget"
-      aside={<span className="text-sm text-muted">{packedText(left, items.length)}</span>}
+      aside={<span className="text-muted text-sm">{packedText(left, items.length)}</span>}
     >
       <ul className="m-0 flex list-none flex-col p-0">
         {items.map((c) => (
           <li
             key={c.id}
-            className="flex items-center gap-2.5 border-t border-sand-2 py-2 text-sm first:border-0"
+            className="flex items-center gap-2.5 border-sand-2 border-t py-2 text-sm first:border-0"
           >
             <input
               type="checkbox"
@@ -60,11 +69,11 @@ export function Checklist({ ev, fn, editable }: { ev: PlannrEvent; fn: FunctionD
             <label htmlFor={`ck-${c.id}`} className={`flex-1 ${c.done ? "text-muted line-through" : ""}`}>
               {c.label}
             </label>
-            {c.owner && <span className="text-xs text-muted">{c.owner}</span>}
+            {c.owner && <span className="text-muted text-xs">{c.owner}</span>}
           </li>
         ))}
         {items.length === 0 && (
-          <li className="text-sm text-muted">
+          <li className="text-muted text-sm">
             The rings, the thali, the cash envelopes, the phone chargers…
           </li>
         )}
@@ -90,7 +99,8 @@ export function Checklist({ ev, fn, editable }: { ev: PlannrEvent; fn: FunctionD
   );
 }
 
-export function Arrivals({ ev, fn }: { ev: PlannrEvent; fn: FunctionDay }) {
+/** The vendors arriving for a function, in time order. */
+export function Arrivals({ ev, fn }: { ev: PlannrEvent; fn: FunctionDay }): JSX.Element | null {
   const arriving = list(ev, "vendors")
     .flatMap((v) => (v.arrivals ?? []).filter((a) => a.fnId === fn.id).map((a) => ({ v, a })))
     .sort((x, y) => x.a.time.localeCompare(y.a.time));
@@ -104,7 +114,7 @@ export function Arrivals({ ev, fn }: { ev: PlannrEvent; fn: FunctionDay }) {
               <span className="font-semibold">
                 {clock(a.time)} · {v.name || v.category}
               </span>
-              <span className="text-xs text-muted">{v.needs ?? v.category}</span>
+              <span className="text-muted text-xs">{v.needs ?? v.category}</span>
             </span>
             {v.phone && (
               <a href={`tel:${v.phone}`} className="btn btn-ghost btn-sm">
@@ -141,12 +151,13 @@ function helpersFor(ev: PlannrEvent, fnId: string): Map<string, string | undefin
   return owners;
 }
 
-export function Helpers({ ev, fn }: { ev: PlannrEvent; fn: FunctionDay }) {
+/** Who is responsible for what at a function. */
+export function Helpers({ ev, fn }: { ev: PlannrEvent; fn: FunctionDay }): JSX.Element | null {
   const owners = helpersFor(ev, fn.id);
   if (owners.size === 0) return null;
   return (
     <Section title="Helpers">
-      <span className="text-sm text-body">
+      <span className="text-body text-sm">
         Each helper gets a page with only their jobs and checklist, which they can tick off from their phone.
         No account needed.
       </span>
@@ -154,7 +165,7 @@ export function Helpers({ ev, fn }: { ev: PlannrEvent; fn: FunctionDay }) {
         {[...owners].map(([name, phone]) => (
           <li
             key={name}
-            className="flex flex-wrap items-center justify-between gap-2 border-t border-sand-2 py-2 text-sm first:border-0"
+            className="flex flex-wrap items-center justify-between gap-2 border-sand-2 border-t py-2 text-sm first:border-0"
           >
             <span className="font-medium">{name}</span>
             <ShareLink
@@ -172,7 +183,8 @@ export function Helpers({ ev, fn }: { ev: PlannrEvent; fn: FunctionDay }) {
   );
 }
 
-export function Album({ ev }: { ev: PlannrEvent }) {
+/** The event's photo album, with uploads from the family and guests. */
+export function Album({ ev }: { ev: PlannrEvent }): JSX.Element {
   const { state, dispatch } = useStore();
   const editable = useEditable(ev);
   const photos = list(ev, "album");
@@ -193,7 +205,7 @@ export function Album({ ev }: { ev: PlannrEvent }) {
         });
       }
     } catch (e) {
-      dispatch(toast((e as Error).message));
+      dispatch(toast(errorMessage(e)));
     }
     setBusy(false);
     if (input.current) input.current.value = "";
@@ -203,7 +215,7 @@ export function Album({ ev }: { ev: PlannrEvent }) {
       title="Shared album"
       aside={photos.length > 0 ? <Pill tone="ok">{plural(photos.length, "photo")}</Pill> : undefined}
     >
-      <span className="text-sm text-body">
+      <span className="text-body text-sm">
         Guests add their photos from their phones to one album, without an app or an account.
       </span>
       {photos.length > 0 && (

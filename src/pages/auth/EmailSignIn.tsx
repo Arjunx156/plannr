@@ -1,6 +1,7 @@
 import {
   type ClipboardEvent,
   type FormEvent,
+  type JSX,
   type KeyboardEvent,
   type RefObject,
   useEffect,
@@ -27,6 +28,7 @@ function useCountdown(running: boolean): [number, () => void] {
   return [seconds, () => setSeconds(RESEND_SECONDS)];
 }
 
+/** Runs one sign-in step, marking it busy and showing its error if it fails. */
 export type Attempt = (step: Busy, run: () => Promise<void>) => Promise<void>;
 
 /** Email sign-in: send a code to an address, then type the code in. */
@@ -47,7 +49,7 @@ export function EmailSignIn({
   release: () => void;
   submitLabel: string;
   onVerified: () => Promise<void>;
-}) {
+}): JSX.Element {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [code, setCode] = useState<string[]>(blankCode);

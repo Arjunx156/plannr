@@ -6,26 +6,31 @@ import { BadRequest, clip, int, isObject, isoDate, oneOf, requireText, str, strL
  */
 
 export const KINDS = ["wedding", "birthday", "community", "other"] as const;
+/** The wedding functions the intake recognises. */
 export const FUNCTIONS = ["Engagement", "Mehendi", "Haldi", "Sangeet", "Ceremony", "Reception"] as const;
+/** Where the family is with the venue. */
 export const VENUE_STATUS = ["Booked", "Shortlisted", "Not started"] as const;
 
+/** A description to read, with what's known so far and the question being asked. */
 export interface IntakeRequest {
   text: string;
   profile: unknown;
   today: string;
-  asking?: string;
+  asking?: string | undefined;
 }
 
+/** Checks an intake request; throws BadRequest when the description is missing. */
 export function intakeRequest(body: unknown): IntakeRequest {
   if (!isObject(body)) throw new BadRequest("Expected a JSON object");
   return {
-    text: requireText(body.text, "text"),
-    profile: body.profile ?? {},
-    today: isoDate(body.today) ?? new Date().toISOString().slice(0, 10),
-    asking: str(body.asking, 20),
+    text: requireText(body["text"], "text"),
+    profile: body["profile"] ?? {},
+    today: isoDate(body["today"]) ?? new Date().toISOString().slice(0, 10),
+    asking: str(body["asking"], 20),
   };
 }
 
+/** The JSON schema for what the intake reads from a description. */
 export const intakeSchema = {
   type: "object",
   properties: {
@@ -62,6 +67,7 @@ export const intakeSchema = {
   required: ["reply"],
 } as const;
 
+/** The intake prompt: read the description into profile fields, in any Indian language. */
 export function intakePrompt(r: IntakeRequest): { system: string; user: string } {
   return {
     system: `${VOICE}
@@ -75,46 +81,48 @@ ${r.asking ? `The app just asked about: ${r.asking}\n` : ""}Latest message: """$
   };
 }
 
+/** The profile fields read from a description, after cleaning. */
 export interface IntakeResult {
-  kind?: (typeof KINDS)[number];
-  style?: string;
-  names?: string;
-  city?: string;
-  date?: string;
-  dateText?: string;
-  guests?: number;
-  budget?: number;
-  venueStatus?: (typeof VENUE_STATUS)[number];
-  venues?: string;
+  kind?: (typeof KINDS)[number] | undefined;
+  style?: string | undefined;
+  names?: string | undefined;
+  city?: string | undefined;
+  date?: string | undefined;
+  dateText?: string | undefined;
+  guests?: number | undefined;
+  budget?: number | undefined;
+  venueStatus?: (typeof VENUE_STATUS)[number] | undefined;
+  venues?: string | undefined;
   functions: string[];
-  traditions?: string;
+  traditions?: string | undefined;
   needs: string[];
   moods: string[];
   colours: string[];
   coPlanners: string[];
-  reply?: string;
+  reply?: string | undefined;
 }
 
+/** Cleans what the intake read: known kinds and functions, sane counts, and only future dates. */
 export function sanitizeIntake(raw: unknown, today: string): IntakeResult {
   const r = isObject(raw) ? raw : {};
-  const date = isoDate(r.date);
+  const date = isoDate(r["date"]);
   return {
-    kind: oneOf(r.kind, KINDS),
-    style: str(r.style, 40),
-    names: str(r.names, 60)?.replace(/\s+and\s+/i, " & "),
-    city: str(r.city, 40),
+    kind: oneOf(r["kind"], KINDS),
+    style: str(r["style"], 40),
+    names: str(r["names"], 60)?.replace(/\s+and\s+/i, " & "),
+    city: str(r["city"], 40),
     date: date && date >= today ? date : undefined,
-    dateText: date && date >= today ? str(r.dateText, 40) : undefined,
-    guests: int(r.guests, 1, 100000),
-    budget: int(r.budget, 1000, 10_000_000_000),
-    venueStatus: oneOf(r.venueStatus, VENUE_STATUS),
-    venues: str(r.venues, 120),
-    functions: strList(r.functions, 6).filter((f) => (FUNCTIONS as readonly string[]).includes(f)),
-    traditions: str(r.traditions, 160),
-    needs: strList(r.needs, 6, 60),
-    moods: strList(r.moods, 4, 30),
-    colours: strList(r.colours, 4, 30),
-    coPlanners: strList(r.coPlanners, 6, 40),
-    reply: str(r.reply, 400),
+    dateText: date && date >= today ? str(r["dateText"], 40) : undefined,
+    guests: int(r["guests"], 1, 100000),
+    budget: int(r["budget"], 1000, 10_000_000_000),
+    venueStatus: oneOf(r["venueStatus"], VENUE_STATUS),
+    venues: str(r["venues"], 120),
+    functions: strList(r["functions"], 6).flatMap((f) => oneOf(f, FUNCTIONS) ?? []),
+    traditions: str(r["traditions"], 160),
+    needs: strList(r["needs"], 6, 60),
+    moods: strList(r["moods"], 4, 30),
+    colours: strList(r["colours"], 4, 30),
+    coPlanners: strList(r["coPlanners"], 6, 40),
+    reply: str(r["reply"], 400),
   };
 }

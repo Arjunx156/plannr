@@ -1,17 +1,19 @@
 import type { Profile } from "../data/types";
-import { post } from "./ai";
+import { AI_TIMEOUT_MS, post } from "./ai";
 import { TODAY } from "./dates";
 import { FUNCTION_ORDER } from "./intake";
 
 // ---------------------------------------------------------------- intake
 
+/** What Gemini read from a description: any profile fields it found, and a short reply. */
 export type AiIntake = Partial<Omit<Profile, "inspiration" | "priorities" | "cuts">> & { reply?: string };
+/** Asks Gemini to read a description into the profile; undefined when AI is off or slow. */
 export function extractWithAi(
   text: string,
   profile: Profile,
   asking?: string,
 ): Promise<AiIntake | undefined> {
-  return post<AiIntake>("intake", { text, profile, asking, today: TODAY }, 12000);
+  return post<AiIntake>("intake", { text, profile, asking, today: TODAY }, AI_TIMEOUT_MS.intake);
 }
 function union(a: string[], b: string[] | undefined): string[] {
   const out = [...a];

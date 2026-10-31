@@ -1,0 +1,21 @@
+name: Something isn't working
+description: A screen, a shared link or a plan change that does the wrong thing
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The page's address, with any personal details removed.
+  - type: input
+    id: device
+    attributes:
+      label: Phone or browser
+      placeholder: Pixel 7, Chrome 141

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { useEditable } from "../../components/taskHooks";
 import { NOTICE_CARD, Pill } from "../../components/ui";
 import type { ActionId, Notice } from "../../data/messageTypes";
@@ -10,8 +10,8 @@ type AnyEvent = PersonalEvent | CommunityEvent;
 
 /** Puts a question in the assistant's box, ready for the planner to read and send. */
 function askAssistant(eventId: string, text: string) {
-  const box = document.getElementById(`ask-${eventId}`) as HTMLTextAreaElement | null;
-  if (!box) return;
+  const box = document.getElementById(`ask-${eventId}`);
+  if (!(box instanceof HTMLTextAreaElement)) return;
   // React tracks the value itself, so set it through the native setter and announce the input.
   const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
   setter?.call(box, text);
@@ -28,7 +28,8 @@ function useNoticeActions(ev: AnyEvent, dialogs: { book: () => void; savings: ()
     dispatch(toast(result, { type: "reopenNotice", eventId, noticeId: n.id }));
   };
   const acceptOverrun = (n: Notice) => {
-    const over = (c: { planned: number; projected?: number }) => (c.projected ?? c.planned) > c.planned;
+    const over = (c: { planned: number; projected?: number | undefined }) =>
+      (c.projected ?? c.planned) > c.planned;
     const cat = ev.layout === "personal" ? ev.budget.categories.find(over) : undefined;
     if (cat) {
       const patch = { planned: cat.projected ?? cat.planned, projected: undefined, tone: "ok" as const };
@@ -63,7 +64,7 @@ function useNoticeActions(ev: AnyEvent, dialogs: { book: () => void; savings: ()
 }
 
 /** What needs the planner's attention, each with the one action that settles it. */
-export function Notices({ ev }: { ev: AnyEvent }) {
+export function Notices({ ev }: { ev: AnyEvent }): JSX.Element | null {
   const editable = useEditable(ev);
   const [booking, setBooking] = useState(false);
   const [savings, setSavings] = useState(false);
@@ -108,13 +109,13 @@ function NoticeCard({ n, editable, onRun }: CardProps) {
   return (
     <article className={`flex flex-col gap-2 rounded-2xl border p-4 ${NOTICE_CARD[n.tone]}`}>
       <Pill tone={n.tone === "info" ? "idle" : n.tone}>{n.label}</Pill>
-      <span className="text-[15px] leading-[1.4] font-medium">{n.text}</span>
+      <span className="font-medium text-[15px] leading-[1.4]">{n.text}</span>
       {n.lines?.map((l) => (
-        <span key={l} className="text-sm text-body">
+        <span key={l} className="text-body text-sm">
           · {l}
         </span>
       ))}
-      {n.why && <span className="text-xs leading-[1.4] text-peacock">{n.why}</span>}
+      {n.why && <span className="text-peacock text-xs leading-[1.4]">{n.why}</span>}
       <div className={`mt-1 flex-wrap gap-2 ${editable ? "flex" : "hidden"}`}>
         {primary && (
           <button type="button" className="btn btn-primary btn-sm" onClick={() => onRun(primary.action)}>
@@ -137,7 +138,7 @@ function Settled({ ev, notices, editable }: { ev: AnyEvent; notices: Notice[]; e
   return (
     <ul className="m-0 flex list-none flex-col gap-1 p-0">
       {notices.map((n) => (
-        <li key={n.id} className="flex items-center justify-between gap-3 text-sm text-body">
+        <li key={n.id} className="flex items-center justify-between gap-3 text-body text-sm">
           <span>
             <span className="text-leaf-ink">✓</span> {n.result ?? n.label}
           </span>

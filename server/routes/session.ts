@@ -16,6 +16,6 @@ export function requireSession(app: Api, { env, auth }: RouteDeps): void {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) return c.json({ error: "Sign in to continue" }, 401);
     c.set("userId", session.user.id);
-    await next();
+    return next();
   });
 }

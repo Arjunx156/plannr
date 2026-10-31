@@ -1,7 +1,8 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Field } from "../../../components/fields";
 import type { PlannrEvent } from "../../../data/types";
 import { api, inviteUrl } from "../../../lib/api";
+import { errorMessage } from "../../../shared/guards";
 import { ROLE_LABEL, type Role } from "../../../shared/types";
 import { toast, useStore } from "../../../store/store";
 import { waLink } from "../links";
@@ -13,7 +14,7 @@ const COMMITTEE = ["Treasurer", "Secretary", "President", "Volunteers"];
 type InviteRole = Exclude<Role, "owner">;
 
 /** A link that brings someone into the plan as a co-planner or a viewer, with their side or committee role. */
-export function Invite({ ev }: { ev: PlannrEvent }) {
+export function Invite({ ev }: { ev: PlannrEvent }): JSX.Element {
   const { dispatch } = useStore();
   const [role, setRole] = useState<InviteRole>("planner");
   const [side, setSide] = useState("");
@@ -34,7 +35,7 @@ export function Invite({ ev }: { ev: PlannrEvent }) {
       const { token } = await api.createInvite(ev.id, role, side.trim() || null);
       setLink(inviteUrl(token));
     } catch (err) {
-      dispatch(toast((err as Error).message));
+      dispatch(toast(errorMessage(err)));
     }
     setBusy(false);
   };
@@ -159,7 +160,7 @@ function InviteLink({ ev, link, role, side }: LinkProps) {
           Share on WhatsApp
         </a>
       </div>
-      <span className="text-xs text-muted">
+      <span className="text-muted text-xs">
         Anyone with this link can join as {ROLE_LABEL[role].toLowerCase()}
         {side ? ` on ${side}` : ""}. You can change their role or remove them here.
       </span>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { TextField } from "../../../components/fields";
 import { Modal } from "../../../components/overlays";
 import { toneText } from "../../../components/ui";
@@ -9,11 +9,10 @@ import { useStore } from "../../../store/store";
 import { newId } from "../ids";
 import { Section } from "../layout";
 import { CategoryDetail } from "./CategoryDetail";
-
-const share = (n: number, max: number) => `${(n / max) * 100}%`;
+import { SpendBar } from "./SpendBar";
 
 /** Budget lines: planned, projected and spent, each opening to its items and payments. */
-export function Categories({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
+export function Categories({ ev, editable }: { ev: PersonalEvent; editable: boolean }): JSX.Element {
   const { dispatch } = useStore();
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -41,7 +40,7 @@ export function Categories({ ev, editable }: { ev: PersonalEvent; editable: bool
     <Section title="Where it goes" aside={addButton}>
       <ul className="m-0 flex list-none flex-col p-0">
         {cats.map((c) => (
-          <li key={c.id} className="border-t border-sand-2 first:border-0">
+          <li key={c.id} className="border-sand-2 border-t first:border-0">
             <CategoryRow
               c={c}
               max={max}
@@ -52,7 +51,7 @@ export function Categories({ ev, editable }: { ev: PersonalEvent; editable: bool
           </li>
         ))}
       </ul>
-      <span className="text-xs text-muted">{ev.budget.source}</span>
+      <span className="text-muted text-xs">{ev.budget.source}</span>
       <Modal open={adding} onClose={() => setAdding(false)} title="Add a category">
         <AddCategory onAdd={add} />
       </Modal>
@@ -81,7 +80,7 @@ function CategoryRow({ c, max, open, onToggle }: RowProps) {
       <span className="order-3 col-span-2 sm:order-none sm:col-span-1">
         <SpendBar c={c} max={max} />
       </span>
-      <span className="flex flex-col items-end text-sm tabular">
+      <span className="tabular flex flex-col items-end text-sm">
         <span>
           {inr(c.spent)} <span className="text-muted">/ {inr(c.planned)}</span>
         </span>
@@ -90,30 +89,6 @@ function CategoryRow({ c, max, open, onToggle }: RowProps) {
         </span>
       </span>
     </button>
-  );
-}
-
-/** The plan in grey, spending over it (rust once the line is heading over), and the overrun shaded past it. */
-function SpendBar({ c, max }: { c: Category; max: number }) {
-  const proj = c.projected ?? c.planned;
-  const over = proj > c.planned;
-  return (
-    <span className="relative block h-2 rounded-[2px] bg-sand-2">
-      <span
-        className="absolute inset-y-0 left-0 rounded-[2px] bg-line-2"
-        style={{ width: share(c.planned, max) }}
-      />
-      <span
-        className="absolute inset-y-0 left-0 rounded-[2px]"
-        style={{ width: share(c.spent, max), background: over ? "var(--color-rust)" : "var(--color-leaf)" }}
-      />
-      {over && (
-        <span
-          className="absolute inset-y-0 rounded-r-[2px] bg-rust opacity-40"
-          style={{ left: share(c.planned, max), width: share(proj - c.planned, max) }}
-        />
-      )}
-    </span>
   );
 }
 

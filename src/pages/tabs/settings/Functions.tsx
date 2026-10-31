@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { Modal } from "../../../components/overlays";
 import { Pill } from "../../../components/ui";
 import type { PlannrEvent } from "../../../data/types";
@@ -7,7 +7,8 @@ import { functionsOf } from "../../../shared/eventLists";
 import { Section } from "../layout";
 import { FunctionForm } from "./functionForm";
 
-export function Functions({ ev, editable }: { ev: PlannrEvent; editable: boolean }) {
+/** The event's functions: dates, places and dress codes, each editable. */
+export function Functions({ ev, editable }: { ev: PlannrEvent; editable: boolean }): JSX.Element {
   const [open, setOpen] = useState<string | null>(null);
   const fns = functionsOf(ev);
   const current = open === "new" ? undefined : fns.find((f) => f.id === open);
@@ -26,13 +27,13 @@ export function Functions({ ev, editable }: { ev: PlannrEvent; editable: boolean
         {fns.map((f) => (
           <li
             key={f.id}
-            className="flex flex-wrap items-center justify-between gap-2 border-t border-sand-2 py-2.5 first:border-0"
+            className="flex flex-wrap items-center justify-between gap-2 border-sand-2 border-t py-2.5 first:border-0"
           >
             <span className="flex flex-col text-sm">
               <span className="font-semibold">
                 {f.label} {f.private && <Pill tone="idle">family only</Pill>}
               </span>
-              <span className="text-xs text-muted">
+              <span className="text-muted text-xs">
                 {dayLine(f.date, f.time, f.place, !!f.capacity && `seats ${f.capacity}`)}
               </span>
             </span>

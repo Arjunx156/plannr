@@ -15,6 +15,7 @@ const WORDS: Record<string, number> = {
   twelve: 12,
 };
 
+/** A number from digits or an English word: "40", "forty". */
 export function toNumber(raw: string): number | undefined {
   const word = WORDS[raw.toLowerCase()];
   if (word !== undefined) return word;
@@ -22,6 +23,7 @@ export function toNumber(raw: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** Text with each word capitalised. */
 export function cap(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }

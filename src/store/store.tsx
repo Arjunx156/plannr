@@ -1,5 +1,6 @@
 import {
   createContext,
+  type JSX,
   type ReactNode,
   useCallback,
   useContext,
@@ -22,6 +23,7 @@ function load(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return initialState();
+    // Written by this app; migrate checks the version and falls back to a fresh state.
     const state = migrate(JSON.parse(raw) as SavedState);
     // Sync status describes this tab's queue, which starts empty, and the session is checked
     // again on every load; until then the saved plans show as they were.
@@ -41,6 +43,7 @@ function load(): AppState {
  */
 type SavedState = Partial<Omit<AppState, "version">> & { version?: number };
 
+/** Brings a saved state up to the current version; anything unrecognised starts fresh. */
 export function migrate(saved: SavedState): AppState {
   const fresh = initialState();
   if ((saved.version !== 1 && saved.version !== 2) || !Array.isArray(saved.events)) return fresh;
@@ -69,7 +72,8 @@ export { canEdit };
 
 const StoreContext = createContext<Store | null>(null);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+/** Holds the app's state, saves it on this device and syncs plan changes to the server. */
+export function StoreProvider({ children }: { children: ReactNode }): JSX.Element {
   const [state, raw] = useReducer(reducer, undefined, load);
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -128,18 +132,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
+/** The app's state, its dispatch and the sync queue. Only valid inside StoreProvider. */
 export function useStore(): Store {
   const store = useContext(StoreContext);
   if (!store) throw new Error("useStore must be used inside StoreProvider");
   return store;
 }
 
+/** One event from the store by id, or undefined. */
 export function useEventById(id: string | undefined): PlannrEvent | undefined {
   const { state } = useStore();
   return state.events.find((e) => e.id === id);
 }
 
 let toastSeq = 0;
+/** A short message at the bottom of the screen, with an optional undo action. */
 export function toast(text: string, undo?: Action): Action {
   toastSeq += 1;
   return { type: "toast", toast: { id: `t${toastSeq}`, text, undo } };

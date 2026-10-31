@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { useNavigate } from "react-router";
 import { Field } from "../../components/fields";
 import { useEditable } from "../../components/taskHooks";
@@ -9,7 +9,8 @@ import { SaveTemplate } from "./planTemplates";
 import { Functions } from "./settings/Functions";
 import { Memory } from "./settings/Memory";
 
-export function SettingsTab({ ev }: { ev: PlannrEvent }) {
+/** The event's own details, its website, shared links and templates. */
+export function SettingsTab({ ev }: { ev: PlannrEvent }): JSX.Element {
   const editable = useEditable(ev);
   return (
     <TabPage eyebrow={ev.name} title="Settings">
@@ -75,7 +76,7 @@ function Archive({ ev, editable }: { ev: PlannrEvent; editable: boolean }) {
   if (!editable) return null;
   return (
     <Section title={ev.archived ? "Archived" : "When it's over"}>
-      <p className="m-0 text-sm text-body">
+      <p className="m-0 text-body text-sm">
         Archiving moves the event to Past events. Everything is kept, shared links stop working, and you can
         restore it any time.
       </p>

@@ -6,7 +6,25 @@ import { api } from "./api";
  * offline, and show the morning reminder.
  */
 
-interface InstallPrompt extends Event {
+/** The only script URL Plannr hands the browser. */
+const WORKER = "/sw.js";
+
+/**
+ * The service worker's URL, vouched for by Plannr's one Trusted Types policy, which accepts that
+ * URL and nothing else. Browsers without Trusted Types take the plain string.
+ */
+function workerUrl(): string | TrustedScriptURL {
+  const policy = window.trustedTypes?.createPolicy("plannr", {
+    createScriptURL: (url) => {
+      if (url !== WORKER) throw new TypeError(`Plannr loads no script from ${url}`);
+      return url;
+    },
+  });
+  return policy ? policy.createScriptURL(WORKER) : WORKER;
+}
+
+/** Chrome's install offer, which can be shown later from Plannr's own button. */
+export interface InstallPrompt extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
@@ -22,7 +40,7 @@ export function startDevice(): void {
   if (typeof window === "undefined") return;
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
-    deferred = e as InstallPrompt;
+    deferred = e;
     tell();
   });
   window.addEventListener("appinstalled", () => {
@@ -31,7 +49,7 @@ export function startDevice(): void {
   });
   if (import.meta.env.PROD && "serviceWorker" in navigator)
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => {
+      navigator.serviceWorker.register(workerUrl()).catch(() => {
         // Without it the app still works; it just needs a signal to open.
       });
     });
@@ -40,7 +58,8 @@ export function startDevice(): void {
 const standalone = () =>
   typeof window !== "undefined" &&
   (window.matchMedia?.("(display-mode: standalone)").matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true);
+    // iOS Safari reports a home-screen launch on its own navigator field.
+    ("standalone" in navigator && navigator.standalone === true));
 
 const isIos = () => typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
 
@@ -87,6 +106,7 @@ function keyBytes(base64: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
+/** Where morning reminders stand on this device. */
 export type ReminderState = "on" | "off" | "blocked" | "unsupported" | "unavailable";
 
 async function registration(): Promise<ServiceWorkerRegistration | undefined> {
@@ -94,6 +114,7 @@ async function registration(): Promise<ServiceWorkerRegistration | undefined> {
   return (await navigator.serviceWorker.getRegistration()) ?? undefined;
 }
 
+/** Whether this device gets morning reminders, and if not, why. */
 export async function reminderState(): Promise<ReminderState> {
   if (typeof Notification === "undefined") return "unsupported";
   const reg = await registration();
@@ -119,6 +140,7 @@ export async function remindersOn(): Promise<ReminderState> {
   return "on";
 }
 
+/** Stops morning reminders on this device and tells the server. */
 export async function remindersOff(): Promise<ReminderState> {
   const reg = await registration();
   const sub = await reg?.pushManager.getSubscription();

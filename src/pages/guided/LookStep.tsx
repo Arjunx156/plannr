@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { type JSX, useRef, useState } from "react";
+import { cssVars } from "../../components/cssVars";
 import { AddImages, InspirationTile, imagesFrom } from "../../components/intake";
 import { addOnce, Block, type StepProps, toggle } from "./fields";
 
@@ -46,7 +47,7 @@ function MoodWords({ p, set }: StepProps) {
             value={own}
             onChange={(e) => setOwn(e.target.value)}
             placeholder="+ Your own"
-            className="min-h-10 w-[130px] rounded-full border border-dashed border-line-2 bg-transparent px-3.5 text-sm outline-none focus:border-solid focus:border-ink"
+            className="min-h-10 w-[130px] rounded-full border border-line-2 border-dashed bg-transparent px-3.5 text-sm outline-none focus:border-ink focus:border-solid"
           />
         </form>
       </div>
@@ -71,14 +72,10 @@ function Colours({ p, set }: StepProps) {
               className="flex flex-col items-center gap-1.5"
             >
               <span
-                className="h-[60px] w-[60px] rounded-xl border border-line"
-                style={{
-                  background: c.hex,
-                  outline: on ? "2px solid var(--color-ink)" : undefined,
-                  outlineOffset: 3,
-                }}
+                ref={cssVars({ "--c": c.hex })}
+                className={`h-[60px] w-[60px] rounded-xl border border-line bg-(--c) ${on ? "outline-2 outline-ink outline-offset-[3px]" : ""}`}
               />
-              <span className={`text-xs font-medium ${on ? "text-ink" : "text-body"}`}>{c.name}</span>
+              <span className={`font-medium text-xs ${on ? "text-ink" : "text-body"}`}>{c.name}</span>
             </button>
           );
         })}
@@ -87,10 +84,10 @@ function Colours({ p, set }: StepProps) {
           onClick={() => picker.current?.click()}
           className="flex flex-col items-center gap-1.5"
         >
-          <span className="flex h-[60px] w-[60px] items-center justify-center rounded-xl border-[1.5px] border-dashed border-line-2 font-serif text-[22px] text-body">
+          <span className="flex h-[60px] w-[60px] items-center justify-center rounded-xl border-[1.5px] border-line-2 border-dashed font-serif text-[22px] text-body">
             +
           </span>
-          <span className="text-xs font-medium text-body">Pick</span>
+          <span className="font-medium text-body text-xs">Pick</span>
         </button>
         <input
           ref={picker}
@@ -128,7 +125,7 @@ function Inspiration({ p, set, previews, addPreviews }: StepProps) {
           className="flex h-[110px] flex-col items-center justify-center gap-1 rounded-[10px] text-[13px]"
         >
           <span>Upload</span>
-          <span className="text-xs text-muted">or drop images</span>
+          <span className="text-muted text-xs">or drop images</span>
         </AddImages>
         <form
           className="col-span-2 flex flex-col justify-center gap-1.5 sm:col-span-1"
@@ -138,7 +135,7 @@ function Inspiration({ p, set, previews, addPreviews }: StepProps) {
             setLink("");
           }}
         >
-          <label htmlFor="insp-link" className="text-[13px] font-medium">
+          <label htmlFor="insp-link" className="font-medium text-[13px]">
             Paste a link
           </label>
           <input
@@ -154,7 +151,8 @@ function Inspiration({ p, set, previews, addPreviews }: StepProps) {
   );
 }
 
-export function LookStep(props: StepProps) {
+/** The look and feel: moods, colours and inspiration. */
+export function LookStep(props: StepProps): JSX.Element {
   return (
     <div className="flex flex-col gap-7">
       <MoodWords {...props} />

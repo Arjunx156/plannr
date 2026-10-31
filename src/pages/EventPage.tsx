@@ -1,11 +1,11 @@
-import { type ComponentType, lazy, Suspense, useEffect, useRef } from "react";
+import { type ComponentType, type JSX, lazy, Suspense, useEffect, useRef } from "react";
 import { Link, Navigate, NavLink, useLocation, useParams, useSearchParams } from "react-router";
 import { AssistantPanel } from "../components/assistant";
 import { usePageMeta } from "../components/pageMeta";
 import { AppShell } from "../components/shell";
 import { useEditable } from "../components/taskHooks";
 import { TaskSheet } from "../components/taskSheet";
-import { HUE_COLOR, Spinner } from "../components/ui";
+import { Spinner, SWATCH_BG } from "../components/ui";
 import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../data/types";
 import { daysUntil } from "../lib/dates";
 import { tabsFor } from "../lib/eventTabs";
@@ -30,7 +30,10 @@ const FundsTab = lazy(() => import("./tabs/FundsTab").then((m) => ({ default: m.
 const VolunteersTab = lazy(() => import("./tabs/VolunteersTab").then((m) => ({ default: m.VolunteersTab })));
 const StallsTab = lazy(() => import("./tabs/StallsTab").then((m) => ({ default: m.StallsTab })));
 
-type TabProps = { ev: PlannrEvent; onOpenTask: (id: string) => void };
+interface TabProps {
+  ev: PlannrEvent;
+  onOpenTask: (id: string) => void;
+}
 
 /** Each section's screen, loaded when it's first opened. The overview ("") is part of this page. */
 const TAB_SCREENS: Record<string, ComponentType<TabProps>> = {
@@ -56,7 +59,7 @@ function pageTitle(ev: PlannrEvent | undefined, tab: { id: string; label: string
 }
 
 /** /events/:id/:tab? — one event, with its overview, timeline, budget, vendors, ideas and people. */
-export function EventPage() {
+export function EventPage(): JSX.Element {
   const { id, tab = "" } = useParams();
   const { state } = useStore();
   const [params, setParams] = useSearchParams();
@@ -124,8 +127,7 @@ function Overview({
       {/* On narrower screens the assistant sits below the overview: one tap brings it up. */}
       <button
         type="button"
-        className="btn btn-primary fixed right-4 z-30 shadow-[0_8px_24px_rgba(20,10,5,.25)] xl:hidden"
-        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}
+        className="btn btn-primary above-edge fixed right-4 z-30 shadow-[0_8px_24px_rgba(20,10,5,.25)] xl:hidden"
         onClick={() => {
           document.getElementById("assistant")?.scrollIntoView({ behavior: "smooth", block: "start" });
           window.setTimeout(
@@ -156,7 +158,7 @@ function EventBar({ ev }: { ev: PlannrEvent }) {
     if (active && bar) bar.scrollLeft = active.offsetLeft - (bar.clientWidth - active.offsetWidth) / 2;
   }, [pathname]);
   return (
-    <div className="border-b border-line bg-surface">
+    <div className="border-line border-b bg-surface">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-1 px-4 pt-3 sm:px-8">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <Link to="/events" className="link text-body">
@@ -166,7 +168,7 @@ function EventBar({ ev }: { ev: PlannrEvent }) {
             /
           </span>
           <span className="font-semibold">{ev.name}</span>
-          <span className="font-mono text-xs text-muted">
+          <span className="font-mono text-muted text-xs">
             {remote ? `${ROLE_LABEL[remote.role]}${remote.side ? ` · ${remote.side}` : ""}` : ev.role}
           </span>
         </div>
@@ -181,7 +183,7 @@ function EventBar({ ev }: { ev: PlannrEvent }) {
         )}
       </div>
       {!editable && (
-        <p className="m-0 border-t border-line bg-peacock-wash px-4 py-2 text-center text-[13px] text-body sm:px-8">
+        <p className="m-0 border-line border-t bg-peacock-wash px-4 py-2 text-center text-[13px] text-body sm:px-8">
           You can view this plan and follow along. Ask the owner to make you a co-planner to change it.
         </p>
       )}
@@ -235,15 +237,15 @@ function Hero({ ev }: { ev: PersonalEvent | CommunityEvent }) {
   const days = daysUntil(ev.date);
   return (
     <section className="relative overflow-hidden rounded-2xl border border-line bg-surface">
-      <div className="h-2" style={{ background: HUE_COLOR[ev.hue] }} />
+      <div className={`h-2 ${SWATCH_BG[ev.hue]}`} />
       <div className="flex flex-wrap items-end justify-between gap-6 p-6">
         <div className="flex min-w-0 flex-col gap-2">
           <span className="eyebrow text-muted">{ev.eyebrow}</span>
           <h1 className="font-serif text-[40px] leading-[1.05] sm:text-[48px]">{ev.name}</h1>
-          <span className="text-sm text-body">{ev.countdown.line}</span>
+          <span className="text-body text-sm">{ev.countdown.line}</span>
         </div>
         <div className="flex flex-col items-start sm:items-end">
-          <span className="font-serif text-[56px] leading-none tabular">{days > 0 ? days : "Today"}</span>
+          <span className="tabular font-serif text-[56px] leading-none">{days > 0 ? days : "Today"}</span>
           <span className="eyebrow text-muted">
             {days > 0 ? `days · ${ev.countdown.label}` : ev.countdown.label}
           </span>

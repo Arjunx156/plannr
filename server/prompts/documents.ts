@@ -11,10 +11,12 @@ export const WRITE_TASKS = [
   "announcement",
   "invite",
 ] as const;
+/** What Plannr can write for the family. */
 export type WriteTask = (typeof WRITE_TASKS)[number];
 
 const WRITE_LANGS: Record<string, string> = { en: "English", ml: "Malayalam", hi: "Hindi", ta: "Tamil" };
 
+/** One writing request: the task, the language and any context. */
 export interface WriteRequest {
   task: WriteTask;
   lang: string;
@@ -22,18 +24,20 @@ export interface WriteRequest {
   context: unknown;
 }
 
+/** Checks a writing request's fields; throws BadRequest when one is missing or malformed. */
 export function writeRequest(body: unknown): WriteRequest {
   if (!isObject(body)) throw new BadRequest("Expected a JSON object");
-  const task = oneOf(body.task, WRITE_TASKS);
+  const task = oneOf(body["task"], WRITE_TASKS);
   if (!task) throw new BadRequest("Unknown writing task");
   return {
     task,
-    lang: oneOf(body.lang, Object.keys(WRITE_LANGS)) ?? "en",
-    text: typeof body.text === "string" ? body.text.slice(0, 6000) : "",
-    context: isObject(body.context) ? body.context : {},
+    lang: oneOf(body["lang"], Object.keys(WRITE_LANGS)) ?? "en",
+    text: typeof body["text"] === "string" ? body["text"].slice(0, 6000) : "",
+    context: isObject(body["context"]) ? body["context"] : {},
   };
 }
 
+/** The JSON schema for written text. */
 export const writeSchema = {
   type: "object",
   properties: { text: { type: "string" } },
@@ -56,6 +60,7 @@ const WRITE_BRIEF: Record<WriteTask, string> = {
   invite: "Write a short, warm WhatsApp invitation for the event. Two or three sentences.",
 };
 
+/** The prompt for one writing task, in the requested language. */
 export function writePrompt(r: WriteRequest): { system: string; user: string } {
   const lang = WRITE_LANGS[r.lang] ?? "English";
   return {
@@ -68,13 +73,15 @@ ${r.text ? `Current draft (improve it, keep its facts): ${r.text}` : ""}`,
   };
 }
 
+/** Cleans written text: no carriage returns, trimmed, capped in length. */
 export function sanitizeWrite(raw: unknown): { text: string } {
   const r = isObject(raw) ? raw : {};
-  const text = typeof r.text === "string" ? r.text.replace(/\r/g, "").trim().slice(0, 5000) : "";
+  const text = typeof r["text"] === "string" ? r["text"].replace(/\r/g, "").trim().slice(0, 5000) : "";
   if (!text) throw new Error("Empty draft");
   return { text };
 }
 
+/** The file types Plannr can read: photos and PDFs. */
 export const READ_MIMES = [
   "image/jpeg",
   "image/png",
@@ -86,30 +93,33 @@ export const READ_MIMES = [
 /** Base64 of a 3 MB file, with a little room. */
 export const MAX_READ_BASE64 = 4_200_000;
 
+/** A bill, quote or contract to read, sent whole as base64. */
 export interface ReadRequest {
   mime: (typeof READ_MIMES)[number];
   data: string;
   categories: string[];
-  guests?: number;
+  guests?: number | undefined;
   today: string;
 }
 
+/** Checks a read request's file type and size; throws BadRequest when either is wrong. */
 export function readRequest(body: unknown): ReadRequest {
   if (!isObject(body)) throw new BadRequest("Expected a JSON object");
-  const mime = oneOf(body.mime, READ_MIMES);
+  const mime = oneOf(body["mime"], READ_MIMES);
   if (!mime) throw new BadRequest("Plannr can read photos and PDFs");
-  if (typeof body.data !== "string" || !body.data || !/^[A-Za-z0-9+/=]+$/.test(body.data))
+  if (typeof body["data"] !== "string" || !body["data"] || !/^[A-Za-z0-9+/=]+$/.test(body["data"]))
     throw new BadRequest("The file didn't come through");
-  if (body.data.length > MAX_READ_BASE64) throw new BadRequest("That file is over 3 MB");
+  if (body["data"].length > MAX_READ_BASE64) throw new BadRequest("That file is over 3 MB");
   return {
     mime,
-    data: body.data,
-    categories: strList(body.categories, 30, 60),
-    guests: int(body.guests, 1, 100000),
-    today: isoDate(body.today) ?? new Date().toISOString().slice(0, 10),
+    data: body["data"],
+    categories: strList(body["categories"], 30, 60),
+    guests: int(body["guests"], 1, 100000),
+    today: isoDate(body["today"]) ?? new Date().toISOString().slice(0, 10),
   };
 }
 
+/** The JSON schema for what Plannr reads from a document. */
 export const readSchema = {
   type: "object",
   properties: {
@@ -150,6 +160,7 @@ export const readSchema = {
   required: ["kind", "items", "payments"],
 } as const;
 
+/** The prompt for reading an Indian event bill, quote or contract. */
 export function readPrompt(r: ReadRequest): { system: string; text: string } {
   return {
     system: `You read Indian event bills, vendor quotes and contracts, in English or any Indian language, and
@@ -161,31 +172,36 @@ Extract the document.`,
   };
 }
 
+/** Cleans what was read: amounts in range, dates valid, categories from the plan. */
 export function sanitizeRead(raw: unknown): Json {
   const r = isObject(raw) ? raw : {};
   const money = (v: unknown) => int(v, 1, 1_000_000_000);
-  const items = (Array.isArray(r.items) ? r.items : [])
+  const items = (Array.isArray(r["items"]) ? r["items"] : [])
     .filter(isObject)
-    .map((i) => ({ label: str(i.label, 120) ?? "", amount: money(i.amount) ?? 0 }))
+    .map((i) => ({ label: str(i["label"], 120) ?? "", amount: money(i["amount"]) ?? 0 }))
     .filter((i) => i.label && i.amount)
     .slice(0, 40);
-  const payments = (Array.isArray(r.payments) ? r.payments : [])
+  const payments = (Array.isArray(r["payments"]) ? r["payments"] : [])
     .filter(isObject)
-    .map((p) => ({ label: str(p.label, 80) ?? "", amount: money(p.amount) ?? 0, date: isoDate(p.date) }))
+    .map((p) => ({
+      label: str(p["label"], 80) ?? "",
+      amount: money(p["amount"]) ?? 0,
+      date: isoDate(p["date"]),
+    }))
     .filter((p) => p.label && p.amount)
     .slice(0, 8);
   return {
-    kind: oneOf(r.kind, ["bill", "quote", "contract", "other"] as const) ?? "other",
-    vendor: str(r.vendor, 120),
-    category: str(r.category, 60),
-    total: money(r.total),
-    perGuest: r.perGuest === true ? true : undefined,
-    date: isoDate(r.date),
+    kind: oneOf(r["kind"], ["bill", "quote", "contract", "other"] as const) ?? "other",
+    vendor: str(r["vendor"], 120),
+    category: str(r["category"], 60),
+    total: money(r["total"]),
+    perGuest: r["perGuest"] === true ? true : undefined,
+    date: isoDate(r["date"]),
     items,
     payments,
     // Shown after "Includes:", so a model that repeats the word doesn't say it twice.
-    inclusions: str(str(r.inclusions, 400)?.replace(/^includes?\b:?\s*/i, "")),
-    terms: str(r.terms, 400),
-    summary: str(r.summary, 80),
+    inclusions: str(str(r["inclusions"], 400)?.replace(/^includes?\b:?\s*/i, "")),
+    terms: str(r["terms"], 400),
+    summary: str(r["summary"], 80),
   };
 }

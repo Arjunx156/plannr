@@ -8,6 +8,7 @@
     "rules": {
       "preset": "recommended",
       "complexity": {
+        "useLiteralKeys": "off",
         "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } },
         "noExcessiveLinesPerFunction": {
           "level": "error",
@@ -19,13 +20,31 @@
         "noUnusedImports": "error",
         "noUnusedVariables": "error"
       },
-      "nursery": { "noFloatingPromises": "error" },
+      "nursery": { "noFloatingPromises": "error", "useSortedClasses": "error" },
       "style": {
         "noNestedTernary": "error",
         "noNonNullAssertion": "error",
         "noParameterAssign": "error",
+        "useConsistentTypeDefinitions": "error",
         "useExplicitLengthCheck": "error",
         "useFilenamingConvention": "error",
+        "useNamingConvention": {
+          "level": "error",
+          "options": {
+            "strictCase": false,
+            "conventions": [
+              {
+                "selector": { "kind": "objectLiteralProperty" },
+                "formats": ["camelCase", "CONSTANT_CASE", "PascalCase", "snake_case"]
+              },
+              {
+                "selector": { "kind": "typeProperty" },
+                "formats": ["camelCase", "CONSTANT_CASE", "PascalCase", "snake_case"]
+              }
+            ]
+          }
+        },
+        "useReadonlyClassProperties": "error",
         "useNodejsImportProtocol": "error"
       },
       "suspicious": {

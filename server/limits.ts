@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, like, lt, sql } from "drizzle-orm";
+import { DAY_MS, MINUTE_MS } from "../src/lib/dates";
 import { rateLimit } from "./db/authSchema";
 import type { Db } from "./db/types";
 
@@ -15,7 +16,7 @@ const MAX_TRACKED_KEYS = 5000;
 const KEY_PREFIX = "plannr:";
 
 /** A fixed-window limiter in this instance's memory, with a hard cap on how many keys it holds. */
-export function rateLimiter(limit = 40, windowMs = 60000, maxKeys = MAX_TRACKED_KEYS) {
+export function rateLimiter(limit = 40, windowMs = MINUTE_MS, maxKeys = MAX_TRACKED_KEYS) {
   const hits = new Map<string, { count: number; reset: number }>();
   /** Forgets finished windows only, so a flood of new addresses can't wipe an abuser's count. */
   const sweep = (now: number) => {
@@ -57,7 +58,7 @@ async function countHit(db: Db, key: string, windowMs: number, now: number): Pro
  * The limiter every route uses: memory first, then the database. If the database can't be
  * reached the memory limit still stands, so a hiccup never locks families out.
  */
-export function sharedLimiter(db: Db, limit = 60, windowMs = 60000) {
+export function sharedLimiter(db: Db, limit = 60, windowMs = MINUTE_MS) {
   const local = rateLimiter(limit, windowMs);
   return async (key: string, now = Date.now()): Promise<boolean> => {
     if (!local(key, now)) return false;
@@ -74,5 +75,5 @@ export function sharedLimiter(db: Db, limit = 60, windowMs = 60000) {
 export async function pruneLimits(db: Db, now = Date.now()): Promise<void> {
   await db
     .delete(rateLimit)
-    .where(and(like(rateLimit.key, `${KEY_PREFIX}%`), lt(rateLimit.lastRequest, now - 86_400_000)));
+    .where(and(like(rateLimit.key, `${KEY_PREFIX}%`), lt(rateLimit.lastRequest, now - DAY_MS)));
 }

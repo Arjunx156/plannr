@@ -1,5 +1,6 @@
 import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../data/types";
-import { addDays, daysBetween } from "../lib/dates";
+import { addDays, daysBetween, isIsoDate } from "../lib/dates";
+import { mapStrings } from "./guards";
 
 /**
  * Templates: a finished event saved as the start of the next one. Next year's mela begins
@@ -7,19 +8,10 @@ import { addDays, daysBetween } from "../lib/dates";
  * and photo cleared, and every date moved to the new day.
  */
 
-const ISO = /^\d{4}-\d{2}-\d{2}$/;
-
 /** Moves every date in a plan by the same number of days. */
 export function shiftDates<T>(value: T, days: number): T {
   if (!days) return value;
-  if (typeof value === "string") return (ISO.test(value) ? addDays(value, days) : value) as T;
-  if (Array.isArray(value)) return value.map((v) => shiftDates(v, days)) as T;
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) out[k] = shiftDates(v, days);
-    return out as T;
-  }
-  return value;
+  return mapStrings(value, (s) => (isIsoDate(s) ? addDays(s, days) : s));
 }
 
 type Planned = PersonalEvent | CommunityEvent;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { Pill } from "../../../components/ui";
 import type { FunctionDay } from "../../../data/baseTypes";
 import type { Household } from "../../../data/guestTypes";
@@ -36,6 +36,7 @@ const FILTERS: [Filter, string][] = [
   ["pickup", "Pickup"],
 ];
 
+/** The two dates a planner can mark on a household: invited, and reminded. */
 export type MarkField = "invitedAt" | "remindedAt";
 
 function matches(h: Household, query: string, filter: Filter): boolean {
@@ -68,7 +69,7 @@ interface ListProps {
 }
 
 /** Every household, searchable and filtered by answer, side, room or pickup. */
-export function HouseholdList({ ev, households, sides, editable, onOpen, onMark }: ListProps) {
+export function HouseholdList({ ev, households, sides, editable, onOpen, onMark }: ListProps): JSX.Element {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const fns = functionsOf(ev);
@@ -77,7 +78,7 @@ export function HouseholdList({ ev, households, sides, editable, onOpen, onMark 
   return (
     <Section
       title="Households"
-      aside={<span className="text-sm text-muted">{plural(shown.length, "household")}</span>}
+      aside={<span className="text-muted text-sm">{plural(shown.length, "household")}</span>}
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label htmlFor="guest-search" className="sr-only">
@@ -118,7 +119,7 @@ export function HouseholdList({ ev, households, sides, editable, onOpen, onMark 
           />
         ))}
         {shown.length === 0 && (
-          <li className="py-6 text-center text-sm text-muted">
+          <li className="py-6 text-center text-muted text-sm">
             {households.length > 0
               ? "Nobody matches."
               : "No guests yet. Add the first household, or paste a list."}
@@ -135,12 +136,12 @@ function HouseholdRow({ ev, h, detail, editable, onOpen, onMark }: RowProps) {
   const state = householdState(h);
   const invite = state === "not-sent";
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-sand-2 py-3">
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-sand-2 border-t py-3">
       <button type="button" className="flex min-w-0 flex-1 flex-col text-left" onClick={() => onOpen(h.id)}>
-        <span className="truncate text-sm font-semibold hover:underline hover:underline-offset-4">
+        <span className="truncate font-semibold text-sm hover:underline hover:underline-offset-4">
           {h.name}
         </span>
-        <span className="text-xs text-muted">{detail}</span>
+        <span className="text-muted text-xs">{detail}</span>
       </button>
       <Pill tone={STATE_TONE[state]}>
         {state === "coming" ? `${STATE_LABEL[state]} · ${comingCount(h)}` : STATE_LABEL[state]}

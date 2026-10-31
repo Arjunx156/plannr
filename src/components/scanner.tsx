@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type JSX, useEffect, useRef, useState } from "react";
 import { Modal } from "./overlays";
 
 /**
@@ -6,16 +6,16 @@ import { Modal } from "./overlays";
  * Elsewhere the caller offers a search by name instead.
  */
 
-interface Detector {
+/** The part of the browser's barcode reader Plannr uses. */
+export interface Detector {
   detect(source: HTMLVideoElement): Promise<{ rawValue: string }[]>;
 }
-type DetectorClass = new (opts: { formats: string[] }) => Detector;
+/** The browser's barcode reader constructor. */
+export type DetectorClass = new (opts: { formats: string[] }) => Detector;
 
 /** The browser's QR reader, where it has one (Chrome on Android does; Safari and Firefox don't). */
 export function detectorClass(): DetectorClass | undefined {
-  // BarcodeDetector isn't in TypeScript's DOM types yet, so it's read by name.
-  const found: unknown = Reflect.get(globalThis, "BarcodeDetector");
-  return typeof found === "function" ? (found as DetectorClass) : undefined;
+  return typeof window === "undefined" ? undefined : window.BarcodeDetector;
 }
 
 /** The camera view; calls `onCode` with the first QR code it reads. */
@@ -29,7 +29,7 @@ export function Scanner({
   onClose: () => void;
   title?: string;
   hint?: string;
-}) {
+}): JSX.Element {
   const video = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
   // The camera starts once; a fresh callback each render mustn't restart it.
@@ -68,7 +68,7 @@ export function Scanner({
   return (
     <Modal open onClose={onClose} title={title} width={420}>
       {error ? (
-        <p className="m-0 text-sm text-rust-ink">{error}</p>
+        <p className="m-0 text-rust-ink text-sm">{error}</p>
       ) : (
         <video
           ref={video}

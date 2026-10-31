@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { bindText, Field, TextField } from "../../../components/fields";
 import type { Payment } from "../../../data/budgetTypes";
 import type { PersonalEvent } from "../../../data/types";
@@ -9,7 +9,8 @@ import { useStore } from "../../../store/store";
 import { CategorySelect, WhatForAmount } from "../amounts";
 import { newId } from "../ids";
 
-export function AddPayment({ ev, onDone }: { ev: PersonalEvent; onDone: () => void }) {
+/** Schedules a payment to a vendor or for a budget line. */
+export function AddPayment({ ev, onDone }: { ev: PersonalEvent; onDone: () => void }): JSX.Element {
   const { dispatch } = useStore();
   const vendors = list(ev, "vendors").filter((v) => v.name);
   const [form, setForm] = useState({

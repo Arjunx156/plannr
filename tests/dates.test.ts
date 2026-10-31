@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { pastEvents, seedEvents, seedNotifications } from "../src/data/seed";
-import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 import { reply } from "../src/lib/assistant";
 import {
   dateRange,
@@ -15,6 +14,7 @@ import {
 } from "../src/lib/dates";
 import { initialState, reducer } from "../src/store/reducer";
 import { migrate } from "../src/store/store";
+import { community, demo, personal, present } from "./support";
 
 afterEach(() => setToday(STORY_DAY));
 
@@ -61,7 +61,7 @@ describe("date helpers", () => {
 describe("a fresh demo", () => {
   test("starts from today with the story's countdowns and weekdays", () => {
     setToday("2026-10-23");
-    const [wedding, birthday, mela] = seedEvents() as [PersonalEvent, PersonalEvent, CommunityEvent];
+    const { wedding, birthday, mela } = demo();
     expect(wedding.date).toBe("2027-05-23");
     expect(parseDate(birthday.date).getDay()).toBe(6);
     expect(parseDate(mela.date).getDay()).toBe(6);
@@ -82,14 +82,14 @@ describe("a fresh demo", () => {
   test("assistant changes use the event's own dates", () => {
     setToday("2026-10-23");
     const state = initialState(seedEvents());
-    const ev = state.events[0] as PersonalEvent;
+    const ev = personal(state.events[0]);
     const haldi = ev.functions.find((f) => f.id === "haldi");
     const msg = reply(ev, "Move the haldi to Friday", "dashboard");
     expect(msg.preview?.rows[0]?.to).toContain("Fri");
     const next = reducer(state, { type: "applyChange", eventId: ev.id, change: "move-haldi" });
-    const moved = (next.events[0] as PersonalEvent).functions.find((f) => f.id === "haldi");
+    const moved = personal(next.events[0]).functions.find((f) => f.id === "haldi");
     expect(moved?.date).toBe(fridayOnOrBefore(haldi?.date ?? ""));
-    const mela = state.events[2] as CommunityEvent;
+    const mela = community(state.events[2]);
     expect(reply(mela, "Draft the police application", "dashboard").source).toContain(fullDate(mela.date));
   });
 });
@@ -97,10 +97,8 @@ describe("a fresh demo", () => {
 describe("saved state", () => {
   test("an older save keeps the planner's own events and reseeds the demo", () => {
     const old = initialState(seedEvents());
-    const mine = { ...old.events[3], id: "my-own-event", name: "Mine" } as (typeof old.events)[number];
-    const saved = { ...old, version: 1, events: [...old.events, mine] } as unknown as Parameters<
-      typeof migrate
-    >[0];
+    const mine = { ...present(old.events[3]), id: "my-own-event", name: "Mine" };
+    const saved = { ...old, version: 1, events: [...old.events, mine] };
     setToday("2026-10-23");
     const migrated = migrate(saved);
     // The old samples are dropped and fetched afresh; the planner's own event stays meanwhile.

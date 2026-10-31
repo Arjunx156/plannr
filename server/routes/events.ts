@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { addComment, listComments } from "../comments";
-import { history, undoChange } from "../history";
+import { HISTORY_LIMIT, history, undoChange } from "../history";
 import { isLinkKind, linkFor, listLinks, renameSite, revokeLink } from "../links";
 import { acceptInvite, createInvite, listMembers, removeMember, updateMember } from "../members";
 import { applyActions, createPlan, getPlan, HttpError, listPlans, planVersion, requireRole } from "../plans";
@@ -104,7 +104,12 @@ function linkRoutes(app: Api, { db }: RouteDeps): void {
 function historyRoutes(app: Api, { db }: RouteDeps): void {
   app.get("/events/:id/history", async (c) =>
     c.json({
-      history: await history(db, c.req.param("id"), c.get("userId"), Number(c.req.query("limit") ?? 100)),
+      history: await history(
+        db,
+        c.req.param("id"),
+        c.get("userId"),
+        Number(c.req.query("limit") ?? HISTORY_LIMIT),
+      ),
     }),
   );
   app.post("/events/:id/history/:change/undo", async (c) =>

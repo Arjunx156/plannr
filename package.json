@@ -1,18 +1,43 @@
 {
   "name": "plannr",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "AI event planner for weddings, birthdays and community events: describe the day, get a plan you can run.",
+  "keywords": [
+    "event planning",
+    "wedding",
+    "india",
+    "gemini",
+    "react",
+    "hono",
+    "pwa"
+  ],
+  "homepage": "https://plannr-sepia.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Arjunx156/plannr.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Arjunx156/plannr/issues"
+  },
+  "license": "MIT",
   "author": "Arjun Krishnan <harisuresh886@gmail.com>",
   "type": "module",
+  "engines": {
+    "bun": ">=1.4.2"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "start": "bun server/serve.ts",
     "lint": "biome check .",
+    "typecheck": "tsc -b",
+    "check": "just check",
     "test": "bun test",
     "e2e": "playwright test",
+    "test:e2e": "playwright test",
+    "test:coverage": "bun test --coverage && bun scripts/coverage-gate.ts",
     "brand": "bun scripts/brand-assets.ts",
     "vercel-build": "bun scripts/vercel-build.ts",
     "db:generate": "drizzle-kit generate",
@@ -51,6 +76,7 @@
     "@types/web-push": "3.6.4",
     "@vitejs/plugin-react": "^6.1.2",
     "drizzle-kit": "0.31.11",
+    "fast-check": "^4.10.2",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "vite": "^8.3.5"

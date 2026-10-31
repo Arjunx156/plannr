@@ -1,9 +1,11 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Field } from "../../../components/fields";
 import type { PlannrEvent } from "../../../data/types";
 import { api, publicUrl } from "../../../lib/api";
+import { errorMessage } from "../../../shared/guards";
 import { toast, useStore } from "../../../store/store";
 
+/** The website's address, which planners can change. */
 export function SiteAddress({
   ev,
   address,
@@ -14,7 +16,7 @@ export function SiteAddress({
   address: string;
   onChange: (a: string) => void;
   editable: boolean;
-}) {
+}): JSX.Element {
   const { dispatch } = useStore();
   const slug = address.split("/e/")[1] ?? "";
   const [draft, setDraft] = useState(slug);
@@ -28,7 +30,7 @@ export function SiteAddress({
       setDraft(l.token);
       dispatch(toast("Address changed. The old one no longer works."));
     } catch (err) {
-      dispatch(toast((err as Error).message));
+      dispatch(toast(errorMessage(err)));
     }
     setBusy(false);
   };

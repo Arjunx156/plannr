@@ -4,6 +4,7 @@ import { TODAY } from "./dates";
 import { detectDate, MONTH_RE } from "./intakeDates";
 import { cap, toNumber } from "./intakeWords";
 
+/** A profile with nothing filled in yet. */
 export function emptyProfile(): Profile {
   return {
     functions: [],
@@ -58,8 +59,17 @@ const FUNCTIONS: [RegExp, string][] = [
   [/\bsangeet\b/i, "Sangeet"],
   [/\breception\b/i, "Reception"],
 ];
-export const FUNCTION_ORDER = ["Engagement", "Mehendi", "Haldi", "Sangeet", "Ceremony", "Reception"];
+/** The usual order of a wedding's functions. */
+export const FUNCTION_ORDER: string[] = [
+  "Engagement",
+  "Mehendi",
+  "Haldi",
+  "Sangeet",
+  "Ceremony",
+  "Reception",
+];
 
+/** The kind of event a description names, if it names one, in English or Indian languages. */
 export function detectKind(text: string): Kind | undefined {
   if (/\b(wedding|marriage|kalyanam|shaadi|nikah|vivah)\b/i.test(text)) return "wedding";
   if (/\b(birthday|b'?day)\b|\bturns?\s+\d+\b/i.test(text)) return "birthday";
@@ -111,6 +121,7 @@ function detectCity(text: string, allowLoose: boolean): string | undefined {
   return undefined;
 }
 
+/** The guest count a description gives: "250 guests", "40 kids and 30 adults". */
 export function detectGuests(text: string): number | undefined {
   const split = text.match(/(\w+)\s*(?:kids|children)\s*(?:and|&|\+|,)\s*(\w+)\s*adults/i);
   if (split?.[1] && split[2]) {
@@ -134,6 +145,7 @@ const UNITS: Record<string, number> = {
   crore: 1e7,
 };
 
+/** The budget a description gives, in rupees: "₹18 lakh", "rs 50k", "2 crore". */
 export function detectBudget(text: string): number | undefined {
   const m =
     text.match(/(?:₹|\brs\.?|\binr)\s*([\d.,]+)\s*(lakhs?|lacs?|l|k|thousand|cr|crore)?\b/i) ??
@@ -210,7 +222,7 @@ function detectTraditions(
 }
 
 /** Merge whatever a free-text description reveals into the profile. Never erases what is known. */
-export function parseDescription(text: string, profile: Profile, today = TODAY): Profile {
+export function parseDescription(text: string, profile: Profile, today: string = TODAY): Profile {
   const kind = detectKind(text) ?? profile.kind;
   const style = detectStyle(text) ?? profile.style;
   const date = detectDate(text, today);

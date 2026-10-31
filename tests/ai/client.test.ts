@@ -1,13 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { seedEvents } from "../src/data/seed";
-import type { PersonalEvent } from "../src/data/types";
-import { aiEnabled, aiWrite, planNotes, suggestIdeas } from "../src/lib/ai";
-import { extractWithAi } from "../src/lib/aiIntake";
-import { streamAssistantAnswer } from "../src/lib/assistantClient";
-import { emptyProfile } from "../src/lib/intake";
-import { draftPlan } from "../src/lib/plan";
+import { seedEvents } from "../../src/data/seed";
+import { aiEnabled, aiWrite, askAi, planNotes, suggestIdeas } from "../../src/lib/ai";
+import { extractWithAi } from "../../src/lib/aiIntake";
+import { streamAssistantAnswer } from "../../src/lib/assistantClient";
+import { emptyProfile } from "../../src/lib/intake";
+import { draftPlan } from "../../src/lib/plan";
+import { failureLine } from "../../src/pages/plan/sections";
+import { personal, stubFetch } from "../support";
 
-const wedding = seedEvents()[0] as PersonalEvent;
+const wedding = personal(seedEvents()[0]);
 const realFetch = globalThis.fetch;
 type Handler = (body: Record<string, unknown> | undefined) => Response;
 const routes: Record<string, Handler> = {};
@@ -29,20 +30,20 @@ function sse(pieces: string[]): Response {
 
 beforeAll(() => {
   // The client only talks to the server from a browser.
-  (globalThis as { window?: unknown }).window = globalThis;
-  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+  Reflect.set(globalThis, "window", globalThis);
+  stubFetch(async (input: string | URL | Request, init?: RequestInit) => {
     const path = String(input);
-    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : undefined;
-    calls.push({ path, body });
+    const body: Record<string, unknown> | undefined = init?.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push(body === undefined ? { path } : { path, body });
     const handler = routes[path];
     return handler ? handler(body) : json({ error: "Not found" }, 404);
-  }) as typeof fetch;
+  });
   routes["/api/ai/status"] = () => json({ enabled: true, model: "test" });
 });
 
 afterAll(() => {
   globalThis.fetch = realFetch;
-  delete (globalThis as { window?: unknown }).window;
+  Reflect.deleteProperty(globalThis, "window");
 });
 
 const sent = (path: string) => calls.filter((c) => c.path === path);
@@ -73,13 +74,43 @@ describe("the AI client", () => {
   test("plan notes and ideas go with the plan, and an empty answer counts as none", async () => {
     routes["/api/ai/plan"] = () => json({ summary: "A fine plan", tips: [], watchouts: [], ideas: [] });
     const p = { ...emptyProfile(), kind: "wedding" as const, guests: 200, budget: 1_500_000 };
-    expect((await planNotes(p, draftPlan(p)))?.summary).toBe("A fine plan");
+    const notes = await planNotes(p, draftPlan(p));
+    expect(notes.ok && notes.value.summary).toBe("A fine plan");
     routes["/api/ai/ideas"] = () => json({ ideas: [] });
     expect(await suggestIdeas(wedding)).toBeUndefined();
     const brief = sent("/api/ai/ideas").at(-1)?.body;
-    expect(brief?.avoid).toContain("Thalappoli welcome at the entrance");
+    expect(brief?.["avoid"]).toContain("Thalappoli welcome at the entrance");
     // Guests travel as counts only.
     expect(JSON.stringify(brief)).not.toContain(wedding.households?.[0]?.name ?? "—");
+  });
+
+  test("a failed call says why, so the plan page can tell the family", async () => {
+    const reason = async (respond: Handler) => {
+      routes["/api/ai/probe"] = respond;
+      const answer = await askAi("probe", {}, 1000);
+      return answer.ok ? "answered" : answer.error;
+    };
+    expect(await reason(() => json({ ok: true }))).toBe("answered");
+    expect(await reason(() => json({ error: "Too many requests" }, 429))).toBe("busy");
+    expect(await reason(() => json({ error: "AI is not configured on this server" }, 503))).toBe("off");
+    expect(await reason(() => json({ error: "AI request failed" }, 502))).toBe("failed");
+    expect(await reason(() => new Response("not json"))).toBe("failed");
+    expect(
+      await reason(() => {
+        throw new TypeError("Failed to fetch");
+      }),
+    ).toBe("offline");
+    expect(
+      await reason(() => {
+        throw new DOMException("The operation timed out.", "TimeoutError");
+      }),
+    ).toBe("timeout");
+  });
+
+  test("each reason has its own words on the plan page", () => {
+    const lines = (["off", "offline", "timeout", "busy", "failed"] as const).map(failureLine);
+    expect(new Set(lines).size).toBe(lines.length);
+    expect(failureLine("offline")).toContain("offline");
   });
 });
 

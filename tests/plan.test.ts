@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { seedEvents } from "../src/data/seed";
-import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 import { daysUntil, dueLabel } from "../src/lib/dates";
 import { inr, inrShort, inrSigned } from "../src/lib/format";
 import { emptyProfile, parseDescription } from "../src/lib/intake";
@@ -9,8 +8,9 @@ import { budgetTotals, communityReadiness, personalReadiness, settle, whatIf } f
 import { eventFromDraft } from "../src/lib/newEvent";
 import { draftPlan, splitBudget } from "../src/lib/plan";
 import { initialState, reducer } from "../src/store/reducer";
+import { demo, personal } from "./support";
 
-const [wedding, birthday, mela] = seedEvents() as [PersonalEvent, PersonalEvent, CommunityEvent];
+const { wedding, birthday, mela } = demo();
 
 describe("money", () => {
   test("uses lakh grouping and true minus signs", () => {
@@ -155,7 +155,7 @@ describe("readiness", () => {
   test("ticking a task moves it", () => {
     const before = personalReadiness(wedding, "2026-09-27");
     const s = reducer(initialState(seedEvents()), { type: "toggleTask", eventId: wedding.id, taskId: "w1" });
-    const after = personalReadiness(s.events[0] as PersonalEvent, "2026-09-27");
+    const after = personalReadiness(personal(s.events[0]), "2026-09-27");
     expect(after.tasksDone).toBe(before.tasksDone + 1);
     expect(after.overdue).toBe(before.overdue - 1);
   });
@@ -166,7 +166,7 @@ describe("readiness", () => {
       eventId: wedding.id,
       change: "cut-decor",
     });
-    expect(budgetTotals((s.events[0] as PersonalEvent).budget).projected).toBe(1814000);
+    expect(budgetTotals(personal(s.events[0]).budget).projected).toBe(1814000);
   });
 });
 

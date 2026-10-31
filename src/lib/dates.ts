@@ -1,3 +1,10 @@
+/** One minute, in milliseconds. */
+export const MINUTE_MS = 60_000;
+/** One hour, in milliseconds. */
+export const HOUR_MS: number = 60 * MINUTE_MS;
+/** One day, in milliseconds. */
+export const DAY_MS: number = 24 * HOUR_MS;
+
 /**
  * The demo story was written on Sunday 27 Sep 2026. Demo data is moved forward in
  * whole weeks so it always starts from today, with weekdays intact.
@@ -5,20 +12,23 @@
 export const STORY_DAY = "2026-09-27";
 
 /** Today's local date. Live binding: tests and the journey suite pin it with setToday. */
-export let TODAY = toISO(new Date());
+// biome-ignore lint/style/useNamingConvention: read everywhere as a constant; only setToday moves it.
+export let TODAY: string = toISO(new Date());
 
+/** Pins "today" to a date, so tests and the journey suite see the same calendar on any day. */
 export function setToday(iso: string): void {
   TODAY = iso;
 }
 
 /** Days to move the demo story so its "today" lands within three days of the real one. */
-export function demoShift(today = TODAY): number {
+export function demoShift(today: string = TODAY): number {
   return Math.round(daysBetween(STORY_DAY, today) / 7) * 7;
 }
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-export const MONTH_NAMES = [
+/** The months in lower case, for reading dates out of what people type. */
+export const MONTH_NAMES: string[] = [
   "january",
   "february",
   "march",
@@ -33,12 +43,20 @@ export const MONTH_NAMES = [
   "december",
 ];
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Whether a string is a calendar date the way Plannr stores them: YYYY-MM-DD. */
+export function isIsoDate(s: string): boolean {
+  return ISO_DATE.test(s);
+}
+
 /** Parse YYYY-MM-DD as a local calendar date (no timezone drift). */
 export function parseDate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
 }
 
+/** A date as YYYY-MM-DD in local time. */
 export function toISO(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -46,17 +64,20 @@ export function toISO(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** The calendar date `days` after (or before, when negative) the given one. */
 export function addDays(iso: string, days: number): string {
   const d = parseDate(iso);
   d.setDate(d.getDate() + days);
   return toISO(d);
 }
 
+/** Whole days from one date to another; negative when the second is earlier. */
 export function daysBetween(fromISO: string, toISO_: string): number {
   const ms = parseDate(toISO_).getTime() - parseDate(fromISO).getTime();
-  return Math.round(ms / 86400000);
+  return Math.round(ms / DAY_MS);
 }
 
+/** Whole days from today until a date. */
 export function daysUntil(iso: string): number {
   return daysBetween(TODAY, iso);
 }
@@ -132,11 +153,13 @@ export function plainDate(iso: string): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** "Apr 2027". */
 export function monthYear(iso: string): string {
   const d = parseDate(iso);
   return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** "Apr". */
 export function monthShort(iso: string): string {
   return MONTHS[parseDate(iso).getMonth()] ?? "";
 }
@@ -150,7 +173,8 @@ export function dueLabel(iso: string): { text: string; late: boolean } {
   return { text: shortDate(iso), late: false };
 }
 
-export function greeting(now = new Date()): string {
+/** Good morning, afternoon or evening, by the hour. */
+export function greeting(now: Date = new Date()): string {
   const h = now.getHours();
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";

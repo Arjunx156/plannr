@@ -15,10 +15,13 @@ export function useEditable(ev: PlannrEvent | undefined): boolean {
  * Ticking a task keeps it in place, struck through, for the rest of the visit, so the tick
  * stays visible and can be undone from the toast.
  */
-export function useTaskToggle(ev: PlannrEvent | undefined) {
+export function useTaskToggle(ev: PlannrEvent | undefined): {
+  toggle: (t: Task) => void;
+  ticked: string[];
+} {
   const { dispatch } = useStore();
   const [ticked, setTicked] = useState<string[]>([]);
-  const toggle = (t: Task) => {
+  const toggle = (t: Task): void => {
     if (!ev) return;
     setTicked((prev) => (prev.includes(t.id) ? prev : [...prev, t.id]));
     dispatch({ type: "toggleTask", eventId: ev.id, taskId: t.id });

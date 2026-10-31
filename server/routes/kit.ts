@@ -2,20 +2,15 @@ import type { Context, Hono } from "hono";
 import type { BlankSchema } from "hono/types";
 import type { z } from "zod";
 import { MAX_BODY } from "../ai";
-import type { Auth, AuthEnv } from "../auth";
+import type { Auth } from "../auth";
 import type { Db } from "../db/types";
+import type { ServerEnv } from "../env";
 import type { AiConfig } from "../gemini";
 import { HttpError } from "../plans";
 import type { PushSender } from "../reminders";
 
-/** Settings the API reads from the environment. */
-export type AppEnv = AuthEnv &
-  Record<string, string | undefined> & {
-    GEMINI_API_KEY?: string;
-    GEMINI_MODEL?: string;
-    /** Development and tests only: lets the journey tests read the last email code. */
-    PLANNR_DEV_OUTBOX?: string;
-  };
+/** Settings the API reads from the environment, parsed by `readEnv` in env.ts. */
+export type AppEnv = ServerEnv;
 
 /** What a signed-in request carries once the session check has passed. */
 export interface Vars {

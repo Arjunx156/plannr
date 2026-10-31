@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { useEditable } from "../../components/taskHooks";
 import { Pill } from "../../components/ui";
 import type { Idea } from "../../data/recordTypes";
@@ -7,6 +7,7 @@ import { suggestIdeas } from "../../lib/ai";
 import { addDays, TODAY } from "../../lib/dates";
 import { inr, plural } from "../../lib/format";
 import { deviceIdeas, ideaRecord, type PlannedEvent } from "../../lib/ideas";
+import { keysOf, oneOf } from "../../shared/guards";
 import { findRecord, list } from "../../shared/records";
 import { toast, useStore } from "../../store/store";
 import { newId } from "./ids";
@@ -21,7 +22,7 @@ const EFFORT: Record<NonNullable<Idea["effort"]>, string> = {
 const ORDER: Record<Idea["status"], number> = { idea: 0, planned: 1, dropped: 2 };
 
 /** /events/:id/ideas — ideas picked for this event, each with its reason, and the board they're planned from. */
-export function IdeasTab({ ev }: { ev: PlannrEvent }) {
+export function IdeasTab({ ev }: { ev: PlannrEvent }): JSX.Element | null {
   const editable = useEditable(ev);
   if (ev.layout === "empty") return null;
   return (
@@ -67,7 +68,7 @@ function Suggest({ ev }: { ev: PlannedEvent }) {
 
   return (
     <Section label="Suggest ideas">
-      <p className="m-0 max-w-[62ch] text-sm text-body">
+      <p className="m-0 max-w-[62ch] text-body text-sm">
         Plannr reads the month, the functions, the guest count, meals and budget lines, and suggests ideas
         that fit them, each with the reason. Guests go as counts; no names or numbers leave this page.
       </p>
@@ -75,7 +76,7 @@ function Suggest({ ev }: { ev: PlannedEvent }) {
         <button type="button" className="btn btn-primary" onClick={suggest} disabled={busy} aria-busy={busy}>
           {busy ? "Thinking of ideas…" : "Suggest ideas"}
         </button>
-        <p role="status" className="m-0 text-sm text-muted">
+        <p role="status" className="m-0 text-muted text-sm">
           {note}
         </p>
       </div>
@@ -128,15 +129,15 @@ function Board({ ev, editable }: { ev: PlannedEvent; editable: boolean }) {
             key={i.id}
             className={`flex flex-col gap-1.5 rounded-xl border p-3 ${i.status === "dropped" ? "border-line opacity-60" : "border-line bg-paper"}`}
           >
-            <span className="text-sm font-semibold">{i.title}</span>
-            {i.note && <span className="text-sm text-body">{i.note}</span>}
+            <span className="font-semibold text-sm">{i.title}</span>
+            {i.note && <span className="text-body text-sm">{i.note}</span>}
             {i.because && (
-              <span className="text-xs text-body">
+              <span className="text-body text-xs">
                 <span className="font-semibold">Why this: </span>
                 {i.because}
               </span>
             )}
-            <span className="text-xs text-muted">
+            <span className="text-muted text-xs">
               {[
                 i.cost ? `About ${inr(i.cost)}` : undefined,
                 i.effort ? EFFORT[i.effort] : undefined,
@@ -151,7 +152,7 @@ function Board({ ev, editable }: { ev: PlannedEvent; editable: boolean }) {
           </li>
         ))}
         {ideas.length === 0 && (
-          <li className="text-sm text-muted">
+          <li className="text-muted text-sm">
             No ideas yet. Ask Plannr for some that fit this event, or add your own below.
           </li>
         )}
@@ -257,11 +258,13 @@ function AddIdea({ ev }: { ev: PlannedEvent }) {
           id="idea-effort"
           className="field appearance-auto"
           value={effort}
-          onChange={(e) => setEffort(e.target.value as Idea["effort"])}
+          onChange={(e) => setEffort(oneOf(e.target.value, keysOf(EFFORT)) ?? effort)}
         >
-          <option value="low">Easy</option>
-          <option value="medium">Some work</option>
-          <option value="high">A project</option>
+          {keysOf(EFFORT).map((k) => (
+            <option key={k} value={k}>
+              {EFFORT[k]}
+            </option>
+          ))}
         </select>
         {categories.length > 0 && (
           <>

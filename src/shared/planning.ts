@@ -6,8 +6,10 @@ import { functionsOf } from "./eventLists";
 import { list } from "./records";
 import { CATALOGUE, DEFAULT_LEAD } from "./vendorCatalogue";
 
+/** Where one vendor category stands on the checklist. */
 export type ChecklistState = "booked" | "talking" | "missing";
 
+/** One vendor category on the planning checklist. */
 export interface ChecklistItem {
   category: string;
   state: ChecklistState;
@@ -71,6 +73,7 @@ export function vendorChecklist(ev: PlannrEvent, today: string): ChecklistItem[]
   return items.sort((a, b) => order[a.state] - order[b.state] || a.bookBy.localeCompare(b.bookBy));
 }
 
+/** How much of the checklist is booked, and how much is late. */
 export function checklistProgress(items: ChecklistItem[]): { booked: number; total: number; late: number } {
   return {
     booked: items.filter((i) => i.state === "booked").length,
@@ -81,8 +84,10 @@ export function checklistProgress(items: ChecklistItem[]): { booked: number; tot
 
 // ---------------------------------------------------------------- timeline
 
+/** What a timeline entry is: a task, a payment, a booking or a function. */
 export type TimelineKind = "task" | "payment" | "booking" | "function";
 
+/** One dated item on the plan's timeline. */
 export interface TimelineEntry {
   /** Unique within the timeline; the record id for tasks. */
   key: string;
@@ -96,6 +101,7 @@ export interface TimelineEntry {
   refId?: string;
 }
 
+/** A stretch of the timeline, from "early on" to "after the day". */
 export interface TimelinePhase {
   id: "early" | "months" | "month" | "week" | "day" | "after";
   label: string;

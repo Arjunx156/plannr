@@ -7,18 +7,18 @@ interface State {
 
 /** A failed screen shows a way back instead of a blank page. The plan itself is safe in storage. */
 export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
-  state: State = {};
+  override state: State = {};
 
   static getDerivedStateFromError(error: Error): State {
     return { error };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
+  override componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error("[plannr] screen crashed:", error, info.componentStack);
     reportError(error);
   }
 
-  render() {
+  override render(): ReactNode {
     const { error } = this.state;
     if (!error) return this.props.children;
     // After a new release, an old tab can ask for code that no longer exists.

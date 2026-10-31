@@ -1,5 +1,6 @@
 import type { Kind } from "../../data/baseTypes";
 import type { Profile } from "../../data/types";
+import { LAKH } from "../../lib/format";
 import { detectKind, parseDescription } from "../../lib/intake";
 import { detectDate } from "../../lib/intakeDates";
 import { nextQuestion, type Question, type QuestionField } from "../../lib/intakeQuestions";
@@ -12,15 +13,18 @@ import type { Draft } from "../../store/types";
  */
 
 let turnSeq = 0;
+/** A unique id for a chat turn. */
 export const turnId = () => {
   turnSeq += 1;
   return `c${Date.now().toString(36)}${turnSeq}`;
 };
 
 const NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six"];
+/** What Plannr says once it has everything it needs. */
 export const DONE =
   "That's everything I need. Press Draft my plan when you're ready, or tell me who's planning with you.";
 
+/** The event kind each opening chip stands for. */
 export const KIND_FROM_CHIP: Record<string, Kind> = {
   Wedding: "wedding",
   Birthday: "birthday",
@@ -33,6 +37,7 @@ function joinList(parts: string[]): string {
   return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
 
+/** Plannr's first reply, shaped by what the first message already said. */
 export function opener(p: Profile): string {
   if (!p.kind && !p.city && !p.guests && !p.budget) return "Thanks. Let's take it one step at a time.";
   if (p.kind === "wedding" && p.names)
@@ -44,6 +49,7 @@ export function opener(p: Profile): string {
   return "Got it. I've filled in what I could from that.";
 }
 
+/** A short reply that says back what Plannr just understood. */
 export function acknowledge(prev: Profile, next: Profile): string {
   const parts: string[] = [];
   if (next.functions.length > prev.functions.length && next.functions.length > 1)
@@ -127,7 +133,6 @@ function titleCase(s: string): string {
 }
 
 /** A bare "18" to the budget question means lakhs; anything bigger is rupees. */
-const LAKH = 100_000;
 const LONGEST_CITY = 40;
 
 /** The leading number in a short answer: "250", "2,50,000", "18.5". */
@@ -175,6 +180,7 @@ export function readAnswer(text: string, p: Profile, field: QuestionField | unde
   return next;
 }
 
+/** The question Plannr is waiting on, if its last turn asked one. */
 export function pendingField(d: Draft): QuestionField | undefined {
   const last = d.chat[d.chat.length - 1];
   return last?.role === "ai" ? last.question?.field : undefined;

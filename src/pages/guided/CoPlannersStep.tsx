@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { addOnce, type StepProps } from "./fields";
 
 /** An Indian mobile number (ten digits from 6–9) or an email address. */
 function isContact(v: string): boolean {
   return /^[6-9]\d{9}$/.test(v.replace(/\D/g, "")) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 }
-export function CoPlannersStep({ p, set }: StepProps) {
+/** Invites co-planners by email or phone. */
+export function CoPlannersStep({ p, set }: StepProps): JSX.Element {
   const [invite, setInvite] = useState("");
   const [error, setError] = useState("");
   return (
@@ -50,7 +51,7 @@ export function CoPlannersStep({ p, set }: StepProps) {
       {p.coPlanners.length > 0 ? (
         <ul className="m-0 flex max-w-[560px] list-none flex-col p-0">
           {p.coPlanners.map((c) => (
-            <li key={c} className="flex items-center justify-between border-t border-sand-2 py-2.5 text-sm">
+            <li key={c} className="flex items-center justify-between border-sand-2 border-t py-2.5 text-sm">
               <span>{c}</span>
               <button
                 type="button"
@@ -63,7 +64,7 @@ export function CoPlannersStep({ p, set }: StepProps) {
           ))}
         </ul>
       ) : (
-        <p className="m-0 text-sm text-muted">
+        <p className="m-0 text-muted text-sm">
           No co-planners yet. You can invite people any time from the dashboard.
         </p>
       )}

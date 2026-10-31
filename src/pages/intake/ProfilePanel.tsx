@@ -1,13 +1,16 @@
+import type { JSX } from "react";
 import { AddImages, type ImagePreview, InspirationTile } from "../../components/intake";
+import { Bar } from "../../components/ui";
 import type { Profile } from "../../data/types";
 import type { QuestionField } from "../../lib/intakeQuestions";
 import { profileRows } from "../../lib/profileRows";
 
-export function AiMark() {
+/** The small diamond that marks something Gemini filled in. */
+export function AiMark(): JSX.Element {
   return (
     <span
       aria-hidden="true"
-      className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[9px] bg-peacock text-xs text-white"
+      className="flex h-[30px] w-[30px] flex-none items-center justify-center rounded-[9px] bg-peacock text-white text-xs"
     >
       ◆
     </span>
@@ -29,18 +32,18 @@ export function ProfilePanel({
   onEdit,
 }: {
   profile: Profile;
-  asking?: QuestionField;
+  asking?: QuestionField | undefined;
   images: ImagePreview[];
   onAdd: (f: FileList | null) => void;
   onEdit: () => void;
-}) {
+}): JSX.Element {
   const rows = profileRows(profile, asking);
   const known = rows.filter((r) => r.state === "ok").length;
   const tiles = profile.inspiration.slice(0, 5);
   return (
     <aside
       aria-label="What Plannr understood"
-      className="flex flex-col gap-3.5 border-t border-line bg-surface p-5 sm:p-7 lg:border-t-0 lg:border-l"
+      className="flex flex-col gap-3.5 border-line border-t bg-surface p-5 sm:p-7 lg:border-t-0 lg:border-l"
     >
       <div className="flex items-baseline justify-between">
         <h2 className="font-serif text-2xl leading-none">What I've understood</h2>
@@ -49,20 +52,23 @@ export function ProfilePanel({
         </button>
       </div>
       <div className="flex items-center gap-2.5">
-        <div className="bar flex-1" style={{ height: 5 }}>
-          <span style={{ width: `${known * 10}%`, background: "var(--color-peacock)" }} />
-        </div>
-        <span className="text-xs font-medium text-body">{known} of 10</span>
+        <Bar
+          value={known / 10}
+          fill="peacock"
+          label="How much of the brief Plannr knows"
+          className="flex-1"
+        />
+        <span className="font-medium text-body text-xs">{known} of 10</span>
       </div>
       <dl className="m-0 flex flex-col">
         {rows.map((r) => (
           <div
             key={r.key}
-            className="grid grid-cols-[18px_112px_minmax(0,1fr)] items-start gap-2 border-t border-sand-2 py-[9px] text-sm leading-[1.4]"
+            className="grid grid-cols-[18px_112px_minmax(0,1fr)] items-start gap-2 border-sand-2 border-t py-[9px] text-sm leading-[1.4]"
           >
             <span
               aria-hidden="true"
-              className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white ${DOT[r.state].bg}`}
+              className={`mt-0.5 flex h-4 w-4 items-center justify-center rounded-full font-bold text-[10px] text-white ${DOT[r.state].bg}`}
             >
               {DOT[r.state].mark}
             </span>

@@ -1,14 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { type JSX, useEffect, useRef, useState } from "react";
 import { listen, SPEECH_LANGS, type SpeechCode, speechSupported } from "../lib/voice";
 
-export function LangSelect({ value, onChange }: { value: SpeechCode; onChange: (c: SpeechCode) => void }) {
+/** Picks the language for voice input and Plannr's replies. */
+export function LangSelect({
+  value,
+  onChange,
+}: {
+  value: SpeechCode;
+  onChange: (c: SpeechCode) => void;
+}): JSX.Element {
   return (
     <label className="relative inline-flex">
       <span className="sr-only">Language for voice and replies</span>
       <select
         value={value}
-        onChange={(e) => onChange(e.target.value as SpeechCode)}
-        className="min-h-8 cursor-pointer appearance-none rounded-md bg-sand py-1.5 pr-5 pl-2 font-mono text-xs font-semibold"
+        onChange={(e) => {
+          const lang = SPEECH_LANGS.find((l) => l.code === e.target.value);
+          if (lang) onChange(lang.code);
+        }}
+        className="min-h-8 cursor-pointer appearance-none rounded-md bg-sand py-1.5 pr-5 pl-2 font-mono font-semibold text-xs"
       >
         {SPEECH_LANGS.map((l) => (
           <option key={l.code} value={l.code}>
@@ -26,17 +36,27 @@ export function LangSelect({ value, onChange }: { value: SpeechCode; onChange: (
   );
 }
 
+/** A microphone the browser may or may not have, and what it is doing now. */
+export interface Voice {
+  listening: boolean;
+  /** Why listening stopped early, in words for the person; empty when all is well. */
+  error: string;
+  supported: boolean;
+  start: () => void;
+  stop: () => void;
+}
+
 /**
  * Press and hold to talk; release to stop. Keyboard users press Space or Enter to
  * start and again to stop. The running transcript goes to `onText`.
  */
-export function useVoice(code: SpeechCode, onText: (t: string) => void) {
+export function useVoice(code: SpeechCode, onText: (t: string) => void): Voice {
   const [listening, setListening] = useState(false);
   const [error, setError] = useState("");
   const stopRef = useRef<(() => void) | null>(null);
   const supported = speechSupported();
   useEffect(() => () => stopRef.current?.(), []);
-  const start = () => {
+  const start = (): void => {
     if (!supported || listening) return;
     setError("");
     setListening(true);
@@ -51,7 +71,7 @@ export function useVoice(code: SpeechCode, onText: (t: string) => void) {
         );
     });
   };
-  const stop = () => {
+  const stop = (): void => {
     stopRef.current?.();
   };
   return { listening, error, supported, start, stop };
@@ -63,6 +83,7 @@ function voiceLabel(v: { supported: boolean; listening: boolean }): string {
   return v.listening ? "Listening, release to stop" : "Hold to speak";
 }
 
+/** A button to hold while speaking; the transcript goes to `onText`. */
 export function HoldToSpeak({
   code,
   onText,
@@ -71,7 +92,7 @@ export function HoldToSpeak({
   code: SpeechCode;
   onText: (t: string) => void;
   compact?: boolean;
-}) {
+}): JSX.Element {
   const v = useVoice(code, onText);
   const label = voiceLabel(v);
   const words = v.listening ? "Listening…" : "Hold to speak";
@@ -105,7 +126,7 @@ export function HoldToSpeak({
         {compact ? <MicGlyph /> : words}
       </button>
       {v.error && (
-        <span role="alert" className="text-xs text-rust-ink">
+        <span role="alert" className="text-rust-ink text-xs">
           {v.error}
         </span>
       )}
@@ -113,23 +134,33 @@ export function HoldToSpeak({
   );
 }
 
-export function MicGlyph() {
+/** A small microphone shape. */
+export function MicGlyph(): JSX.Element {
   return <span aria-hidden="true" className="block h-3.5 w-2 rounded-[4px] border-2 border-ink" />;
 }
 
-export function Waveform({ label }: { label: string }) {
-  const bars = [8, 18, 26, 14, 22, 10, 20];
+// Uneven heights, each starting a beat after the last, read as a voice.
+const WAVE_BARS = [
+  "h-[8px] [animation-delay:0s]",
+  "h-[18px] [animation-delay:0.08s]",
+  "h-[26px] [animation-delay:0.16s]",
+  "h-[14px] [animation-delay:0.24s]",
+  "h-[22px] [animation-delay:0.32s]",
+  "h-[10px] [animation-delay:0.4s]",
+  "h-[20px] [animation-delay:0.48s]",
+];
+
+/** Moving bars that show Plannr is listening. */
+export function Waveform({ label }: { label: string }): JSX.Element {
   return (
     <div aria-hidden="true" className="flex h-7 flex-1 items-center gap-[3px]">
-      {bars.map((h, i) => (
+      {WAVE_BARS.map((bar) => (
         <span
-          // biome-ignore lint/suspicious/noArrayIndexKey: decorative bars
-          key={i}
-          className="w-[3px] rounded-sm bg-peacock"
-          style={{ height: h, animation: `wave 0.9s ease-in-out ${i * 0.08}s infinite` }}
+          key={bar}
+          className={`w-[3px] animate-[wave_0.9s_ease-in-out_infinite] rounded-sm bg-peacock ${bar}`}
         />
       ))}
-      <span className="ml-2 text-[13px] font-medium text-peacock">{label}</span>
+      <span className="ml-2 font-medium text-[13px] text-peacock">{label}</span>
     </div>
   );
 }

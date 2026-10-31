@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { useEditable } from "../../../components/taskHooks";
 import type { Household } from "../../../data/guestTypes";
 import type { PlannrEvent } from "../../../data/types";
@@ -16,7 +16,7 @@ function pickupPoint(pickup: string): string {
 }
 
 /** Room blocks for out-of-town guests, and who is in which room. */
-export function Rooms({ ev }: { ev: PlannrEvent }) {
+export function Rooms({ ev }: { ev: PlannrEvent }): JSX.Element | null {
   const { dispatch } = useStore();
   const editable = useEditable(ev);
   const rooms = list(ev, "rooms");
@@ -41,7 +41,7 @@ export function Rooms({ ev }: { ev: PlannrEvent }) {
   return (
     <Section
       title="Rooms"
-      aside={<span className="text-sm text-muted">{plural(staying.length, "household")} need a room</span>}
+      aside={<span className="text-muted text-sm">{plural(staying.length, "household")} need a room</span>}
     >
       <ul className="m-0 flex list-none flex-col p-0">
         {rooms.map((r) => {
@@ -49,7 +49,7 @@ export function Rooms({ ev }: { ev: PlannrEvent }) {
           return (
             <li
               key={r.id}
-              className="flex flex-col gap-0.5 border-t border-sand-2 py-2.5 text-sm first:border-0"
+              className="flex flex-col gap-0.5 border-sand-2 border-t py-2.5 text-sm first:border-0"
             >
               <span className="flex flex-wrap justify-between gap-2">
                 <span className="font-semibold">{r.hotel}</span>
@@ -58,16 +58,16 @@ export function Rooms({ ev }: { ev: PlannrEvent }) {
                   {r.rate ? ` · ₹${r.rate.toLocaleString("en-IN")} a night` : ""}
                 </span>
               </span>
-              <span className="text-xs text-muted">
+              <span className="text-muted text-xs">
                 {guests.map((h) => h.name).join(" · ") || "Nobody assigned yet"}
               </span>
-              {r.note && <span className="text-xs text-body">{r.note}</span>}
+              {r.note && <span className="text-body text-xs">{r.note}</span>}
             </li>
           );
         })}
       </ul>
       {staying.some((h) => !h.room) && (
-        <span className="text-xs text-rust-ink">
+        <span className="text-rust-ink text-xs">
           Still to place:{" "}
           {staying
             .filter((h) => !h.room)
@@ -108,7 +108,8 @@ export function Rooms({ ev }: { ev: PlannrEvent }) {
   );
 }
 
-export function Pickups({ ev }: { ev: PlannrEvent }) {
+/** Guests who asked to be picked up, with where and when. */
+export function Pickups({ ev }: { ev: PlannrEvent }): JSX.Element | null {
   const pickups = list(ev, "households").filter((h) => h.pickup && householdState(h) !== "declined");
   if (pickups.length === 0) return null;
   const groups = new Map<string, Household[]>();
@@ -120,7 +121,7 @@ export function Pickups({ ev }: { ev: PlannrEvent }) {
     <Section
       title="Pickups"
       aside={
-        <span className="text-sm text-muted">
+        <span className="text-muted text-sm">
           {plural(
             pickups.reduce((s, h) => s + (comingCount(h) || h.expected), 0),
             "person",
@@ -136,7 +137,7 @@ export function Pickups({ ev }: { ev: PlannrEvent }) {
             {hs.map((h) => (
               <li
                 key={h.id}
-                className="flex flex-wrap justify-between gap-2 border-t border-sand-2 py-2 text-sm first:border-0"
+                className="flex flex-wrap justify-between gap-2 border-sand-2 border-t py-2 text-sm first:border-0"
               >
                 <span className="font-medium">{h.name}</span>
                 <span className="text-body">

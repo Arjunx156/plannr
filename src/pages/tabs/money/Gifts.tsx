@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { bindText, Field, TextField } from "../../../components/fields";
 import { Modal } from "../../../components/overlays";
 import { Pill } from "../../../components/ui";
@@ -39,7 +39,7 @@ function giftFrom(form: GiftForm, households: Household[]): Gift | undefined {
 }
 
 /** The gift register: who gave what, and who still needs a thank-you. */
-export function Gifts({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
+export function Gifts({ ev, editable }: { ev: PersonalEvent; editable: boolean }): JSX.Element {
   const { dispatch } = useStore();
   const gifts = list(ev, "gifts");
   const totals = giftTotals(ev);
@@ -54,7 +54,7 @@ export function Gifts({ ev, editable }: { ev: PersonalEvent; editable: boolean }
       patch: { thanked: true, ...(thankNote ? { thankNote } : {}) },
     });
   const summary = (
-    <span className="text-sm text-muted">
+    <span className="text-muted text-sm">
       {plural(totals.count, "gift")} · {inr(totals.cash)} · {totals.toThank} to thank
     </span>
   );
@@ -71,7 +71,7 @@ export function Gifts({ ev, editable }: { ev: PersonalEvent; editable: boolean }
           />
         ))}
         {gifts.length === 0 && (
-          <li className="text-sm text-muted">
+          <li className="text-muted text-sm">
             Gifts and envelopes go here as they come in, so no one is missed in the thank-yous.
           </li>
         )}
@@ -106,10 +106,10 @@ interface RowProps {
 
 function GiftRow({ g, editable, onThank, onThanked }: RowProps) {
   return (
-    <li className="flex flex-wrap items-center gap-3 border-t border-sand-2 py-2.5 text-sm first:border-0">
+    <li className="flex flex-wrap items-center gap-3 border-sand-2 border-t py-2.5 text-sm first:border-0">
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="font-medium">{g.from}</span>
-        <span className="text-xs text-muted">
+        <span className="text-muted text-xs">
           {[g.amount ? inr(g.amount) : "", g.item].filter(Boolean).join(" · ")}
         </span>
       </span>

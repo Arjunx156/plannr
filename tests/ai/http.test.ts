@@ -1,11 +1,12 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { MAX_BODY } from "../server/ai";
-import { type App, createApp, DAILY_AI, spendAi } from "../server/app";
-import { createLocalDb } from "../server/db/local";
-import { aiUsage } from "../server/db/schema";
-import type { Db } from "../server/db/types";
-import type { AiConfig } from "../server/gemini";
+import { MAX_BODY } from "../../server/ai";
+import { type App, createApp, DAILY_AI, spendAi } from "../../server/app";
+import { createLocalDb } from "../../server/db/local";
+import { aiUsage } from "../../server/db/schema";
+import type { Db } from "../../server/db/types";
+import type { AiConfig } from "../../server/gemini";
+import { errorOf, stubFetch } from "../support";
 
 /**
  * The /api/ai/* routes end to end: the burst limit, size cap and daily allowance in front of
@@ -44,20 +45,20 @@ function post(app: App, path: string, body: unknown, from: string, headers: Reco
 /** Answers every Gemini call with `payload` as the model's JSON, and reports 120 tokens used. */
 function fakeGemini(payload: unknown): string[] {
   const urls: string[] = [];
-  globalThis.fetch = (async (url: string | URL | Request) => {
+  stubFetch(async (url: string | URL | Request) => {
     urls.push(String(url));
     const text = JSON.stringify(payload);
     return Response.json({
       candidates: [{ content: { parts: [{ text }] } }],
       usageMetadata: { totalTokenCount: 120 },
     });
-  }) as typeof fetch;
+  });
   return urls;
 }
 
 /** Streams the model's JSON in pieces, as Gemini's server-sent events do. */
 function fakeGeminiStream(pieces: string[]): void {
-  globalThis.fetch = (async (_url: string | URL | Request) => {
+  stubFetch(async (_url: string | URL | Request) => {
     const enc = new TextEncoder();
     const body = new ReadableStream({
       start(controller) {
@@ -69,7 +70,7 @@ function fakeGeminiStream(pieces: string[]): void {
       },
     });
     return new Response(body, { headers: { "content-type": "text/event-stream" } });
-  }) as typeof fetch;
+  });
 }
 
 async function usage(key: string) {
@@ -110,7 +111,7 @@ describe("the gate in front of every call", () => {
     const urls = fakeGemini({});
     const res = await post(keyed, "/api/ai/intake", { text: "A wedding in Kochi" }, from);
     expect(res.status).toBe(429);
-    expect(((await res.json()) as { error: string }).error).toContain("AI limit for today");
+    expect(await errorOf(res)).toContain("AI limit for today");
     expect(urls).toEqual([]);
   });
 

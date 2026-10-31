@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Link } from "react-router";
 import type { Task } from "../data/baseTypes";
 import type { PlannrEvent } from "../data/types";
@@ -17,7 +17,7 @@ export function TaskSheet({
   ev: PlannrEvent;
   taskId: string | null;
   onClose: () => void;
-}) {
+}): JSX.Element {
   const { state } = useStore();
   const editable = useEditable(ev);
   const task = ev.layout === "empty" ? undefined : ev.tasks.list.find((t) => t.id === taskId);
@@ -27,11 +27,11 @@ export function TaskSheet({
         <>
           {/* Keyed by task, so opening another task starts from its own values. */}
           <TaskForm key={task.id} ev={ev} task={task} editable={editable} onClose={onClose} />
-          <hr className="m-0 border-0 border-t border-line" />
+          <hr className="m-0 border-0 border-line border-t" />
           {state.mode === "account" ? (
             <Comments eventId={ev.id} recordType="task" recordId={task.id} />
           ) : (
-            <p className="m-0 text-sm text-body">
+            <p className="m-0 text-body text-sm">
               With an account, co-planners can talk about each task right here.{" "}
               <Link to="/signup" className="link">
                 Create one
@@ -78,7 +78,7 @@ function TaskForm({
 
   return (
     <form onSubmit={save} className="flex flex-col gap-3.5">
-      <label className="flex items-center gap-2.5 text-sm font-medium">
+      <label className="flex items-center gap-2.5 font-medium text-sm">
         <input
           type="checkbox"
           checked={task.done}

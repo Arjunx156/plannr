@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { usePageMeta } from "../components/pageMeta";
 import { AppShell } from "../components/shell";
 import { timeAgo } from "../lib/format";
@@ -30,7 +30,7 @@ const LABEL: Record<string, string> = {
 };
 
 /** /admin — the site owner's view: counts by day, AI use and recent errors. Owners only. */
-export function Admin() {
+export function Admin(): JSX.Element {
   usePageMeta("Admin", { private: true });
   const [data, setData] = useState<Summary | null | undefined>();
   useEffect(() => {
@@ -71,7 +71,7 @@ export function Admin() {
           <section className="scroll-x" aria-label="Daily counts" tabIndex={0}>
             <table className="w-full min-w-[640px] border-collapse text-sm">
               <thead>
-                <tr className="text-left text-xs text-muted">
+                <tr className="text-left text-muted text-xs">
                   <th className="py-2 font-medium">Day</th>
                   {data.metrics.map((m) => (
                     <th key={m} className="py-2 text-right font-medium">
@@ -84,14 +84,14 @@ export function Admin() {
               </thead>
               <tbody>
                 {days.map((d) => (
-                  <tr key={d} className="border-t border-sand-2">
+                  <tr key={d} className="border-sand-2 border-t">
                     <td className="py-2">{d}</td>
                     {data.metrics.map((m) => (
-                      <td key={m} className="py-2 text-right tabular">
+                      <td key={m} className="tabular py-2 text-right">
                         {at(d, m) || "·"}
                       </td>
                     ))}
-                    <td className="py-2 text-right tabular">
+                    <td className="tabular py-2 text-right">
                       {data.ai.find((a) => a.day === d)?.calls ?? "·"}
                     </td>
                   </tr>
@@ -107,23 +107,23 @@ export function Admin() {
         </Section>
         <Section
           title="Recent errors"
-          aside={<span className="text-sm text-muted">{data.errors.length}</span>}
+          aside={<span className="text-muted text-sm">{data.errors.length}</span>}
         >
           <ul className="m-0 flex list-none flex-col p-0">
             {data.errors.map((e) => (
               <li
                 key={e.id}
-                className="flex flex-col gap-0.5 border-t border-sand-2 py-2 text-sm first:border-0"
+                className="flex flex-col gap-0.5 border-sand-2 border-t py-2 text-sm first:border-0"
               >
                 <span className="font-medium">{e.message}</span>
-                <span className="text-xs text-muted">
+                <span className="text-muted text-xs">
                   {e.source} · {e.url ?? ""} · {timeAgo(e.at)}
                   {e.release ? ` · ${e.release}` : ""}
                 </span>
               </li>
             ))}
             {data.errors.length === 0 && (
-              <li className="text-sm text-muted">No errors in the last 30 days.</li>
+              <li className="text-muted text-sm">No errors in the last 30 days.</li>
             )}
           </ul>
         </Section>

@@ -1,11 +1,18 @@
+import { z } from "zod";
+import { readEnv, type ServerEnv } from "./env";
+
+/** The fetch function, passed in so tests can stand in for Gemini. */
 export type Fetch = (input: string, init: RequestInit) => Promise<Response>;
+/** One part of a message to Gemini: text, or an inline file. */
 export type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
+/** What one Gemini call needs: the system prompt, the conversation and the answer's schema. */
 export interface GenerateArgs {
   system: string;
   contents: { role: "user" | "model"; parts: Part[] }[];
   schema: unknown;
   temperature?: number;
 }
+/** Gemini failed or was unreachable; `status` is the HTTP status to answer with. */
 export class UpstreamError extends Error {
   readonly status: number;
   constructor(message: string, status: number) {
@@ -77,6 +84,7 @@ export async function postGemini(
   const detail = await res.text().catch(() => "");
   throw new UpstreamError(`Gemini ${res.status}: ${detail.slice(0, ERROR_DETAIL_CHARS)}`, res.status);
 }
+/** The JSON body of a Gemini request. */
 export function requestBody(args: GenerateArgs): string {
   return JSON.stringify({
     systemInstruction: { parts: [{ text: args.system }] },
@@ -90,10 +98,32 @@ export function requestBody(args: GenerateArgs): string {
     },
   });
 }
-export interface Chunk {
-  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
-  usageMetadata?: { totalTokenCount?: number };
+const CHUNK = z.object({
+  candidates: z
+    .array(
+      z.object({
+        content: z
+          .object({
+            parts: z.array(z.object({ text: z.string().optional(), thought: z.boolean().optional() })),
+          })
+          .partial()
+          .optional(),
+      }),
+    )
+    .optional(),
+  usageMetadata: z.object({ totalTokenCount: z.number().optional() }).optional(),
+});
+
+/** One Gemini response, or one chunk of a streamed one: the parts Plannr reads. */
+export type Chunk = z.infer<typeof CHUNK>;
+
+/** Reads a response body from Gemini; a shape it doesn't expect reads as empty, which callers treat as no text. */
+export function readChunk(raw: unknown): Chunk {
+  const parsed = CHUNK.safeParse(raw);
+  return parsed.success ? parsed.data : {};
 }
+
+/** The answer's text, without the model's thinking. */
 export function chunkText(data: Chunk): string {
   return (data.candidates?.[0]?.content?.parts ?? [])
     .filter((p) => !p.thought && typeof p.text === "string")
@@ -110,7 +140,7 @@ export async function generateOnce(
   meter?: Meter,
 ): Promise<unknown> {
   const res = await postGemini(config, model, "generateContent", requestBody(args), timeoutMs, fetchImpl);
-  const data = (await res.json()) as Chunk;
+  const data = readChunk(await res.json());
   if (meter) meter.tokens += data.usageMetadata?.totalTokenCount ?? 0;
   const text = chunkText(data);
   if (!text) throw new UpstreamError("Gemini returned no text", 502);
@@ -123,20 +153,25 @@ export async function generateOnce(
  * this module builds the prompt, calls the model and sanitizes what comes back.
  */
 export const BASE = "https://generativelanguage.googleapis.com/v1beta";
+/** The model Plannr uses when GEMINI_MODEL isn't set. */
 export const DEFAULT_MODEL = "gemini-3.5-flash";
 
 /** Tried when the main model is busy or slow: a different model has its own capacity. */
 export const FALLBACK_MODEL = "gemini-3.5-flash-lite";
 
+/** Which models to call, and with what key. */
 export interface AiConfig {
-  apiKey?: string;
+  apiKey?: string | undefined;
   model: string;
   fallback?: string;
   /** Where the one line per call goes: route, model, tokens and time. Silent when absent. */
   log?: (line: string) => void;
 }
 
-export function aiConfig(env: Record<string, string | undefined> = process.env): AiConfig {
+/** Gemini settings from the environment, with the default models when none are named. */
+export function aiConfig(
+  env: Pick<ServerEnv, "GEMINI_API_KEY" | "GEMINI_MODEL" | "GEMINI_FALLBACK_MODEL"> = readEnv(),
+): AiConfig {
   return {
     apiKey: env.GEMINI_API_KEY?.trim() || undefined,
     model: env.GEMINI_MODEL?.trim() || DEFAULT_MODEL,

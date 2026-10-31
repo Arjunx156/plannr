@@ -1,24 +1,20 @@
-import type { Household, RsvpStatus } from "../data/guestTypes";
+import type { RsvpStatus } from "../data/guestTypes";
 import type { PlannrEvent } from "../data/types";
 import { longDate } from "../lib/dates";
 import { inr } from "../lib/format";
 import { functionsOf } from "./eventLists";
-import type { ActionOf, ByAction, PlanAction } from "./planActions";
+import type { ActionOf, AddRecord, ByAction, PlanAction } from "./planActions";
 import { type Coll, findRecord, recordName } from "./records";
 
 // ---------------------------------------------------------------- history lines
 const q = (s: string) => `“${s}”`;
 /** "Added the household “Menon family” (4)", "Announced “Buses leave at 8”", … */
-function describeAddRecord(ev: PlannrEvent, { coll, record: r }: ActionOf<"addRecord">): string {
-  if (coll === "memory" && "text" in r) return `Plannr will remember ${q(r.text)}`;
-  if (coll === "announcements" && "text" in r) return `Announced ${q(r.text)}`;
-  if (coll === "households") {
-    const h = r as Household;
-    return `Added the household ${q(h.name)} (${h.expected})`;
-  }
-  if (coll === "payments" && "amount" in r && "label" in r)
-    return `Scheduled ${inr(r.amount)}: ${q(r.label)}`;
-  return `${findRecord(ev, coll, r.id) ? "Updated" : "Added"} ${recordName(coll, r)}`;
+function describeAddRecord(ev: PlannrEvent, a: AddRecord): string {
+  if (a.coll === "memory") return `Plannr will remember ${q(a.record.text)}`;
+  if (a.coll === "announcements") return `Announced ${q(a.record.text)}`;
+  if (a.coll === "households") return `Added the household ${q(a.record.name)} (${a.record.expected})`;
+  if (a.coll === "payments") return `Scheduled ${inr(a.record.amount)}: ${q(a.record.label)}`;
+  return `${findRecord(ev, a.coll, a.record.id) ? "Updated" : "Added"} ${recordName(a.coll, a.record)}`;
 }
 /** The line for a change to the one field that matters most in its collection, if that's what changed. */
 function describeKeyField(coll: Coll, name: string, changes: Record<string, unknown>): string | undefined {
@@ -38,9 +34,13 @@ function describeUpdateRecord(
   const name = recordName(coll, findRecord(ev, coll, id));
   const keyField = describeKeyField(coll, name, changes);
   if (keyField) return keyField;
-  const toggles = ("done" in changes || "thanked" in changes) && Object.keys(changes).length === 1;
-  if (toggles) return `${changes.done || changes.thanked ? "Ticked off" : "Reopened"} ${name}`;
-  return `Updated ${name}`;
+  return describeToggle(name, changes) ?? `Updated ${name}`;
+}
+/** A change to just a tick box: a task done, a gift thanked for. */
+function describeToggle(name: string, changes: Record<string, unknown>): string | undefined {
+  const [key, ...rest] = Object.keys(changes);
+  if (rest.length > 0 || (key !== "done" && key !== "thanked")) return undefined;
+  return `${changes[key] ? "Ticked off" : "Reopened"} ${name}`;
 }
 /** "Menon family replied: 4 coming to Haldi, Wedding, not Reception" */
 function describeRsvp(ev: PlannrEvent, action: ActionOf<"rsvp">): string {
@@ -108,6 +108,9 @@ const DESCRIPTIONS: ByAction<string> = {
 
 /** A history line for a plan change, worded from the plan as it was before the change. */
 export function describePlanAction(action: PlanAction, ev: PlannrEvent): string {
-  const describe = DESCRIPTIONS[action.type] as (ev: PlannrEvent, action: PlanAction) => string;
-  return describe(ev, action);
+  return describe(action.type, ev, action);
+}
+
+function describe<T extends PlanAction["type"]>(type: T, ev: PlannrEvent, action: ActionOf<T>): string {
+  return DESCRIPTIONS[type](ev, action);
 }

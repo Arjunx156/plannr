@@ -5,7 +5,22 @@ import type { RunItem, SiteInfo } from "../data/recordTypes";
 import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../data/types";
 import { addDays, dayMonth } from "../lib/dates";
 import { eventName } from "./eventEdits";
-import { type AnyRecord, type Coll, findRecord, list, patch, remove, setList, upsert } from "./records";
+import {
+  type AnyRecord,
+  type Coll,
+  findRecord,
+  list,
+  patch,
+  type RecordTypes,
+  remove,
+  setList,
+  upsert,
+} from "./records";
+
+/** Adding one record: the collection decides the record's shape. */
+export type AddRecord = {
+  [C in Coll]: { type: "addRecord"; eventId: string; coll: C; record: RecordTypes[C] };
+}[Coll];
 
 /**
  * Changes to the plan's records: guests, vendors, money, the day's run sheet and the
@@ -13,8 +28,8 @@ import { type AnyRecord, type Coll, findRecord, list, patch, remove, setList, up
  * repeat could arrive (an RSVP sent twice, a payment marked paid on two phones).
  */
 export type PlanAction =
-  | { type: "addRecord"; eventId: string; coll: Coll; record: AnyRecord }
-  | { type: "updateRecord"; eventId: string; coll: Coll; id: string; patch: Record<string, unknown> }
+  | AddRecord
+  | { type: "updateRecord"; eventId: string; coll: Coll; id: string; patch: Partial<AnyRecord> }
   | { type: "removeRecord"; eventId: string; coll: Coll; id: string }
   | {
       type: "rsvp";
@@ -34,7 +49,7 @@ export type PlanAction =
       paid: boolean;
       on?: string;
       method?: PayMethod;
-      by?: string;
+      by?: string | undefined;
     }
   | {
       type: "checkIn";
@@ -46,7 +61,7 @@ export type PlanAction =
     }
   | { type: "shiftRunsheet"; eventId: string; fnId: string; fromId: string; minutes: number }
   | { type: "setHeadcount"; eventId: string; guests: number }
-  | { type: "bookVendor"; eventId: string; vendorId: string; quoteId?: string }
+  | { type: "bookVendor"; eventId: string; vendorId: string; quoteId?: string | undefined }
   | {
       type: "editShifts";
       eventId: string;
@@ -62,6 +77,7 @@ export type PlanAction =
       patch: { name?: string; date?: string; site?: SiteInfo; listMeta?: string };
     };
 
+/** Every plan action type, so the engine can route them here. */
 export const PLAN_ACTION_TYPES: PlanAction["type"][] = [
   "addRecord",
   "updateRecord",
@@ -94,17 +110,22 @@ export function stampPlanAction(action: PlanAction, today: string, now: string):
     case "markPaid":
       return action.paid && !action.on ? { ...action, on: today } : action;
     case "addRecord":
-      if (
-        (action.coll === "announcements" || action.coll === "album") &&
-        !("at" in action.record && action.record.at)
-      )
-        return { ...action, record: { ...action.record, at: now } as typeof action.record };
-      return action;
+      return stampRecord(action, now);
     default:
       return action;
   }
 }
 
+/** Announcements and photos are timed by the server; a missing time means "now". */
+function stampRecord(action: AddRecord, now: string): AddRecord {
+  if (action.coll === "announcements" && !action.record.at)
+    return { ...action, record: { ...action.record, at: now } };
+  if (action.coll === "album" && !action.record.at)
+    return { ...action, record: { ...action.record, at: now } };
+  return action;
+}
+
+/** The one plan action with this type. */
 export type ActionOf<T extends PlanAction["type"]> = Extract<PlanAction, { type: T }>;
 
 /** One entry per action type: the mapped type makes the compiler insist on every one. */
@@ -226,12 +247,12 @@ function applyUpdateEvent(ev: PlannrEvent, { patch: p }: ActionOf<"updateEvent">
     ...(p.date ? { date: p.date } : {}),
     ...(p.listMeta ? { listMeta: p.listMeta } : {}),
     ...(p.site && ev.layout !== "empty" ? { site: { ...ev.site, ...p.site } } : {}),
-  } as PlannrEvent;
+  };
 }
 
 const REDUCERS: ByAction<PlannrEvent> = {
   addRecord: (ev, a) => upsert(ev, a.coll, a.record),
-  updateRecord: (ev, a) => patch(ev, a.coll, a.id, a.patch as Partial<AnyRecord>),
+  updateRecord: (ev, a) => patch(ev, a.coll, a.id, a.patch),
   removeRecord: (ev, a) => remove(ev, a.coll, a.id),
   rsvp: applyRsvp,
   markPaid: applyMarkPaid,
@@ -250,9 +271,16 @@ const REDUCERS: ByAction<PlannrEvent> = {
 /** Applies one record change. An event with no plan yet only takes changes to its own details. */
 export function applyPlanAction(ev: PlannrEvent, action: PlanAction): PlannrEvent {
   if (ev.layout === "empty" && action.type !== "updateEvent") return ev;
-  // TypeScript can't correlate the table's key with its handler's argument; the table's type does.
-  const reduce = REDUCERS[action.type] as (ev: PlannrEvent, action: PlanAction) => PlannrEvent;
-  return reduce(ev, action);
+  return reducePlan(action.type, ev, action);
+}
+
+/** Looks up a reducer by a generic key, which lets TypeScript match the handler to its action. */
+function reducePlan<T extends PlanAction["type"]>(
+  type: T,
+  ev: PlannrEvent,
+  action: ActionOf<T>,
+): PlannrEvent {
+  return REDUCERS[type](ev, action);
 }
 
 /** Default due dates for a booking: an advance in two weeks, the balance a week before. */
@@ -263,4 +291,4 @@ export function bookingSchedule(eventDate: string, today: string): { advance: st
 }
 
 /** A due date as "12 Oct". */
-export const shortDue = (iso: string) => dayMonth(iso);
+export const shortDue = (iso: string): string => dayMonth(iso);

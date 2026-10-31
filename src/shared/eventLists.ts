@@ -2,6 +2,7 @@ import type { FunctionDay } from "../data/baseTypes";
 import type { PersonalEvent, PlannrEvent } from "../data/types";
 import type { Vendor, VendorStage } from "../data/vendorTypes";
 
+/** A short, readable id made from a label: "Mehendi night" → "mehendi-night". */
 export function slugId(text: string): string {
   return (
     text

@@ -5,6 +5,7 @@ import { functionsOf } from "../../../shared/eventLists";
 
 /** The vendor pipeline, in order. */
 export const STAGES: VendorStage[] = ["needed", "enquired", "quoted", "booked"];
+/** The tone each vendor stage shows in. */
 export const STAGE_TONE: Record<VendorStage, "idle" | "due" | "ok"> = {
   needed: "idle",
   enquired: "due",
@@ -12,10 +13,12 @@ export const STAGE_TONE: Record<VendorStage, "idle" | "due" | "ok"> = {
   booked: "ok",
 };
 
+/** The guest count a vendor quote is based on; community events don't have one. */
 export function guestsOf(ev: PlannrEvent): number {
   return ev.layout === "personal" ? ev.guests : 0;
 }
 
+/** A ready-to-send enquiry for a vendor: the event, its dates and the guest count. */
 export function enquiry(ev: PlannrEvent, v: Vendor): string {
   const fns = functionsOf(ev);
   const when =

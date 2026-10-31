@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useNavigate } from "react-router";
 import { Logo } from "../components/brand";
 import { canDraft } from "../components/intake";
@@ -45,7 +46,8 @@ function summary(p: Profile, i: number): string {
   }
 }
 
-export function Guided() {
+/** The step-by-step intake, for planners who prefer a form to a chat. */
+export function Guided(): JSX.Element {
   const { state, dispatch } = useStore();
   const navigate = useNavigate();
   const draft = state.draft;
@@ -67,7 +69,7 @@ export function Guided() {
     <div className="grid flex-1 lg:grid-cols-[320px_minmax(0,1fr)]">
       <nav
         aria-label="Intake steps"
-        className="flex flex-col gap-1 border-b border-line bg-sand px-4 py-5 sm:px-[22px] lg:border-r lg:border-b-0 lg:py-7"
+        className="flex flex-col gap-1 border-line border-b bg-sand px-4 py-5 sm:px-[22px] lg:border-r lg:border-b-0 lg:py-7"
       >
         <div className="mb-4 hidden lg:block">
           <Logo />
@@ -92,12 +94,12 @@ export function Guided() {
             Step {step + 1} of {STEPS.length}
           </span>
           <h1 className="font-serif text-[clamp(30px,4vw,38px)] leading-[1.1]">{STEP_TITLES[step]}</h1>
-          <p className="m-0 max-w-[620px] text-[15px] leading-normal text-body">{STEP_HINTS[step]}</p>
+          <p className="m-0 max-w-[620px] text-[15px] text-body leading-normal">{STEP_HINTS[step]}</p>
         </div>
 
         <StepBody step={step} p={p} set={set} />
 
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-line border-t pt-4">
           <button type="button" className="btn btn-ghost" onClick={() => go(step - 1)} disabled={step === 0}>
             ← Back
           </button>
@@ -194,17 +196,17 @@ function StepLink({
         className={`grid w-full grid-cols-[24px_minmax(0,1fr)] gap-2.5 rounded-[9px] px-2.5 py-2 text-left ${current ? "bg-surface" : "hover:bg-surface/60"}`}
       >
         <span
-          className={`flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] text-[11px] font-semibold ${dotClass(done, current)}`}
+          className={`flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] font-semibold text-[11px] ${dotClass(done, current)}`}
         >
           {done ? "✓" : number}
         </span>
         <span className="flex flex-col gap-[3px]">
           <span
-            className={`text-sm leading-[1.3] font-semibold ${done || current ? "text-ink" : "text-muted"}`}
+            className={`font-semibold text-sm leading-[1.3] ${done || current ? "text-ink" : "text-muted"}`}
           >
             {label}
           </span>
-          <span className="hidden max-w-[220px] truncate text-xs leading-[1.35] text-muted lg:block">
+          <span className="hidden max-w-[220px] truncate text-muted text-xs leading-[1.35] lg:block">
             {current ? "In progress" : answer}
           </span>
         </span>

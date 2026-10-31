@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { useEditable } from "../../components/taskHooks";
 import type { PlannrEvent } from "../../data/types";
 import { longDate, TODAY } from "../../lib/dates";
@@ -12,7 +12,7 @@ import { TabPage } from "./layout";
 import { Updates } from "./site/Updates";
 
 /** /events/:id/day — the run sheet, check-in and everything the day itself needs, on one phone. */
-export function DayTab({ ev }: { ev: PlannrEvent }) {
+export function DayTab({ ev }: { ev: PlannrEvent }): JSX.Element | null {
   const editable = useEditable(ev);
   const fns = functionsOf(ev)
     .slice()

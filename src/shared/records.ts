@@ -6,6 +6,7 @@ import type { Announcement, CheckItem, Idea, MemoryNote, Photo, RunItem } from "
 import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../data/types";
 import type { Vendor } from "../data/vendorTypes";
 import { functionsOf, slugId, vendorsOf } from "./eventLists";
+import { keysOf } from "./guards";
 
 /**
  * Every list a plan holds, in one place: where it lives on the event, what it holds when an
@@ -14,6 +15,7 @@ import { functionsOf, slugId, vendorsOf } from "./eventLists";
 
 type Planned = PersonalEvent | CommunityEvent;
 
+/** The record type each collection holds. */
 export interface RecordTypes {
   households: Household;
   tables: SeatTable;
@@ -38,14 +40,16 @@ export interface RecordTypes {
   sources: FundSource & { id: string };
 }
 
+/** The name of a record collection: "households", "vendors", "stalls" and so on. */
 export type Coll = keyof RecordTypes;
+/** A record from any collection. */
 export type AnyRecord = RecordTypes[Coll];
 
 interface Store<C extends Coll> {
   /** Layouts that can hold this list. */
   layouts: Planned["layout"][];
   get: (ev: Planned) => RecordTypes[C][];
-  set: (ev: Planned, list: RecordTypes[C][]) => Planned;
+  set: <E extends Planned>(ev: E, list: RecordTypes[C][]) => E;
   /** What history calls one item, e.g. "the household “Menon family”". */
   name: (r: RecordTypes[C]) => string;
 }
@@ -57,7 +61,7 @@ const communityOnly: Planned["layout"][] = ["community"];
 const q = (s: string | undefined) => `“${s ?? ""}”`;
 
 /** Gives permits and fund sources stable ids; seed data names them by label only. */
-function withIds<T extends { id?: string; label: string }>(list: T[]): (T & { id: string })[] {
+function withIds<T extends { id?: string | undefined; label: string }>(list: T[]): (T & { id: string })[] {
   return list.map((x) => ({ ...x, id: x.id ?? slugId(x.label) }));
 }
 
@@ -193,7 +197,8 @@ const STORES: { [C in Coll]: Store<C> } = {
   },
 };
 
-export const COLLS = Object.keys(STORES) as Coll[];
+/** Every record collection a plan can keep. */
+export const COLLS: Coll[] = keysOf(STORES);
 
 /** Whether a string names one of the plan's record collections. */
 export function isColl(c: unknown): c is Coll {
@@ -207,7 +212,7 @@ export function canHold(ev: PlannrEvent, coll: Coll): ev is Planned {
 
 /** The list for a collection, with defaults for plans that don't have it yet. */
 export function list<C extends Coll>(ev: PlannrEvent, coll: C): RecordTypes[C][] {
-  return canHold(ev, coll) ? (STORES[coll] as Store<C>).get(ev) : [];
+  return canHold(ev, coll) ? STORES[coll].get(ev) : [];
 }
 
 /** One record by id, or undefined. */
@@ -217,7 +222,7 @@ export function findRecord<C extends Coll>(ev: PlannrEvent, coll: C, id: string)
 
 /** Replaces a collection's list. A store swaps one list only, so the event keeps its layout. */
 export function setList<E extends PlannrEvent, C extends Coll>(ev: E, coll: C, next: RecordTypes[C][]): E {
-  return canHold(ev, coll) ? ((STORES[coll] as Store<C>).set(ev, next) as E) : ev;
+  return canHold(ev, coll) ? STORES[coll].set(ev, next) : ev;
 }
 
 /** Adds the record, or replaces the one with the same id. */
@@ -243,7 +248,7 @@ export function patch<E extends PlannrEvent, C extends Coll>(
   return setList(
     ev,
     coll,
-    current.map((r) => (r.id === id ? ({ ...r, ...changes, id } as RecordTypes[C]) : r)),
+    current.map((r) => (r.id === id ? { ...r, ...changes, id } : r)),
   );
 }
 
@@ -261,5 +266,6 @@ export function remove<E extends PlannrEvent>(ev: E, coll: Coll, id: string): E 
 /** How history names one record. */
 export function recordName(coll: Coll, record: AnyRecord | undefined): string {
   if (!record) return "an item";
+  // A record is always named by its own collection's store; the pair just isn't typed together.
   return (STORES[coll] as Store<Coll>).name(record);
 }

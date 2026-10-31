@@ -1,8 +1,9 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { bindText, TextField } from "../../../components/fields";
 import { toCsv } from "../../../lib/csv";
 import { download } from "../../../lib/download";
 import { inr, parseAmount } from "../../../lib/format";
+import { isNumber, isRecord, isString, listOf } from "../../../shared/guards";
 import { CallToAction, SitePage } from "../siteLayout";
 import { useLocal } from "./useLocal";
 
@@ -13,6 +14,23 @@ interface Entry {
   gift: string;
   side: string;
   thanked: boolean;
+}
+
+function isEntry(x: unknown): x is Entry {
+  if (!isRecord(x)) return false;
+  const { id, from, amount, gift, side, thanked } = x;
+  return (
+    isString(id) &&
+    isString(from) &&
+    isNumber(amount) &&
+    isString(gift) &&
+    isString(side) &&
+    typeof thanked === "boolean"
+  );
+}
+
+function readEntries(saved: unknown): Entry[] {
+  return listOf(saved).filter(isEntry);
 }
 
 const EMPTY_FORM = { from: "", amount: "", gift: "", side: "" };
@@ -27,8 +45,8 @@ function downloadRegister(entries: Entry[]) {
 }
 
 /** /tools/shagun-register — a gift register kept in this browser, with totals and a CSV export. */
-export function ShagunRegister() {
-  const [entries, setEntries] = useLocal<Entry[]>("plannr:tool:shagun", []);
+export function ShagunRegister(): JSX.Element {
+  const [entries, setEntries] = useLocal("plannr:tool:shagun", [], readEntries);
   const add = (form: EntryForm) =>
     setEntries([
       ...entries,
@@ -122,7 +140,7 @@ function Register({ entries, onToggle, onRemove }: RegisterProps) {
           <EntryRow key={e.id} e={e} onToggle={() => onToggle(e.id)} onRemove={() => onRemove(e.id)} />
         ))}
         {entries.length === 0 && (
-          <li className="text-sm text-muted">Nothing yet. Add the first envelope above.</li>
+          <li className="text-muted text-sm">Nothing yet. Add the first envelope above.</li>
         )}
       </ul>
     </section>
@@ -131,10 +149,10 @@ function Register({ entries, onToggle, onRemove }: RegisterProps) {
 
 function EntryRow({ e, onToggle, onRemove }: { e: Entry; onToggle: () => void; onRemove: () => void }) {
   return (
-    <li className="flex flex-wrap items-center gap-3 border-t border-sand-2 py-2 text-sm first:border-0">
+    <li className="flex flex-wrap items-center gap-3 border-sand-2 border-t py-2 text-sm first:border-0">
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="font-medium">{e.from}</span>
-        <span className="text-xs text-muted">{[e.side, e.gift].filter(Boolean).join(" · ")}</span>
+        <span className="text-muted text-xs">{[e.side, e.gift].filter(Boolean).join(" · ")}</span>
       </span>
       <span className="tabular">{e.amount ? inr(e.amount) : ""}</span>
       <label className="flex items-center gap-1.5 text-xs">

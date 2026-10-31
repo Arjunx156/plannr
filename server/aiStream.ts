@@ -2,17 +2,20 @@ import { type AiResponse, BUDGET_MS, failure, logCall, TIMEOUT_MS } from "./ai";
 import {
   type AiConfig,
   aiConfig,
-  type Chunk,
   chunkText,
   type Fetch,
   type Meter,
   postGemini,
+  readChunk,
   requestBody,
   retryable,
   UpstreamError,
   withFallback,
 } from "./gemini";
 import { assistantPrompt, assistantRequest, assistantSchema, sanitizeAssistant } from "./prompts/assistant";
+
+/** JSON's one-letter escapes and the characters they stand for. */
+const ESC: Record<string, string> = { n: "\n", t: "\t", r: "\r", b: "\b", f: "\f" };
 
 /**
  * The answer text so far, read out of a JSON object that is still arriving:
@@ -22,11 +25,10 @@ import { assistantPrompt, assistantRequest, assistantSchema, sanitizeAssistant }
 export function partialText(raw: string): string | undefined {
   const start = raw.match(/^\s*\{\s*"text"\s*:\s*"/);
   if (!start) return undefined;
-  const ESC: Record<string, string> = { n: "\n", t: "\t", r: "\r", b: "\b", f: "\f" };
   let out = "";
   let i = start[0].length;
   while (i < raw.length) {
-    const c = raw[i] as string;
+    const c = raw.charAt(i);
     if (c === '"') break;
     if (c !== "\\") {
       out += c;
@@ -58,7 +60,7 @@ async function readStream(res: Response, onChunk: (text: string) => void, meter?
     if (!line.startsWith("data:")) return;
     const json = line.slice(5).trim();
     if (!json) return;
-    const data = JSON.parse(json) as Chunk;
+    const data = readChunk(JSON.parse(json));
     if (meter && data.usageMetadata?.totalTokenCount) meter.tokens = data.usageMetadata.totalTokenCount;
     const text = chunkText(data);
     if (text) onChunk(text);
@@ -98,7 +100,7 @@ export async function streamAssistant(
     let shown = "";
     const answer = await withFallback(
       config,
-      BUDGET_MS.assistant ?? TIMEOUT_MS,
+      BUDGET_MS["assistant"] ?? TIMEOUT_MS,
       async (model, timeoutMs) => {
         used.model = model;
         const res = await postGemini(

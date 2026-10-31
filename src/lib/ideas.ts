@@ -15,9 +15,10 @@ export interface IdeaSuggestion {
   effort: NonNullable<Idea["effort"]>;
   cost?: number;
   /** A budget line, by name. */
-  category?: string;
+  category?: string | undefined;
 }
 
+/** An event with a plan, which is what ideas are made for. */
 export type PlannedEvent = PersonalEvent | CommunityEvent;
 
 const MAX_DEVICE_IDEAS = 6;

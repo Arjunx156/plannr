@@ -2,25 +2,28 @@ import { BadRequest, clip, int, isObject, isoDate, type Json, str, strList, VOIC
 
 // ---------------------------------------------------------------- plan draft
 
+/** A plan request: the profile, Plannr's standard draft and today's date. */
 export interface PlanRequest {
   profile: unknown;
   plan: unknown;
   today: string;
   /** The event day the draft is dated against, when the draft names one. */
-  date?: string;
+  date?: string | undefined;
 }
 
+/** Checks a plan request; throws BadRequest when the profile is missing. */
 export function planRequest(body: unknown): PlanRequest {
-  if (!isObject(body) || !isObject(body.profile)) throw new BadRequest("profile is required");
+  if (!isObject(body) || !isObject(body["profile"])) throw new BadRequest("profile is required");
   return {
-    profile: body.profile,
-    plan: body.plan ?? {},
-    today: isoDate(body.today) ?? new Date().toISOString().slice(0, 10),
-    date: isObject(body.plan) ? isoDate(body.plan.date) : undefined,
+    profile: body["profile"],
+    plan: body["plan"] ?? {},
+    today: isoDate(body["today"]) ?? new Date().toISOString().slice(0, 10),
+    date: isObject(body["plan"]) ? isoDate(body["plan"]["date"]) : undefined,
   };
 }
 const reason = { type: "string", description: "One short sentence on why, specific to this event" };
 
+/** The JSON schema for Gemini's notes on a draft. */
 export const planSchema = {
   type: "object",
   properties: {
@@ -88,6 +91,7 @@ export const planSchema = {
   required: ["summary", "tips", "budget", "timeline", "vendors"],
 } as const;
 
+/** The plan prompt: tailor the standard draft to this family, keeping its shape. */
 export function planPrompt(r: PlanRequest): { system: string; user: string } {
   return {
     system: `${VOICE}
@@ -103,6 +107,7 @@ Standard draft: ${clip(r.plan, 8000)}`,
   };
 }
 
+/** Gemini's notes on a draft, after cleaning. */
 export interface PlanResult {
   summary: string;
   tips: { title: string; detail: string }[];
@@ -123,37 +128,37 @@ function rows<T>(v: unknown, max: number, clean: (row: Json) => T | undefined): 
   return out;
 }
 function budgetRow(row: Json): PlanResult["budget"][number] | undefined {
-  const name = str(row.name, 40);
-  const percent = int(row.percent, 1, 90);
-  return name && percent ? { name, percent, why: str(row.why, 160) ?? "" } : undefined;
+  const name = str(row["name"], 40);
+  const percent = int(row["percent"], 1, 90);
+  return name && percent ? { name, percent, why: str(row["why"], 160) ?? "" } : undefined;
 }
 function taskRow(row: Json): PlanResult["timeline"][number] | undefined {
-  const title = str(row.title, 90);
-  const due = isoDate(row.due);
-  return title && due ? { title, due, why: str(row.why, 160) ?? "" } : undefined;
+  const title = str(row["title"], 90);
+  const due = isoDate(row["due"]);
+  return title && due ? { title, due, why: str(row["why"], 160) ?? "" } : undefined;
 }
 function vendorRow(row: Json): PlanResult["vendors"][number] | undefined {
-  const name = str(row.name, 40);
-  return name ? { name, why: str(row.why, 160) ?? "" } : undefined;
+  const name = str(row["name"], 40);
+  return name ? { name, why: str(row["why"], 160) ?? "" } : undefined;
 }
 
 /** Cleans the draft's shape; whether the numbers hold together is checked in the browser (src/lib/plan.ts). */
 export function sanitizePlan(raw: unknown): PlanResult {
   const r = isObject(raw) ? raw : {};
-  const summary = str(r.summary, 600);
+  const summary = str(r["summary"], 600);
   if (!summary) throw new Error("Empty plan notes");
-  const tips = rows(r.tips, 5, (t) => {
-    const title = str(t.title, 80);
-    const detail = str(t.detail, 320);
+  const tips = rows(r["tips"], 5, (t) => {
+    const title = str(t["title"], 80);
+    const detail = str(t["detail"], 320);
     return title && detail ? { title, detail } : undefined;
   });
   return {
     summary,
     tips,
-    watchouts: strList(r.watchouts, 3, 240),
-    ideas: strList(r.ideas, 4, 160),
-    budget: rows(r.budget, 10, budgetRow),
-    timeline: rows(r.timeline, 10, taskRow),
-    vendors: rows(r.vendors, 12, vendorRow),
+    watchouts: strList(r["watchouts"], 3, 240),
+    ideas: strList(r["ideas"], 4, 160),
+    budget: rows(r["budget"], 10, budgetRow),
+    timeline: rows(r["timeline"], 10, taskRow),
+    vendors: rows(r["vendors"], 12, vendorRow),
   };
 }

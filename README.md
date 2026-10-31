@@ -1,10 +1,39 @@
 # Plannr
 
+[![CI](https://github.com/Arjunx156/plannr/actions/workflows/ci.yml/badge.svg)](https://github.com/Arjunx156/plannr/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Arjunx156/plannr/actions/workflows/codeql.yml/badge.svg)](https://github.com/Arjunx156/plannr/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A GenAI planning assistant for weddings, birthdays and community events. Describe the day in one sentence,
 in English, Malayalam, Hindi or Tamil, and Plannr drafts the budget, timeline, vendor checklist and ideas for
 that event, then helps the family and volunteers run it.
 
 Live: https://plannr-sepia.vercel.app (choose "Explore the demo" to skip sign-in)
+
+## Engineering standards
+
+Every line here is a check CI runs on every push; none is a claim on trust.
+
+- **Types at their strictest**: `strict` plus `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`,
+  `noPropertyAccessFromIndexSignature`, `noImplicitReturns` and `noImplicitOverride`, from one base config
+  every project extends; the app adds `isolatedDeclarations`.
+- **Architecture as rules**: `scripts/structure.ts` fails the build on a file over 300 lines, an import cycle,
+  an import that crosses a layer the wrong way, an export without a doc comment, a type assertion outside its
+  nine-entry allowlist, or an inline `style` prop. No copied code (jscpd).
+- **Every boundary checked**: a zod schema for each of the 34 kinds of plan change and for every environment
+  variable at startup; every answer from Gemini is held to its JSON schema and cleaned before use.
+- **Tests**: 531 unit, property, server and AI tests, with coverage held at 94% of lines and 91% of functions;
+  151 browser journeys on desktop and phone. Property tests and a fuzz test of every server route check laws
+  that must hold for any input.
+- **Security**: a content security policy with no `'unsafe-'` source and Trusted Types, every header tested;
+  Actions pinned to commits, the history scanned for secrets, CodeQL and OpenSSF Scorecard.
+- **Accessibility**: WCAG 2.2 AA checked by axe on every main page, plus reflow at 320 pixels, 200% zoom,
+  reduced motion, high contrast themes and a keyboard-only journey; on the public pages, Lighthouse
+  accessibility, best practices and SEO must score 100.
+
+How it's held together: [ARCHITECTURE.md](ARCHITECTURE.md), the decisions in [docs/adr/](docs/adr/),
+[docs/TESTING.md](docs/TESTING.md), [SECURITY.md](SECURITY.md), [ACCESSIBILITY.md](ACCESSIBILITY.md) and
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## The brief, and where each part lives
 
@@ -49,12 +78,13 @@ history all work locally.
 | Command | What it does |
 | --- | --- |
 | `bun run dev` | App and API on http://localhost:5173 |
-| `just check` | Format, lint, types, every unit test and the production build: what CI runs first |
-| `bun test` | Unit and API tests, with the clock pinned to the demo story's day |
-| `bun run coverage` | The same tests with coverage; fails below 85% of lines or 80% of functions |
+| `just check` | Format, lint, types, the structure and duplication checks, every unit test and the production build: what CI runs first |
+| `bun test` | Unit, property, server and AI tests, with the clock pinned to the demo story's day |
+| `bun run coverage` | The same tests with coverage; fails below 94% of lines or 91% of functions |
 | `bun run e2e` | Browser journeys and accessibility checks on desktop and phone sizes; Gemini is mocked |
 | `just eval` | Scores Gemini against real cases in English, Malayalam, Hindi and Tamil, including whole drafted plans checked through the same rules the browser uses (needs a key) |
 | `bun run size` | Fails if the built JavaScript grows past its budget (run after a build) |
+| `bun x @lhci/cli@0.15.1 autorun` | Lighthouse on the public pages against the built app (run after a build) |
 | `bun run vercel-build` | The production build: migrations, app, pre-rendered public pages, API bundle |
 | `bun run brand` | Regenerates the favicon PNGs and the share image in `public/` |
 | `bun scripts/restore-backup.ts --latest --out backup.json` | Opens the newest nightly backup (needs `BACKUP_KEY` and `BLOB_READ_WRITE_TOKEN`); `--into <postgres-url>` loads it into a database |
@@ -83,8 +113,9 @@ src/
 server/        the Hono app; routes/ by who calls them, prompts/ (each prompt with its schema and sanitizer),
                validation/ (a schema for every plan change), sign-in, plans, history, links, backups
 scripts/       build, structure, coverage and size checks, the AI eval, backups
-tests/         unit and API tests (bun test)
+tests/         unit, property, server and AI tests (bun test)
 e2e/           browser journeys and accessibility checks (Playwright + axe)
+docs/          decision records (adr/) and the testing guide
 ```
 
 [ARCHITECTURE.md](ARCHITECTURE.md) follows one change from a tap to the database and lists the rules the
@@ -94,17 +125,19 @@ build enforces.
 
 | | |
 | --- | --- |
-| Tests | 424 unit and API tests (`tests/`), including the AI routes over HTTP, the checks on Gemini's drafted plans (`tests/tailor.test.ts`), every kind of plan change the server accepts (`tests/validate.test.ts`) and a contract test that runs the browser's API client against the real server in one process; 143 browser journeys on desktop and phone (`e2e/`), including every brief requirement above |
-| Coverage | 93.7% of lines and 91.0% of functions in the code the unit tests load; CI fails below 90% of lines or 87% of functions (`scripts/coverage-gate.ts`) |
-| Accessibility | axe checks for WCAG 2.2 AA and axe best practices on every main page, desktop and phone; every journey also fails on a console error. Skip links; screen changes announced, with focus moved to the new content; 24px touch targets; keyboard paths for drag and drop; reduced motion and higher contrast honoured; pages in four languages carry their `lang`. Lighthouse accessibility 100 |
-| Security | See [SECURITY.md](SECURITY.md): CSP and security headers (no inline scripts or `<style>`), role checks on every write, every kind of plan change validated by schema, request bodies capped while they stream, cross-site write protection, expiring shared links, rate limits shared across servers, prompt-injection handling, encrypted backups. `bun audit` and CodeQL run in CI |
-| Efficiency | The first load is 112.3 KB gzipped in 11 files, with React and the router in a chunk of their own that a returning visitor keeps across deploys; per-route code splitting with a size budget in CI; the demo's sample data loads only when the demo opens; weight-only font cuts, preloaded; pre-rendered public pages whose code loads before the first render, so the HTML is swapped for the same page with no loading screen (Lighthouse best practices and SEO 100, total blocking time around 100 ms); streamed AI answers; the server sits in the same region as the database; queries are indexed and a plan list is one join |
-| Code | Biome's recommended rules plus, per function, at most 60 lines and a cognitive complexity of 15; no nested ternaries, non-null assertions, floating promises, unused code or stray console output. Strict TypeScript with unchecked index access flagged. No source file over 300 lines, no import cycles (`scripts/structure.ts`) and no copied blocks of code (jscpd). All clean, all in CI |
+| Tests | 531 tests in `tests/`: the engine, money and dates, every kind of plan change the server accepts, the AI routes over HTTP with Gemini stubbed, every server route on a real Postgres, every security header, the shared interface pieces, and a contract test that runs the browser's API client against the real server. Property tests (fast-check) check laws for any input, and a fuzz test sends random bodies to every route and fails on any 500. 151 browser journeys on desktop and phone (`e2e/`) cover every brief requirement above. [docs/TESTING.md](docs/TESTING.md) says what each layer proves |
+| Coverage | 95.0% of lines and 92.3% of functions in the code the unit tests load; CI fails below 94% of lines or 91% of functions (`scripts/coverage-gate.ts`) |
+| Accessibility | axe checks for WCAG 2.2 AA and axe best practices on every main page, desktop and phone; every journey also fails on a console error. Reflow at 320 pixels, 200% zoom, reduced motion, high contrast themes and a keyboard-only journey with a visible focus ring at every stop are tested too. Skip links; screen changes announced, with focus moved to the new content; keyboard paths for drag and drop; pages in four languages carry their `lang`. Lighthouse accessibility 100, held in CI. See [ACCESSIBILITY.md](ACCESSIBILITY.md) |
+| Security | See [SECURITY.md](SECURITY.md), a threat model that names the test behind each control: a content security policy with no `'unsafe-'` source anywhere and Trusted Types, every security header on every response, role checks on every write, every kind of plan change validated by schema, request bodies capped while they stream, cross-site write protection, expiring shared links, rate limits shared across servers, prompt-injection handling, encrypted backups. `bun audit`, gitleaks, CodeQL, dependency review and OpenSSF Scorecard run in CI, with every Action pinned to a commit |
+| Efficiency | The first load is 113.1 KB gzipped in 12 files, with React and the router in a chunk of their own that a returning visitor keeps across deploys; per-route code splitting with a size budget in CI; the demo's sample data loads only when the demo opens; weight-only font cuts, preloaded; pre-rendered public pages whose code loads before the first render, so the HTML is swapped for the same page with no loading screen; streamed AI answers; the server sits in the same region as the database; queries are indexed and a plan list is one join |
+| Code | Strict TypeScript with every flag above, Biome's recommended rules plus, per function, at most 60 lines and a cognitive complexity of 15, sorted Tailwind classes and one naming convention. Six structure rules (`scripts/structure.ts`), no copied code (jscpd), every export documented, type assertions only in nine allowlisted places, each with its reason. All clean, all in CI |
 
-CI (`.github/workflows/ci.yml`) runs the dependency audit, lint, types, the structure and duplication checks, coverage, the build, the size budget,
-pre-rendering and the browser journeys on every push to `main`; `.github/workflows/codeql.yml` scans the code for
-security problems. Every Monday `.github/workflows/dependencies.yml` posts outdated
-packages and the security audit to one issue ("Weekly dependency report"); updates are made on `main`.
+CI (`.github/workflows/ci.yml`) runs the dependency audit, lint, types, the structure and duplication checks,
+coverage, the build, the size budget, pre-rendering, the browser journeys, Lighthouse and a secret scan of the
+whole history on every push to `main`, and reviews new dependencies on pull requests.
+`.github/workflows/codeql.yml` scans the code for security problems and `.github/workflows/scorecard.yml`
+checks the repository's practices. Every Monday `.github/workflows/dependencies.yml` posts outdated packages
+and the security audit to one issue ("Weekly dependency report"); updates are made on `main`.
 
 ## How AI is wired
 
@@ -155,3 +188,9 @@ environment variables; loading skips rows that already exist, so it can fill a f
 The demo story was written for Sunday 27 Sep 2026 (`STORY_DAY` in `src/lib/dates.ts`). It moves forward in
 whole weeks so it always starts from today. Everything persists in `localStorage`; "Reset demo data" in the
 account menu restores it.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+Engineered by Arjun Krishnan.

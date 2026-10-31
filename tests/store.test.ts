@@ -4,6 +4,7 @@ import { seedEvents } from "../src/data/seed";
 import type { ActivityEntry } from "../src/shared/types";
 import { initialState, reducer } from "../src/store/reducer";
 import { demoLoading, migrate } from "../src/store/store";
+import { present } from "./support";
 
 const change = (at: string): ActivityEntry => ({
   id: at,
@@ -66,9 +67,7 @@ describe("moving between the demo and an account", () => {
   });
 
   test("signing in keeps plans made in the demo for importing, never the samples", () => {
-    const mine = { ...seedEvents()[3], id: "my-anniversary", name: "Our anniversary" } as ReturnType<
-      typeof seedEvents
-    >[number];
+    const mine = { ...present(seedEvents()[3]), id: "my-anniversary", name: "Our anniversary" };
     const withMine = reducer(demo, { type: "addEvent", event: mine });
     const signedIn = reducer(withMine, { type: "enterAccount", user });
     expect(signedIn.mode).toBe("account");

@@ -10,9 +10,9 @@ export default defineConfig({
   testDir: "e2e",
   testMatch: "**/*.e2e.ts",
   fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  forbidOnly: !!process.env["CI"],
+  retries: process.env["CI"] ? 1 : 0,
+  reporter: process.env["CI"] ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: `http://localhost:${PORT}`,
     locale: "en-IN",
@@ -27,11 +27,14 @@ export default defineConfig({
     { name: "phone", use: { ...devices["Pixel 7"] }, grep: /@phone/ },
   ],
   webServer: {
-    command: `VITE_GALLERY=1 bun x vite build && bun x vite preview --port ${PORT} --strictPort`,
-    port: PORT,
-    reuseExistingServer: !process.env.CI,
+    command: `bun x vite build && bun x vite preview --port ${PORT} --strictPort`,
+    // The API starts its database on the first request; waiting on it here keeps that boot out of
+    // whichever test happens to run first.
+    url: `http://localhost:${PORT}/api/health`,
+    reuseExistingServer: !process.env["CI"],
     timeout: 120_000,
-    // No key: every AI call in the tests is mocked, and the rest must work without it.
-    env: { GEMINI_API_KEY: "", PLANNR_DB: "memory", PLANNR_DEV_OUTBOX: "1" },
+    // No key: every AI call in the tests is mocked, and the rest must work without it. Set here
+    // rather than in the command, so the same line runs in any shell.
+    env: { VITE_GALLERY: "1", GEMINI_API_KEY: "", PLANNR_DB: "memory", PLANNR_DEV_OUTBOX: "1" },
   },
 });

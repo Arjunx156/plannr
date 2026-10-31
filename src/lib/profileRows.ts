@@ -2,6 +2,7 @@ import type { Kind } from "../data/baseTypes";
 import type { Profile } from "../data/types";
 import type { QuestionField } from "./intakeQuestions";
 
+/** Each kind of event in the family's words. */
 export const KIND_LABEL: Record<Kind, string> = {
   wedding: "Wedding",
   birthday: "Birthday",
@@ -9,6 +10,7 @@ export const KIND_LABEL: Record<Kind, string> = {
   other: "Event",
 };
 
+/** One row of the profile summary: a label and what's known. */
 export interface ProfileRow {
   key: string;
   label: string;

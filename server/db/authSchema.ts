@@ -2,6 +2,7 @@ import { bigint, boolean, index, integer, pgTable, text, timestamp } from "drizz
 
 // ---------------------------------------------------------------- accounts (Better Auth)
 
+/** Better Auth's people. */
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -14,6 +15,7 @@ export const user = pgTable("user", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+/** Better Auth's sign-in sessions. */
 export const session = pgTable(
   "session",
   {
@@ -31,6 +33,7 @@ export const session = pgTable(
   (t) => [index("session_user_idx").on(t.userId)],
 );
 
+/** Better Auth's linked sign-in methods: Google, email codes. */
 export const account = pgTable(
   "account",
   {
@@ -53,6 +56,7 @@ export const account = pgTable(
   (t) => [index("account_user_idx").on(t.userId)],
 );
 
+/** Better Auth's one-time codes. */
 export const verification = pgTable(
   "verification",
   {

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 import type { ImagePreview } from "../../components/intake";
 import type { Profile } from "../../data/types";
 
@@ -14,7 +14,7 @@ export function Chips({
   selected: string[];
   onToggle: (o: string) => void;
   single?: boolean;
-}) {
+}): JSX.Element {
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((o) => (
@@ -32,6 +32,7 @@ export function Chips({
   );
 }
 
+/** A labelled group of controls in a guided step. */
 export function Block({
   label,
   children,
@@ -40,28 +41,30 @@ export function Block({
   label: string;
   children: ReactNode;
   htmlFor?: string;
-}) {
+}): JSX.Element {
   return (
     <div className="flex flex-col gap-2.5">
       {htmlFor ? (
-        <label htmlFor={htmlFor} className="text-sm leading-none font-semibold">
+        <label htmlFor={htmlFor} className="font-semibold text-sm leading-none">
           {label}
         </label>
       ) : (
-        <span className="text-sm leading-none font-semibold">{label}</span>
+        <span className="font-semibold text-sm leading-none">{label}</span>
       )}
       {children}
     </div>
   );
 }
 
+/** The list with the value added, or removed if it was there. */
 export function toggle(list: string[], v: string): string[] {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 }
 
 /** Adds to a list once. */
-export const addOnce = (list: string[], v: string) => [...new Set([...list, v])];
+export const addOnce = (list: string[], v: string): string[] => [...new Set([...list, v])];
 
+/** What every guided step receives: the profile so far and a way to change it. */
 export interface StepProps {
   p: Profile;
   set: (patch: Partial<Profile>) => void;
@@ -81,7 +84,7 @@ export function QuickPicks({
   current: number | undefined;
   label?: (n: number) => string;
   onPick: (n: number) => void;
-}) {
+}): JSX.Element {
   return (
     <div className="flex flex-wrap gap-2">
       {values.map((n) => (

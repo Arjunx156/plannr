@@ -16,6 +16,7 @@ import { account, rateLimit, session, user, verification } from "./authSchema";
 
 // ---------------------------------------------------------------- plans
 
+/** Every event, stored whole as JSON with a version for optimistic locking. */
 export const events = pgTable(
   "events",
   {
@@ -35,6 +36,7 @@ export const events = pgTable(
   (t) => [index("events_owner_idx").on(t.ownerId)],
 );
 
+/** Who can open each event, and with what role. */
 export const members = pgTable(
   "members",
   {
@@ -52,6 +54,7 @@ export const members = pgTable(
   (t) => [primaryKey({ columns: [t.eventId, t.userId] }), index("members_user_idx").on(t.userId)],
 );
 
+/** Invite links, each for one role and valid for two weeks. */
 export const invites = pgTable(
   "invites",
   {
@@ -73,8 +76,10 @@ export const invites = pgTable(
   (t) => [index("invites_event_idx").on(t.eventId)],
 );
 
+/** What one history entry records: a change, an undo or a redo. */
 export type ChangeKind = "action" | "undo" | "redo";
 
+/** Every change to every event, in order, so history can replay and undo. */
 export const changes = pgTable(
   "changes",
   {
@@ -101,6 +106,7 @@ export const changes = pgTable(
   (t) => [uniqueIndex("changes_event_seq_idx").on(t.eventId, t.seq)],
 );
 
+/** Comments on tasks and records. */
 export const comments = pgTable(
   "comments",
   {
@@ -129,6 +135,7 @@ export type LinkKind =
   | "stalls"
   | "gate";
 
+/** Shared links for guests, helpers, vendors and neighbours. */
 export const links = pgTable(
   "links",
   {
@@ -219,6 +226,7 @@ export const pushSubs = pgTable(
   (t) => [index("push_subs_user_idx").on(t.userId)],
 );
 
+/** Every table, for Drizzle's typed queries and the backups. */
 export const schema = {
   user,
   session,

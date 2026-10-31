@@ -1,13 +1,15 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Field } from "../../../components/fields";
 import { Modal } from "../../../components/overlays";
 import type { PayMethod, Payment } from "../../../data/budgetTypes";
 import type { PersonalEvent } from "../../../data/types";
 import { TODAY } from "../../../lib/dates";
 import { inr } from "../../../lib/format";
+import { keysOf } from "../../../shared/guards";
 import { toast, useStore } from "../../../store/store";
 import { METHOD_LABEL } from "./shared";
 
+/** Marks a payment paid: how, when and by whom. */
 export function MarkPaid({
   ev,
   payment,
@@ -16,7 +18,7 @@ export function MarkPaid({
   ev: PersonalEvent;
   payment: Payment | null;
   onClose: () => void;
-}) {
+}): JSX.Element {
   const { dispatch } = useStore();
   const sides = ev.budget.split?.sides ?? [];
   const [on, setOn] = useState(TODAY);
@@ -41,7 +43,7 @@ export function MarkPaid({
     <Modal open={!!payment} onClose={onClose} title={payment ? `Paid: ${payment.label}` : "Paid"}>
       {payment && (
         <form onSubmit={submit} className="flex flex-col gap-3">
-          <span className="font-serif text-[28px] leading-none tabular">{inr(payment.amount)}</span>
+          <span className="tabular font-serif text-[28px] leading-none">{inr(payment.amount)}</span>
           <Field label="Paid on" htmlFor="paid-on">
             <input
               id="paid-on"
@@ -54,7 +56,7 @@ export function MarkPaid({
           </Field>
           <fieldset className="m-0 flex flex-wrap gap-1.5 border-0 p-0">
             <legend className="label mb-1.5">How</legend>
-            {(Object.keys(METHOD_LABEL) as PayMethod[]).map((m) => (
+            {keysOf(METHOD_LABEL).map((m) => (
               <button
                 key={m}
                 type="button"

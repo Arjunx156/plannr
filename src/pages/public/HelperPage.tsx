@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { dueLabel } from "../../lib/dates";
 import { fill } from "../../lib/guestText";
 import type { LinkText } from "../../lib/linkText/en";
@@ -12,7 +12,15 @@ function helperStatus(open: number, t: LinkText): string {
 }
 
 /** A helper's page: their tasks and the day's run sheet, in their language. */
-export function HelperPage({ view, act, preview }: { view: HelperView; act?: Act; preview?: ReactNode }) {
+export function HelperPage({
+  view,
+  act,
+  preview,
+}: {
+  view: HelperView;
+  act?: Act | undefined;
+  preview?: ReactNode;
+}): JSX.Element {
   const [busy, setBusy] = useState("");
   const toggle = async (actions: unknown[], key: string) => {
     if (!act) return;
@@ -40,7 +48,7 @@ export function HelperPage({ view, act, preview }: { view: HelperView; act?: Act
           {view.tasks.map((task) => {
             const due = dueLabel(task.due);
             return (
-              <li key={task.id} className="flex items-start gap-3 border-t border-sand-2 py-3 first:border-0">
+              <li key={task.id} className="flex items-start gap-3 border-sand-2 border-t py-3 first:border-0">
                 <input
                   type="checkbox"
                   checked={task.done}
@@ -50,20 +58,20 @@ export function HelperPage({ view, act, preview }: { view: HelperView; act?: Act
                   className="mt-1 h-5 w-5 shrink-0 accent-[var(--color-leaf)]"
                 />
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className={`text-[15px] font-medium ${task.done ? "text-muted line-through" : ""}`}>
+                  <span className={`font-medium text-[15px] ${task.done ? "text-muted line-through" : ""}`}>
                     {task.title}
                   </span>
-                  {task.note && <span className="text-xs text-muted">{task.note}</span>}
+                  {task.note && <span className="text-muted text-xs">{task.note}</span>}
                 </span>
                 <span
-                  className={`shrink-0 text-xs font-medium ${due.late && !task.done ? "text-rust-ink" : "text-body"}`}
+                  className={`shrink-0 font-medium text-xs ${due.late && !task.done ? "text-rust-ink" : "text-body"}`}
                 >
                   {due.text}
                 </span>
               </li>
             );
           })}
-          {view.tasks.length === 0 && <li className="text-sm text-muted">{t.noTasks}</li>}
+          {view.tasks.length === 0 && <li className="text-muted text-sm">{t.noTasks}</li>}
         </ul>
       </Card>
       {view.checklist.length > 0 && (
@@ -71,7 +79,7 @@ export function HelperPage({ view, act, preview }: { view: HelperView; act?: Act
           <h2 className="font-serif text-[22px]">{t.toBring}</h2>
           <ul className="m-0 flex list-none flex-col p-0">
             {view.checklist.map((c) => (
-              <li key={c.id} className="flex items-center gap-3 border-t border-sand-2 py-2.5 first:border-0">
+              <li key={c.id} className="flex items-center gap-3 border-sand-2 border-t py-2.5 first:border-0">
                 <input
                   type="checkbox"
                   checked={c.done}

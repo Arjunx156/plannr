@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Link } from "react-router";
 import { SitePage } from "./siteLayout";
 
@@ -24,7 +25,8 @@ const TOOLS = [
   },
 ];
 
-export function ToolsIndex() {
+/** The free planning tools, one card each. */
+export function ToolsIndex(): JSX.Element {
   return (
     <SitePage
       title="Free event planning tools"
@@ -42,7 +44,7 @@ export function ToolsIndex() {
               className="flex h-full flex-col gap-1.5 rounded-2xl border border-line bg-surface p-5 text-ink no-underline hover:border-line-2"
             >
               <span className="font-serif text-[24px] leading-tight">{x.t}</span>
-              <span className="text-[15px] leading-[1.5] text-body">{x.d}</span>
+              <span className="text-[15px] text-body leading-[1.5]">{x.d}</span>
             </Link>
           </li>
         ))}

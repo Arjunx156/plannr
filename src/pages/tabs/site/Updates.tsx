@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import type { PlannrEvent } from "../../../data/types";
 import { timeAgo } from "../../../lib/format";
 import { list } from "../../../shared/records";
@@ -7,7 +7,7 @@ import { newId } from "../ids";
 import { Section } from "../layout";
 
 /** Notes for guests that show at the top of the website and every RSVP page. */
-export function Updates({ ev, editable }: { ev: PlannrEvent; editable: boolean }) {
+export function Updates({ ev, editable }: { ev: PlannrEvent; editable: boolean }): JSX.Element {
   const { dispatch } = useStore();
   const items = list(ev, "announcements").slice().reverse();
   const [text, setText] = useState("");
@@ -48,11 +48,11 @@ export function Updates({ ev, editable }: { ev: PlannrEvent; editable: boolean }
         {items.map((a) => (
           <li
             key={a.id}
-            className="flex items-start justify-between gap-3 border-t border-sand-2 py-2.5 text-sm first:border-0"
+            className="flex items-start justify-between gap-3 border-sand-2 border-t py-2.5 text-sm first:border-0"
           >
             <span className="flex flex-col">
               <span>{a.text}</span>
-              <span className="text-xs text-muted">{a.at ? timeAgo(a.at) : ""}</span>
+              <span className="text-muted text-xs">{a.at ? timeAgo(a.at) : ""}</span>
             </span>
             {editable && (
               <button
@@ -67,7 +67,7 @@ export function Updates({ ev, editable }: { ev: PlannrEvent; editable: boolean }
             )}
           </li>
         ))}
-        {items.length === 0 && <li className="text-sm text-muted">No updates yet.</li>}
+        {items.length === 0 && <li className="text-muted text-sm">No updates yet.</li>}
       </ul>
     </Section>
   );

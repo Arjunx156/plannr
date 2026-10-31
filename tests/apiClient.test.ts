@@ -5,6 +5,7 @@ import { seedEvents } from "../src/data/seed";
 import type { PersonalEvent } from "../src/data/types";
 import { ApiError, api } from "../src/lib/api";
 import { list } from "../src/shared/records";
+import { personal, stubFetch } from "./support";
 
 /**
  * The browser's API client against the real server, in one process: every call here goes
@@ -20,7 +21,7 @@ let online = true;
 
 beforeAll(async () => {
   app = createApp({ db: await createLocalDb(), env: { PLANNR_DEV_OUTBOX: "1" } });
-  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+  stubFetch(async (input: string | URL | Request, init?: RequestInit) => {
     if (!online) throw new TypeError("Failed to fetch");
     const headers = new Headers(init?.headers);
     headers.set("origin", ORIGIN);
@@ -32,7 +33,7 @@ beforeAll(async () => {
       if (name) jar.set(name.trim(), value.join("="));
     }
     return res;
-  }) as typeof fetch;
+  });
 });
 
 afterAll(() => {
@@ -48,7 +49,7 @@ async function newGuest(name: string) {
 }
 
 const wedding = (): PersonalEvent => ({
-  ...(seedEvents()[0] as PersonalEvent),
+  ...personal(seedEvents()[0]),
   id: `wedding-${crypto.randomUUID().slice(0, 8)}`,
 });
 
@@ -65,7 +66,7 @@ describe("accounts", () => {
     jar = new Map();
     const err = await api.plans().catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
-    expect((err as ApiError).status).toBe(401);
+    expect(err).toMatchObject({ status: 401 });
   });
 
   test("offline, a call fails with status 0 and a message for the person", async () => {
@@ -73,8 +74,7 @@ describe("accounts", () => {
     try {
       const err = await api.plans().catch((e: unknown) => e);
       expect(err).toBeInstanceOf(ApiError);
-      expect((err as ApiError).status).toBe(0);
-      expect((err as ApiError).message).toContain("offline");
+      expect(err).toMatchObject({ status: 0, message: expect.stringContaining("offline") });
       // Sign-in methods fall back to "none" rather than breaking the sign-in page.
       expect(await api.methods()).toEqual({ guest: false, email: false, google: false });
     } finally {

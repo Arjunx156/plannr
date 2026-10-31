@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import type { PlannrEvent } from "../../../data/types";
 import type { Vendor } from "../../../data/vendorTypes";
 import { functionsOf } from "../../../shared/eventLists";
@@ -7,7 +7,15 @@ import { enquiry, guestsOf } from "./shared";
 import type { PatchVendor } from "./vendorDetails";
 
 /** Drafts the enquiry message, in the vendor's language when they have one. */
-export function AskForQuote({ ev, v, patch }: { ev: PlannrEvent; v: Vendor; patch: PatchVendor }) {
+export function AskForQuote({
+  ev,
+  v,
+  patch,
+}: {
+  ev: PlannrEvent;
+  v: Vendor;
+  patch: PatchVendor;
+}): JSX.Element {
   const [drafting, setDrafting] = useState(false);
   const fns = functionsOf(ev);
   const guests = guestsOf(ev);

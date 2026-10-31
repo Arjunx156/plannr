@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { Field } from "../../../components/fields";
 import { Modal } from "../../../components/overlays";
 import type { LineItem, Payment, PayStatus } from "../../../data/budgetTypes";
@@ -41,6 +41,7 @@ function paymentsFrom(result: ReadResult, categoryId: string): Payment[] {
       categoryId,
     }));
 }
+/** What Gemini read from a bill or quote, for the planner to check before it goes into the plan. */
 export function ReadResultDialog({
   ev,
   result,
@@ -49,7 +50,7 @@ export function ReadResultDialog({
   ev: PersonalEvent;
   result: ReadResult | null;
   onClose: () => void;
-}) {
+}): JSX.Element | null {
   const { dispatch } = useStore();
   const guess = result?.category
     ? ev.budget.categories.find((c) => c.name.toLowerCase() === result.category?.toLowerCase())?.id
@@ -91,7 +92,7 @@ export function ReadResultDialog({
             {result.items.map((i) => (
               <li
                 key={`${i.label}-${i.amount}`}
-                className="flex justify-between gap-3 border-t border-sand-2 py-1.5 first:border-0"
+                className="flex justify-between gap-3 border-sand-2 border-t py-1.5 first:border-0"
               >
                 <span>{i.label}</span>
                 <span className="tabular">{inr(i.amount)}</span>
@@ -99,7 +100,7 @@ export function ReadResultDialog({
             ))}
           </ul>
         )}
-        <span className="font-semibold tabular">
+        <span className="tabular font-semibold">
           Total {inr(total)}
           {result.perGuest ? " per guest" : ""}
         </span>
@@ -127,7 +128,7 @@ export function ReadResultDialog({
             ))}
           </select>
         </Field>
-        <span className="text-xs text-muted">
+        <span className="text-muted text-xs">
           Check the numbers against the paper before adding. Nothing is added until you choose.
         </span>
         <span className="flex flex-wrap gap-2">

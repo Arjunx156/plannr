@@ -1,3 +1,5 @@
+import type { JSX } from "react";
+import { isString, listOf } from "../../../shared/guards";
 import { CallToAction, SitePage } from "../siteLayout";
 import { useLocal } from "./useLocal";
 
@@ -120,15 +122,19 @@ const FESTIVAL: Stage[] = [
   },
 ];
 
+function readTicks(saved: unknown): string[] {
+  return listOf(saved).filter(isString);
+}
+
 function Checklist({ id, stages }: { id: string; stages: Stage[] }) {
-  const [done, setDone] = useLocal<string[]>(`plannr:tool:${id}`, []);
+  const [done, setDone] = useLocal(`plannr:tool:${id}`, [], readTicks);
   const total = stages.reduce((s, x) => s + x.items.length, 0);
   const toggle = (key: string) =>
     setDone(done.includes(key) ? done.filter((d) => d !== key) : [...done, key]);
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-sm text-body" aria-live="polite">
+        <span className="text-body text-sm" aria-live="polite">
           {done.length} of {total} done · saved in this browser
         </span>
         <button type="button" className="btn btn-ghost btn-sm print:hidden" onClick={() => window.print()}>
@@ -147,7 +153,7 @@ function Checklist({ id, stages }: { id: string; stages: Stage[] }) {
               const key = `${s.when}/${item}`;
               const inputId = `ck-${id}-${s.when}-${item}`.replace(/[^\w-]/g, "");
               return (
-                <li key={item} className="flex items-start gap-3 border-t border-sand-2 py-2 first:border-0">
+                <li key={item} className="flex items-start gap-3 border-sand-2 border-t py-2 first:border-0">
                   <input
                     id={inputId}
                     type="checkbox"
@@ -172,7 +178,7 @@ function Checklist({ id, stages }: { id: string; stages: Stage[] }) {
 }
 
 /** /tools/kerala-wedding-checklist — the months before a Kerala wedding, step by step. */
-export function KeralaChecklist() {
+export function KeralaChecklist(): JSX.Element {
   return (
     <SitePage
       title="Kerala wedding checklist"
@@ -191,7 +197,7 @@ export function KeralaChecklist() {
 }
 
 /** /tools/festival-checklist — what a community festival needs, from permits to clean-up. */
-export function FestivalChecklist() {
+export function FestivalChecklist(): JSX.Element {
   return (
     <SitePage
       title="Festival committee checklist"

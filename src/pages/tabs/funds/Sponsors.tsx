@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { bindText, TextField } from "../../../components/fields";
 import { Pill } from "../../../components/ui";
 import type { Sponsor } from "../../../data/communityTypes";
@@ -10,7 +10,7 @@ import { newId } from "../ids";
 import { Section } from "../layout";
 
 /** Sponsors by tier, what each pledged and what has arrived. */
-export function Sponsors({ ev, editable }: { ev: CommunityEvent; editable: boolean }) {
+export function Sponsors({ ev, editable }: { ev: CommunityEvent; editable: boolean }): JSX.Element {
   const { dispatch } = useStore();
   const sponsors = list(ev, "sponsors");
   const [form, setForm] = useState({ name: "", tier: "", amount: "" });
@@ -35,11 +35,11 @@ export function Sponsors({ ev, editable }: { ev: CommunityEvent; editable: boole
         {sponsors.map((s) => (
           <li
             key={s.id}
-            className="flex flex-wrap items-center gap-2 border-t border-sand-2 py-2.5 text-sm first:border-0"
+            className="flex flex-wrap items-center gap-2 border-sand-2 border-t py-2.5 text-sm first:border-0"
           >
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="font-medium">{s.name}</span>
-              <span className="text-xs text-muted">{s.tier}</span>
+              <span className="text-muted text-xs">{s.tier}</span>
             </span>
             <span className="tabular">{inr(s.amount)}</span>
             <SponsorStatus
@@ -60,7 +60,7 @@ export function Sponsors({ ev, editable }: { ev: CommunityEvent; editable: boole
             />
           </li>
         ))}
-        {sponsors.length === 0 && <li className="text-sm text-muted">No sponsors yet.</li>}
+        {sponsors.length === 0 && <li className="text-muted text-sm">No sponsors yet.</li>}
       </ul>
       {editable && (
         <form onSubmit={add} className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[1fr_110px_110px_auto]">

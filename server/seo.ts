@@ -1,4 +1,5 @@
 import type { Plugin } from "vite";
+import { readEnv, type ServerEnv } from "./env";
 
 /** Pages search engines may index; each is also pre-rendered so it reads without JavaScript. */
 export const PUBLIC_ROUTES = [
@@ -30,18 +31,22 @@ const PRIVATE_PREFIXES = [
 ];
 
 /** The site's public origin, from SITE_URL or the Vercel production domain. */
-export function siteUrl(env: Record<string, string | undefined>): string | undefined {
+export function siteUrl(
+  env: Pick<ServerEnv, "SITE_URL" | "VERCEL_PROJECT_PRODUCTION_URL">,
+): string | undefined {
   const raw =
     env.SITE_URL || (env.VERCEL_PROJECT_PRODUCTION_URL && `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`);
   return raw ? raw.replace(/\/+$/, "") : undefined;
 }
 
+/** robots.txt: everything public is allowed, private routes are not, and the sitemap is linked. */
 export function robotsTxt(site?: string): string {
   const lines = ["User-agent: *", "Allow: /", ...PRIVATE_PREFIXES.map((p) => `Disallow: ${p}`)];
   if (site) lines.push("", `Sitemap: ${site}/sitemap.xml`);
   return `${lines.join("\n")}\n`;
 }
 
+/** sitemap.xml for the public pages. */
 export function sitemapXml(site: string): string {
   const urls = PUBLIC_ROUTES.map((r) => `  <url><loc>${site}${r}</loc></url>`).join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
@@ -49,7 +54,7 @@ export function sitemapXml(site: string): string {
 
 /** Absolute share URLs, a canonical link, robots.txt and a sitemap once the site URL is known. */
 export function plannrSeo(env: Record<string, string | undefined>): Plugin {
-  const site = siteUrl(env);
+  const site = siteUrl(readEnv(env));
   return {
     name: "plannr-seo",
     transformIndexHtml(html) {

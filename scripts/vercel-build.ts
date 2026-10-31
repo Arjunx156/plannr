@@ -5,8 +5,7 @@
  */
 import { cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { CSP_HEADER } from "../server/security";
-import { PUBLIC_ROUTES } from "../server/seo";
+import { outputConfig } from "./vercelOutput";
 
 const root = join(import.meta.dir, "..");
 const out = join(root, ".vercel", "output");
@@ -17,12 +16,12 @@ async function run(cmd: string[]) {
   if ((await proc.exited) !== 0) throw new Error(`${cmd.join(" ")} failed`);
 }
 
-if (process.env.DATABASE_URL) {
+if (process.env["DATABASE_URL"]) {
   console.log("Running database migrations");
   const { neon } = await import("@neondatabase/serverless");
   const { drizzle } = await import("drizzle-orm/neon-http");
   const { migrate } = await import("drizzle-orm/neon-http/migrator");
-  await migrate(drizzle(neon(process.env.DATABASE_URL)), {
+  await migrate(drizzle(neon(process.env["DATABASE_URL"])), {
     migrationsFolder: join(root, "server/db/migrations"),
   });
 } else {
@@ -40,6 +39,7 @@ await cp(join(root, "dist"), join(out, "static"), { recursive: true });
 const indexHtml = await Bun.file(join(root, "dist", "index.html")).text();
 const bundle = await Bun.build({
   entrypoints: [join(root, "server", "vercel.ts")],
+  // biome-ignore lint/style/useNamingConvention: a define key is a global identifier the bundle reads.
   define: { __INDEX_HTML__: JSON.stringify(indexHtml) },
   target: "node",
   format: "esm",
@@ -73,48 +73,5 @@ await writeFile(
   ),
 );
 
-const security = {
-  "content-security-policy": CSP_HEADER,
-  "x-content-type-options": "nosniff",
-  "referrer-policy": "strict-origin-when-cross-origin",
-  "x-frame-options": "DENY",
-  "cross-origin-opener-policy": "same-origin",
-  "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
-  // The camera scans QR codes at the gate; the microphone is for voice input.
-  "permissions-policy": "camera=(self), geolocation=(), microphone=(self)",
-};
-await writeFile(
-  join(out, "config.json"),
-  JSON.stringify(
-    {
-      version: 3,
-      // Morning reminders at 8:00 in India (02:30 UTC).
-      crons: [{ path: "/api/cron/daily", schedule: "30 2 * * *" }],
-      routes: [
-        {
-          src: "/assets/(.*)",
-          headers: { "cache-control": "public, max-age=31536000, immutable" },
-          continue: true,
-        },
-        { src: "/(.*)", headers: security, continue: true },
-        // Public pages are served pre-rendered; the app takes over once it loads.
-        { src: "^/$", dest: "/prerendered/index.html" },
-        {
-          // Routes are plain lower-case paths, so they need no escaping in the pattern.
-          src: `^/(${PUBLIC_ROUTES.filter((r) => r !== "/")
-            .map((r) => r.slice(1))
-            .join("|")})/?$`,
-          dest: "/prerendered/$1.html",
-        },
-        { handle: "filesystem" },
-        { src: "/api(/.*)?", dest: "/api" },
-        // Shared links get their own title and description for WhatsApp previews.
-        { src: "/(e|r|h|v|s|fund|a|stalls|gate)/[\\w-]+/?", dest: "/api" },
-        { src: "/(.*)", dest: "/index.html" },
-      ],
-    },
-    null,
-    2,
-  ),
-);
+await writeFile(join(out, "config.json"), JSON.stringify(outputConfig(), null, 2));
 console.log(`Vercel output written: ${(entry.size / 1024).toFixed(0)} KB API bundle`);

@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { useEditable } from "../../components/taskHooks";
 import type { CommunityEvent, PlannrEvent } from "../../data/types";
 import { plural } from "../../lib/format";
@@ -7,16 +7,16 @@ import { AssignSelect, freeVolunteers, NotCommunity, ShiftGrid } from "./communi
 import { Section, Stat, TabPage } from "./layout";
 import { ShareLink } from "./ShareLink";
 
-type ShiftEdit = {
+interface ShiftEdit {
   op: "addRole" | "setNeed" | "unassign" | "addVolunteer";
   role?: string;
   slot?: number;
   need?: number;
   name?: string;
-};
+}
 
 /** /events/:id/volunteers — the shift grid, the roster and the sign-up sheet. */
-export function VolunteersTab({ ev }: { ev: PlannrEvent }) {
+export function VolunteersTab({ ev }: { ev: PlannrEvent }): JSX.Element {
   if (ev.layout !== "community") return <NotCommunity ev={ev} title="Volunteers" />;
   return <Volunteers ev={ev} />;
 }
@@ -53,7 +53,7 @@ function Volunteers({ ev }: { ev: CommunityEvent }) {
       <Section title="Shifts">
         <ShiftGrid slots={ev.shifts.slots} wide>
           {ev.shifts.roles.map((r, ri) => (
-            <tr key={r.role} className="border-t border-sand-2 align-top">
+            <tr key={r.role} className="border-sand-2 border-t align-top">
               <td className="py-2.5 pr-3 font-medium">{r.role}</td>
               {r.slots.map((_, i) => (
                 <ShiftCell
@@ -137,7 +137,7 @@ function ShiftCell({ ev, roleIndex, slot, editable, onEdit }: CellProps) {
             )}
           </span>
         ))}
-        {gap > 0 && <span className="text-xs text-rust-ink">Needs {gap}</span>}
+        {gap > 0 && <span className="text-rust-ink text-xs">Needs {gap}</span>}
         {editable && (
           <span className="flex items-center gap-1">
             {gap > 0 && free.length > 0 && (
@@ -158,7 +158,7 @@ function ShiftCell({ ev, roleIndex, slot, editable, onEdit }: CellProps) {
             >
               −
             </button>
-            <span className="text-xs tabular text-muted">{shift.need}</span>
+            <span className="tabular text-muted text-xs">{shift.need}</span>
             <button
               type="button"
               className="icon-btn"
@@ -186,7 +186,7 @@ function Roster({
   return (
     <Section
       title="Roster"
-      aside={<span className="text-sm text-muted">{plural(ev.volunteers.length, "person", "people")}</span>}
+      aside={<span className="text-muted text-sm">{plural(ev.volunteers.length, "person", "people")}</span>}
     >
       <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
         {ev.volunteers.map((v) => {
@@ -199,7 +199,7 @@ function Roster({
               className="rounded-full bg-sand px-3 py-1 text-sm"
               title={shifts.join(", ") || "No shift yet"}
             >
-              {v} <span className="text-xs text-muted">· {shifts.length || "free"}</span>
+              {v} <span className="text-muted text-xs">· {shifts.length || "free"}</span>
             </li>
           );
         })}
@@ -214,7 +214,7 @@ function Roster({
           onAdd={onAdd}
         />
       )}
-      <span className="text-xs text-muted">
+      <span className="text-muted text-xs">
         Neighbours who sign up from the shared sheet are added here and to their shift.
       </span>
     </Section>

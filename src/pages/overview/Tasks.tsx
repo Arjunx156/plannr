@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Link } from "react-router";
 import { useEditable, useTaskToggle } from "../../components/taskHooks";
 import { TaskRow } from "../../components/tasks";
@@ -16,7 +16,7 @@ export function Tasks({
 }: {
   ev: PersonalEvent | CommunityEvent;
   onOpenTask: (id: string) => void;
-}) {
+}): JSX.Element {
   const { dispatch } = useStore();
   const editable = useEditable(ev);
   const { toggle, ticked } = useTaskToggle(ev);
@@ -55,7 +55,7 @@ export function Tasks({
         </span>
       }
     >
-      <span className="text-xs text-muted">
+      <span className="text-muted text-xs">
         {tasksDone(ev.tasks)} of {ev.tasks.total} done across the whole plan
       </span>
       <ul className="m-0 flex list-none flex-col p-0">
@@ -69,7 +69,7 @@ export function Tasks({
             onOpen={(x) => onOpenTask(x.id)}
           />
         ))}
-        {visible.length === 0 && <li className="py-2 text-sm text-muted">Nothing open. Enjoy the quiet.</li>}
+        {visible.length === 0 && <li className="py-2 text-muted text-sm">Nothing open. Enjoy the quiet.</li>}
       </ul>
       {editable && (
         <form onSubmit={add} className="flex gap-2">

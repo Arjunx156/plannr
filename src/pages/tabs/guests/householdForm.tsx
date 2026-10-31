@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Field } from "../../../components/fields";
 import { useEditable } from "../../../components/taskHooks";
 import type { Household, Meal } from "../../../data/guestTypes";
@@ -16,7 +16,7 @@ interface FormState {
   phone: string;
   functions: string[];
   answers: Answers;
-  meal?: Meal;
+  meal?: Meal | undefined;
   stay: boolean;
   room: string;
   pickup: string;
@@ -71,7 +71,7 @@ interface FormProps {
 }
 
 /** Everything about one household, with their answers recorded by hand when they tell you in person. */
-export function HouseholdForm({ ev, h, onClose, sides }: FormProps) {
+export function HouseholdForm({ ev, h, onClose, sides }: FormProps): JSX.Element {
   const { dispatch } = useStore();
   const editable = useEditable(ev);
   const [form, setForm] = useState(() => formFor(h));
@@ -113,8 +113,8 @@ export function HouseholdForm({ ev, h, onClose, sides }: FormProps) {
           </button>
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
-        <span className="text-sm text-body">Their RSVP page:</span>
+      <div className="flex flex-wrap items-center gap-2 border-line border-t pt-3">
+        <span className="text-body text-sm">Their RSVP page:</span>
         <ShareLink
           ev={ev}
           kind="rsvp"

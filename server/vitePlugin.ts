@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { getRequestListener } from "@hono/node-server";
 import type { Connect, Plugin } from "vite";
 import { type AppEnv, createApp } from "./app";
+import { readEnv } from "./env";
 import { matchShare, sharePage } from "./share";
 
 /**
@@ -50,8 +51,9 @@ function dataDir(): string {
   return dir;
 }
 
+/** Runs the API inside Vite's dev and preview servers, on an in-process database. */
 export function plannrApi(env: Record<string, string | undefined>): Plugin {
-  const merged = () => ({ ...env, ...process.env }) as AppEnv;
+  const merged = () => readEnv({ ...env, ...process.env });
   return {
     name: "plannr-api",
     configureServer(server) {

@@ -1,14 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { seedEvents } from "../src/data/seed";
-import type { CommunityEvent, PersonalEvent } from "../src/data/types";
+import type { PlannrEvent } from "../src/data/types";
 import { addDays } from "../src/lib/dates";
 import { applyEventAction } from "../src/shared/engine";
 import { morningMessage, remindersFor } from "../src/shared/reminders";
 import { rainWatch, watchPlan } from "../src/shared/watch";
+import { community, personal } from "./support";
 
 const events = seedEvents();
-const wedding = events.find((e) => e.id === "ananya-rohan") as PersonalEvent;
-const mela = events.find((e) => e.id === "green-valley-mela") as CommunityEvent;
+const wedding = personal(events.find((e) => e.id === "ananya-rohan"));
+const mela = community(events.find((e) => e.id === "green-valley-mela"));
 const TODAY = addDays(wedding.date, -60);
 
 describe("what needs attention", () => {
@@ -30,7 +31,7 @@ describe("what needs attention", () => {
     expect(over).toBeDefined();
     const apply = over?.secondary;
     expect(apply?.kind).toBe("apply");
-    let ev = wedding as Parameters<typeof applyEventAction>[0];
+    let ev: PlannrEvent = wedding;
     if (apply?.kind === "apply") for (const a of apply.actions) ev = applyEventAction(ev, a);
     expect(watchPlan(ev, TODAY).some((x) => x.id === over?.id)).toBe(false);
   });

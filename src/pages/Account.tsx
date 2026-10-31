@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type JSX, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { TextField } from "../components/fields";
 import { Modal } from "../components/overlays";
@@ -6,6 +6,7 @@ import { usePageMeta } from "../components/pageMeta";
 import { AppShell } from "../components/shell";
 import { api } from "../lib/api";
 import { type ReminderState, reminderState, remindersOff, remindersOn, useInstall } from "../lib/device";
+import { errorMessage } from "../shared/guards";
 import { useAccount } from "../store/account";
 import { toast, useStore } from "../store/store";
 import { Section } from "./tabs/layout";
@@ -55,7 +56,7 @@ function useReminders(account: boolean) {
     try {
       setState(state === "on" ? await remindersOff() : await remindersOn());
     } catch (e) {
-      dispatch(toast((e as Error).message || "Couldn't change reminders. Try again."));
+      dispatch(toast(errorMessage(e, "Couldn't change reminders. Try again.")));
     }
     setBusy(false);
   };
@@ -63,7 +64,7 @@ function useReminders(account: boolean) {
 }
 
 /** /account — this device, your data, and leaving. */
-export function Account() {
+export function Account(): JSX.Element {
   usePageMeta("Account and privacy", { private: true });
   const { state } = useStore();
   const account = state.mode === "account";
@@ -81,7 +82,7 @@ export function Account() {
           <YourData guest={guest} onDelete={() => setDeleting(true)} />
         ) : (
           <Section title="Your data">
-            <p className="m-0 text-sm text-body">
+            <p className="m-0 text-body text-sm">
               The demo keeps everything in this browser only; nothing is sent anywhere.{" "}
               <Link to="/signup" className="link">
                 Create an account
@@ -113,7 +114,7 @@ function OnThisPhone({ account }: { account: boolean }) {
         )}
       </div>
       {account && (
-        <div className="flex flex-col gap-2 border-t border-sand-2 pt-3 text-sm">
+        <div className="flex flex-col gap-2 border-sand-2 border-t pt-3 text-sm">
           <span className="font-semibold">Morning reminders</span>
           <span className="text-body">{reminders.state ? REMINDER_TEXT[reminders.state] : "Checking…"}</span>
           {(on || reminders.state === "off") && (
@@ -135,7 +136,7 @@ function OnThisPhone({ account }: { account: boolean }) {
 function YourData({ guest, onDelete }: { guest: boolean; onDelete: () => void }) {
   return (
     <Section title="Your data">
-      <p className="m-0 text-sm text-body">
+      <p className="m-0 text-body text-sm">
         Your plans are shared only with the people you invite and the links you send. Guests who answer an
         RSVP see only their own invitation, and vendors only their call sheet. Plannr doesn't sell or share
         your data.
@@ -148,7 +149,7 @@ function YourData({ guest, onDelete }: { guest: boolean; onDelete: () => void })
           Name, city and language
         </Link>
       </span>
-      <div className="flex flex-col gap-2 border-t border-sand-2 pt-3 text-sm">
+      <div className="flex flex-col gap-2 border-sand-2 border-t pt-3 text-sm">
         <span className="font-semibold">Delete my account</span>
         <span className="text-body">
           Deletes your account, your templates and every plan only you can see. Plans you share with others
@@ -178,7 +179,7 @@ function DeleteAccount({ open, onClose }: { open: boolean; onClose: () => void }
       dispatch(toast(deletedText(out.handedOver)));
       void navigate("/");
     } catch (e) {
-      dispatch(toast((e as Error).message));
+      dispatch(toast(errorMessage(e)));
       setBusy(false);
     }
   };
@@ -189,7 +190,7 @@ function DeleteAccount({ open, onClose }: { open: boolean; onClose: () => void }
   return (
     <Modal open={open} onClose={onClose} title="Delete your account?">
       <form className="flex flex-col gap-3" onSubmit={submit}>
-        <p className="m-0 text-sm text-body">
+        <p className="m-0 text-body text-sm">
           This can't be undone. Download your data first if you might want it.
         </p>
         <TextField

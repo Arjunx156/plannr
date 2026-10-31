@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Link } from "react-router";
 import { bindText, Field, TextField } from "../../../components/fields";
 import { Pill } from "../../../components/ui";
@@ -21,7 +21,7 @@ interface Props {
 }
 
 /** One budget line opened up: its plan, its items, the vendors on it, and a way to add an item. */
-export function CategoryDetail({ ev, c, editable }: Props) {
+export function CategoryDetail({ ev, c, editable }: Props): JSX.Element {
   const vendors = list(ev, "vendors").filter((v) => v.categoryId === c.id);
   return (
     <div className="flex flex-col gap-3 rounded-xl bg-sand p-3.5 text-sm">
@@ -29,7 +29,7 @@ export function CategoryDetail({ ev, c, editable }: Props) {
       {c.note && <span className="text-body">{c.note}</span>}
       <LineItems items={c.items} />
       {vendors.length > 0 && (
-        <span className="text-xs text-body">
+        <span className="text-body text-xs">
           Vendors: {vendors.map((v) => v.name || v.category).join(", ")} ·{" "}
           <Link to={`/events/${ev.id}/vendors`} className="link">
             Vendors
@@ -81,11 +81,11 @@ function LineItems({ items }: { items: LineItem[] }) {
       {items.map((i) => (
         <li
           key={i.id}
-          className="flex flex-wrap items-baseline justify-between gap-2 border-t border-sand-2 py-1.5 first:border-0"
+          className="flex flex-wrap items-baseline justify-between gap-2 border-sand-2 border-t py-1.5 first:border-0"
         >
           <span className="flex flex-col">
             <span className="font-medium">{i.name}</span>
-            {i.vendor && <span className="text-xs text-muted">{i.vendor}</span>}
+            {i.vendor && <span className="text-muted text-xs">{i.vendor}</span>}
           </span>
           <span className="flex items-center gap-2">
             <span className="tabular">{inr(i.amount)}</span>

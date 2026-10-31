@@ -1,4 +1,13 @@
-import { type KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  type JSX,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate, useParams } from "react-router";
 import type { PlannrEvent } from "../data/types";
 import { tabsFor } from "../lib/eventTabs";
@@ -116,7 +125,7 @@ function useActive(commands: Command[]) {
 }
 
 /** Search across events, tabs, pages and tasks, opened with Ctrl+K. */
-export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }): JSX.Element {
   const { state } = useStore();
   const navigate = useNavigate();
   const { id: currentId } = useParams();
@@ -165,9 +174,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       />
       <Results listId={listId} commands={commands} index={index} onHover={setActive} />
       {commands.length === 0 && (
-        <p className="m-0 px-3 py-6 text-center text-sm text-muted">Nothing matches “{query}”.</p>
+        <p className="m-0 px-3 py-6 text-center text-muted text-sm">Nothing matches “{query}”.</p>
       )}
-      <span className="text-xs text-muted">↑ ↓ to move · Enter to open · Esc to close</span>
+      <span className="text-muted text-xs">↑ ↓ to move · Enter to open · Esc to close</span>
     </Modal>
   );
 }
@@ -205,7 +214,7 @@ function Results({ listId, commands, index, onHover }: ResultsProps) {
             className={`flex cursor-pointer items-baseline justify-between gap-3 rounded-lg px-3 py-2.5 text-sm ${i === index ? "bg-sand" : ""}`}
           >
             <span className="font-medium">{c.label}</span>
-            {c.hint && <span className="truncate text-xs text-muted">{c.hint}</span>}
+            {c.hint && <span className="truncate text-muted text-xs">{c.hint}</span>}
           </div>
         </div>
       ))}

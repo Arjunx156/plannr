@@ -7,7 +7,7 @@ import { useStore } from "../store/store";
 const ACTIVITY_MS = 30_000;
 
 /** Keeps the account's recent activity fresh while a signed-in screen is open. */
-export function useActivity() {
+export function useActivity(): void {
   const { state, dispatch } = useStore();
   const account = state.mode === "account" && !!state.account.user;
   useEffect(() => {
@@ -32,6 +32,7 @@ export function useActivity() {
   }, [account, dispatch]);
 }
 
+/** One item in the notification menu. */
 export interface InboxItem {
   id: string;
   text: string;
@@ -39,8 +40,8 @@ export interface InboxItem {
   at?: string;
   when?: string;
   by?: string | null;
-  eventId?: string;
-  eventName?: string;
+  eventId?: string | undefined;
+  eventName?: string | undefined;
   unread: boolean;
 }
 
@@ -71,6 +72,7 @@ export function useInbox(): InboxItem[] {
   }, [state.mode, state.activity, state.events, state.notificationsRead, state.inboxSeen]);
 }
 
+/** How many notifications are unread. */
 export function useUnread(): number {
   return useInbox().filter((i) => i.unread).length;
 }

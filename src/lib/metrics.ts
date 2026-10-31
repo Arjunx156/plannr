@@ -4,6 +4,7 @@ import { fundTotals } from "../shared/balances";
 import { rsvpSummary, vendorSummary } from "../shared/derive";
 import { clamp } from "./format";
 
+/** A budget's total, what's planned, committed and spent, and what's left. */
 export interface BudgetTotals {
   total: number;
   planned: number;
@@ -14,10 +15,12 @@ export interface BudgetTotals {
   unallocated: number;
 }
 
+/** What a budget line is expected to cost in the end: its projection, else its plan. */
 export function categoryProjected(c: Category): number {
   return c.projected ?? c.planned;
 }
 
+/** Adds up a budget's lines into its totals. */
 export function budgetTotals(plan: BudgetPlan): BudgetTotals {
   const planned = plan.categories.reduce((s, c) => s + c.planned, 0);
   const spent = plan.categories.reduce((s, c) => s + c.spent, 0);
@@ -33,6 +36,7 @@ export function budgetTotals(plan: BudgetPlan): BudgetTotals {
   };
 }
 
+/** What changing the guest count would do to each per-guest line and the total. */
 export interface WhatIfResult {
   deltas: { category: string; amount: number }[];
   projection: number;
@@ -51,8 +55,18 @@ export function whatIf(plan: BudgetPlan, guests: number, total: number): WhatIfR
   return { deltas, projection, headroom: total - projection };
 }
 
+type SplitSide = NonNullable<BudgetPlan["split"]>["sides"][number];
+
+/** Each side's share of the spending so far, and the one payment that evens it out. */
+export interface Settlement {
+  sides: (SplitSide & { owed: number })[];
+  debtor: string | undefined;
+  creditor: string | undefined;
+  amount: number;
+}
+
 /** Who owes whom so spending so far matches the agreed split. */
-export function settle(split: NonNullable<BudgetPlan["split"]>, spent: number) {
+export function settle(split: NonNullable<BudgetPlan["split"]>, spent: number): Settlement {
   const sides = split.sides.map((s) => ({ ...s, owed: Math.round(spent * s.share) }));
   const [a, b] = sides;
   if (!a || !b) return { sides, debtor: undefined, creditor: undefined, amount: 0 };
@@ -63,6 +77,7 @@ export function settle(split: NonNullable<BudgetPlan["split"]>, spent: number) {
     : { sides, debtor: a.name, creditor: b.name, amount: -aBalance };
 }
 
+/** How ready a family event is: tasks, vendors, RSVPs and payments. */
 export interface Readiness {
   tasksDone: number;
   tasksTotal: number;
@@ -77,6 +92,7 @@ export interface Readiness {
   overdue: number;
 }
 
+/** Tasks done, counting those finished before Plannr started tracking. */
 export function tasksDone(t: PersonalEvent["tasks"] | CommunityEvent["tasks"]): number {
   return t.doneBefore + t.list.filter((x) => x.done).length;
 }
@@ -108,6 +124,7 @@ export function personalReadiness(ev: PersonalEvent, today: string): Readiness {
   };
 }
 
+/** How ready a community event is: funds, tasks, volunteers and permits. */
 export interface CommunityReadiness {
   funds: number;
   tasks: number;
@@ -123,6 +140,7 @@ export interface CommunityReadiness {
   overall: number;
 }
 
+/** Works out a community event's readiness from its funds, tasks, shifts and permits. */
 export function communityReadiness(ev: CommunityEvent): CommunityReadiness {
   const f = fundTotals(ev);
   const funds = clamp(f.received / Math.max(1, f.expected));

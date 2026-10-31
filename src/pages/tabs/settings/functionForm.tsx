@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type JSX, type ReactNode, useState } from "react";
 import { TextField } from "../../../components/fields";
 import type { FunctionDay, Task } from "../../../data/baseTypes";
 import type { PlannrEvent } from "../../../data/types";
@@ -118,9 +118,9 @@ export function FunctionForm({
   onClose,
 }: {
   ev: PlannrEvent;
-  fn?: FunctionDay;
+  fn?: FunctionDay | undefined;
   onClose: () => void;
-}) {
+}): JSX.Element {
   const { dispatch } = useStore();
   const [form, setForm] = useState(() => formFor(ev, fn));
   const set: Setter = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));

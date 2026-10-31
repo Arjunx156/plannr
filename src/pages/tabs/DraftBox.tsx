@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { type JSX, useId, useState } from "react";
 import { useAiOn } from "../../components/useAiOn";
 import { aiWrite, type WriteTask } from "../../lib/ai";
 import { toast, useStore } from "../../store/store";
@@ -22,12 +22,12 @@ export function DraftBox({
   task: WriteTask;
   context: Record<string, unknown>;
   fallback: string;
-  phone?: string;
-  lang?: string;
+  phone?: string | undefined;
+  lang?: string | undefined;
   onSave?: (text: string) => void;
   saveLabel?: string;
   rows?: number;
-}) {
+}): JSX.Element {
   const { dispatch } = useStore();
   const ai = useAiOn();
   const id = useId();

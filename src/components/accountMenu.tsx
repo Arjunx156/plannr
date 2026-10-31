@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import type { SignInMethods } from "../shared/types";
 import { useAccount } from "../store/account";
@@ -23,7 +23,7 @@ function useGo(close: () => void) {
 }
 
 /** The account menu in the top bar: who's signed in, saving the demo, and signing out. */
-export function AccountMenu() {
+export function AccountMenu(): JSX.Element {
   const { state } = useStore();
   const { signOut } = useAccount();
   const navigate = useNavigate();
@@ -49,7 +49,7 @@ export function AccountMenu() {
             aria-expanded={open}
             aria-controls={id}
             onClick={toggle}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-peacock text-xs font-semibold text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-peacock font-semibold text-white text-xs"
             aria-label="Account"
           >
             {state.session.initials}
@@ -59,8 +59,8 @@ export function AccountMenu() {
         {(close) => (
           <>
             <span className="flex flex-col px-3 py-2">
-              <span className="text-sm font-semibold">{state.session.name}</span>
-              <span className="text-xs text-muted">{accountLine(state, guest)}</span>
+              <span className="font-semibold text-sm">{state.session.name}</span>
+              <span className="text-muted text-xs">{accountLine(state, guest)}</span>
             </span>
             <MenuDivider />
             {state.mode === "demo" ? (
@@ -134,7 +134,7 @@ function GuestSignOut({ open, onClose, onLeave }: GuestSignOutProps) {
   const { state } = useStore();
   return (
     <Modal open={open} onClose={onClose} title="Sign out of the guest account?">
-      <p className="m-0 text-sm leading-normal text-body">
+      <p className="m-0 text-body text-sm leading-normal">
         Guest plans are tied to this browser. Once you sign out you can't open them again, and nobody can
         recover them. {saveHint(state.account.methods)} first and they stay yours on every device.
       </p>

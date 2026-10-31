@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 
 /** A tab's page: an eyebrow with the event name, a heading and whatever sits beside it. */
 export function TabPage({
@@ -13,7 +13,7 @@ export function TabPage({
   aside?: ReactNode;
   children: ReactNode;
   wide?: boolean;
-}) {
+}): JSX.Element {
   return (
     <main
       id="main"
@@ -31,6 +31,7 @@ export function TabPage({
   );
 }
 
+/** A titled section of a tab, with an optional aside on the right. */
 export function Section({
   title,
   aside,
@@ -41,7 +42,7 @@ export function Section({
   aside?: ReactNode;
   children: ReactNode;
   label?: string;
-}) {
+}): JSX.Element {
   return (
     <section
       aria-label={label ?? title}
@@ -58,6 +59,7 @@ export function Section({
   );
 }
 
+/** One number with its label, for a tab's summary row. */
 export function Stat({
   label,
   value,
@@ -67,13 +69,13 @@ export function Stat({
   label: string;
   value: ReactNode;
   sub?: ReactNode;
-  tone?: string;
-}) {
+  tone?: string | undefined;
+}): JSX.Element {
   return (
     <div className="flex min-w-0 flex-col gap-1 rounded-2xl border border-line bg-surface p-4">
       <span className="eyebrow text-muted">{label}</span>
-      <span className={`font-serif text-[28px] leading-none tabular ${tone ?? ""}`}>{value}</span>
-      {sub && <span className="text-xs text-body">{sub}</span>}
+      <span className={`tabular font-serif text-[28px] leading-none ${tone ?? ""}`}>{value}</span>
+      {sub && <span className="text-body text-xs">{sub}</span>}
     </div>
   );
 }

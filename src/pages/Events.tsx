@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { Link } from "react-router";
 import { usePageMeta } from "../components/pageMeta";
 import { AppShell } from "../components/shell";
-import { Bar, HUE_COLOR } from "../components/ui";
+import { Bar, SWATCH_BG } from "../components/ui";
 import { pastEvents } from "../data/seed";
 import type { PlannrEvent } from "../data/types";
 import { ApiError, api } from "../lib/api";
@@ -19,7 +19,8 @@ function readiness(ev: PlannrEvent): number | undefined {
   return undefined;
 }
 
-export function Events() {
+/** The signed-in home: every event, with what needs doing next. */
+export function Events(): JSX.Element {
   usePageMeta("My events", { private: true });
   const { state, dispatch } = useStore();
   const [picking, setPicking] = useState(false);
@@ -66,11 +67,11 @@ export function Events() {
                 to={`/events/${ev.id}`}
                 className="group flex flex-col overflow-hidden rounded-2xl border border-line bg-surface text-ink no-underline transition-shadow hover:shadow-[0_12px_32px_rgba(60,40,20,.10)]"
               >
-                <div className="h-2" style={{ background: HUE_COLOR[ev.hue] }} />
+                <div className={`h-2 ${SWATCH_BG[ev.hue]}`} />
                 <div className="flex flex-1 flex-col gap-3 p-5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="eyebrow text-muted">{KIND_LABEL[ev.kind]}</span>
-                    <span className="font-mono text-xs text-muted">
+                    <span className="font-mono text-muted text-xs">
                       {remote
                         ? `${ROLE_LABEL[remote.role]}${remote.side ? ` · ${remote.side}` : ""}`
                         : ev.role}
@@ -79,18 +80,18 @@ export function Events() {
                   <span className="font-serif text-[28px] leading-[1.05] group-hover:underline group-hover:decoration-1 group-hover:underline-offset-4">
                     {ev.name}
                   </span>
-                  <span className="text-sm text-body">{ev.listMeta}</span>
+                  <span className="text-body text-sm">{ev.listMeta}</span>
                   <div className="mt-auto flex flex-col gap-2 pt-2">
                     {r !== undefined ? (
                       <>
-                        <div className="flex justify-between text-xs font-medium">
+                        <div className="flex justify-between font-medium text-xs">
                           <span>Readiness {Math.round(r * 100)}%</span>
                           <span className="text-muted">{days > 0 ? `${days} days to go` : "Today"}</span>
                         </div>
-                        <Bar value={r} color="var(--color-peacock)" label={`${ev.name} readiness`} />
+                        <Bar value={r} fill="peacock" label={`${ev.name} readiness`} />
                       </>
                     ) : (
-                      <span className="text-xs font-semibold text-peacock">
+                      <span className="font-semibold text-peacock text-xs">
                         No plan yet · Start planning →
                       </span>
                     )}
@@ -101,12 +102,12 @@ export function Events() {
           })}
           <Link
             to="/new?fresh=1"
-            className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-line-2 p-6 text-center text-ink no-underline hover:border-ink"
+            className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-line-2 border-dashed p-6 text-center text-ink no-underline hover:border-ink"
           >
             <span className="font-serif text-[26px]">
               {live.length > 0 ? "Plan something new" : "Plan your first event"}
             </span>
-            <span className="text-sm text-body">Describe it in a sentence. Plannr drafts the rest.</span>
+            <span className="text-body text-sm">Describe it in a sentence. Plannr drafts the rest.</span>
           </Link>
         </section>
 
@@ -117,7 +118,7 @@ export function Events() {
               {past.map((p, i) => (
                 <li
                   key={p.id}
-                  className={`flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 text-sm ${i ? "border-t border-sand-2" : ""}`}
+                  className={`flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 text-sm ${i ? "border-sand-2 border-t" : ""}`}
                 >
                   <span className="font-medium">{p.name}</span>
                   <span className="flex items-center gap-3 text-body">

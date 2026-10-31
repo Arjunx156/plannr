@@ -1,4 +1,5 @@
 import type { Pass, Stall } from "../communityTypes";
+import type { CommunityEvent } from "../types";
 import type { Vendor } from "../vendorTypes";
 
 /**
@@ -106,7 +107,11 @@ const melaVendors: Vendor[] = [
   },
 ];
 
-export const melaRecords = {
+/** The mela demo's vendors, stalls, passes, sponsors and lists. */
+export const melaRecords: Pick<
+  CommunityEvent,
+  "vendorList" | "stallList" | "passList" | "sponsors" | "runsheet" | "checklist" | "memory" | "site"
+> = {
   vendorList: melaVendors,
   stallList: stalls(),
   passList: passes(),

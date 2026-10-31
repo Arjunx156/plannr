@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { createElement, type JSX, type ReactNode } from "react";
 import type { PublicView } from "../../shared/public";
 import { AlbumPage } from "./AlbumPage";
 import { FundPage } from "./FundPage";
@@ -13,13 +13,14 @@ import { VendorPage } from "./VendorPage";
 
 type Kind = PublicView["kind"];
 type Upload = Parameters<typeof AlbumPage>[0]["upload"];
-/** A shared-link page takes its own slice of the plan; pages ignore the props they don't need. */
-type PageFor<K extends Kind> = (props: {
-  view: Extract<PublicView, { kind: K }>;
+/** What every shared-link page is given besides its view; pages ignore the props they don't need. */
+interface PageExtras {
   act?: Act | undefined;
   preview?: ReactNode;
   upload?: Upload;
-}) => ReactNode;
+}
+/** A shared-link page takes its own slice of the plan. */
+type PageFor<K extends Kind> = (props: { view: Extract<PublicView, { kind: K }> } & PageExtras) => ReactNode;
 
 /** One page per kind of link; a new kind fails to compile until it has one. */
 const PAGES: { [K in Kind]: PageFor<K> } = {
@@ -35,8 +36,15 @@ const PAGES: { [K in Kind]: PageFor<K> } = {
 };
 
 /** The page for one kind of shared link. */
-export function viewPage(view: PublicView, act?: Act, preview?: ReactNode, upload?: Upload) {
-  // TypeScript can't tie PAGES[view.kind] to view's own kind, so it is widened here; PAGES checks each pair.
-  const Page = PAGES[view.kind] as PageFor<Kind>;
-  return <Page view={view} act={act} preview={preview} upload={upload} />;
+export function viewPage(view: PublicView, act?: Act, preview?: ReactNode, upload?: Upload): JSX.Element {
+  return pageFor(view.kind, view, { act, preview, upload });
+}
+
+/** Looks up a page by a generic kind, which lets TypeScript match the page to its view. */
+function pageFor<K extends Kind>(
+  kind: K,
+  view: Extract<PublicView, { kind: K }>,
+  extras: PageExtras,
+): JSX.Element {
+  return createElement(PAGES[kind], { view, ...extras });
 }

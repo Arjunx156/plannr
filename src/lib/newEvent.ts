@@ -23,6 +23,7 @@ const FUNCTION_OFFSET: Record<string, number> = {
   Reception: 0,
 };
 
+/** A name for a new event from its profile: "Ananya & Rohan's wedding", "Aarav's 6th birthday". */
 export function eventName(p: Profile): string {
   if (p.kind === "wedding") return p.names ? `${p.names}'s wedding` : "Our wedding";
   if (p.kind === "birthday") return p.names ? `${p.names}'s birthday` : "Birthday party";

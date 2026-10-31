@@ -86,4 +86,5 @@ export const en = {
   thanksSponsors: "Thank you to our sponsors",
 };
 
+/** Every string on a helper's, vendor's or neighbour's page. */
 export type LinkText = typeof en;

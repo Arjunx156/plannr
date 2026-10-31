@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { MINUTE_MS } from "../src/lib/dates";
 import { recordError } from "./admin";
 import { MAX_BODY, MAX_READ_BODY } from "./ai";
 import { type Auth, createAuth } from "./auth";
@@ -34,7 +35,7 @@ export function createApp(deps: {
 }) {
   const { db, env } = deps;
   const photos = deps.photos ?? blobStore(env.BLOB_READ_WRITE_TOKEN);
-  const limiter = sharedLimiter(db, 60, 60000);
+  const limiter = sharedLimiter(db, 60, MINUTE_MS);
   const routes: RouteDeps = {
     db,
     env,
@@ -59,7 +60,7 @@ export function createApp(deps: {
   );
 
   app.onError((err, c) => {
-    if (err instanceof HttpError) return c.json({ error: err.message }, err.status as 400);
+    if (err instanceof HttpError) return c.json({ error: err.message }, err.status);
     console.error("[api]", err);
     void recordError(db, {
       source: "server",
@@ -78,6 +79,7 @@ export function createApp(deps: {
   return app;
 }
 
+/** The server's Hono app, as tests and the entry points see it. */
 export type App = ReturnType<typeof createApp>;
 
 /** The most a request body may carry on each kind of route. */

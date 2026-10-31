@@ -1,5 +1,6 @@
 import type { LinkText } from "./en";
 
+/** Shared pages in Tamil. */
 export const ta: LinkText = {
   helperList: "{name} அவர்களின் பட்டியல்",
   helperHello: "வணக்கம், {name}.",

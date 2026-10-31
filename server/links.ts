@@ -1,7 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { and, eq, ne } from "drizzle-orm";
 import type { PlannrEvent } from "../src/data/types";
+import { HOUR_MS } from "../src/lib/dates";
 import { slugId } from "../src/shared/eventLists";
+import { oneOf } from "../src/shared/guards";
 import { linkExpiry, type PublicKind, type PublicView } from "../src/shared/public";
 import { projectView } from "../src/shared/publicViews";
 import { findRecord, list } from "../src/shared/records";
@@ -20,10 +22,12 @@ const KINDS: LinkKind[] = ["rsvp", "helper", "vendor", "shifts", "fund", "site",
 /** Kinds that are about one record; the rest are about the whole event. */
 const TARGETED = new Set<LinkKind>(["rsvp", "helper", "vendor"]);
 
+/** Whether a value names a kind of shareable link. */
 export function isLinkKind(k: unknown): k is LinkKind {
-  return typeof k === "string" && (KINDS as string[]).includes(k);
+  return oneOf(k, KINDS) !== undefined;
 }
 
+/** A shareable link as stored: its token, kind and what it points at. */
 export interface LinkRow {
   token: string;
   kind: LinkKind;
@@ -104,6 +108,7 @@ function row(r: typeof links.$inferSelect): LinkRow {
   };
 }
 
+/** The event's shared links, for its members. */
 export async function listLinks(db: Db, eventId: string, userId: string): Promise<LinkRow[]> {
   await requireRole(db, eventId, userId, "viewer");
   const rows = await db.select().from(links).where(eq(links.eventId, eventId));
@@ -135,6 +140,7 @@ export async function renameSite(db: Db, eventId: string, userId: string, slug: 
   return row(created);
 }
 
+/** A shared link once its token is checked: the event, the kind and the target. */
 export interface Resolved {
   eventId: string;
   kind: PublicKind;
@@ -142,6 +148,7 @@ export interface Resolved {
   event: PlannrEvent;
 }
 
+/** Finds the event and view a link token stands for, or a 404 when it doesn't. */
 export async function resolve(db: Db, token: string): Promise<Resolved> {
   if (!/^[\w-]{3,64}$/.test(token)) throw new HttpError(404, "This link isn't valid");
   const [link] = await db.select().from(links).where(eq(links.token, token));
@@ -151,7 +158,7 @@ export async function resolve(db: Db, token: string): Promise<Resolved> {
   if (linkExpiry(event, link.kind) < new Date().toISOString().slice(0, 10))
     throw new HttpError(410, "This link has expired. Ask the family for a new one if you still need it.");
   // Mark it used, at most once an hour, so hosts can see which links were opened.
-  if (!link.lastUsedAt || Date.now() - link.lastUsedAt.getTime() > 3_600_000)
+  if (!link.lastUsedAt || Date.now() - link.lastUsedAt.getTime() > HOUR_MS)
     await db.update(links).set({ lastUsedAt: new Date() }).where(eq(links.token, token));
   return { eventId: link.eventId, kind: link.kind, target: link.target, event };
 }

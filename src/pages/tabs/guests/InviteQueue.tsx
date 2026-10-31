@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import type { Household } from "../../../data/guestTypes";
 import type { PlannrEvent } from "../../../data/types";
 import { plural } from "../../../lib/format";
@@ -14,7 +14,7 @@ export function InviteQueue({
   ev: PlannrEvent;
   queue: Household[];
   onSent: (h: Household) => void;
-}) {
+}): JSX.Element | null {
   const [skip, setSkip] = useState<string[]>([]);
   const next = queue.find((h) => !skip.includes(h.id));
   if (!next) return null;

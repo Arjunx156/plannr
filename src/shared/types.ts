@@ -4,19 +4,22 @@ import type { PlannrEvent } from "../data/types";
 
 export type Role = "owner" | "planner" | "viewer";
 
+/** The sign-in methods this server offers. */
 export interface SignInMethods {
   guest: boolean;
   email: boolean;
   google: boolean;
 }
 
+/** The signed-in person, as the server describes them. */
 export interface AccountUser {
   id: string;
   name: string;
   email: string;
-  isAnonymous?: boolean | null;
+  isAnonymous?: boolean | null | undefined;
 }
 
+/** One event as the server stores it, with its version for optimistic locking. */
 export interface PlanSummary {
   event: PlannrEvent;
   version: number;
@@ -24,6 +27,7 @@ export interface PlanSummary {
   side: string | null;
 }
 
+/** One change in an event's history: who made it, when, and what it was. */
 export interface HistoryEntry {
   id: string;
   seq: number;
@@ -48,6 +52,7 @@ export interface ActivityEntry {
   mine: boolean;
 }
 
+/** A co-planner on an event, with their role. */
 export interface Member {
   userId: string;
   name: string;
@@ -57,6 +62,7 @@ export interface Member {
   guest: boolean;
 }
 
+/** What an invite link shows before someone joins: the event and the role offered. */
 export interface InvitePreview {
   eventId: string;
   eventName: string;
@@ -66,9 +72,10 @@ export interface InvitePreview {
   side: string | null;
   invitedBy: string;
   valid: boolean;
-  reason?: string;
+  reason?: string | undefined;
 }
 
+/** A comment on a task or record, with its author. */
 export interface CommentView {
   id: string;
   body: string;
@@ -76,6 +83,7 @@ export interface CommentView {
   at: string;
 }
 
+/** The kinds of link a planner can share. */
 export type LinkKind =
   | "rsvp"
   | "helper"
@@ -87,6 +95,7 @@ export type LinkKind =
   | "stalls"
   | "gate";
 
+/** A shared link as the planner sees it in settings. */
 export interface LinkRow {
   token: string;
   kind: LinkKind;
@@ -95,6 +104,7 @@ export interface LinkRow {
   lastUsedAt: string | null;
 }
 
+/** A saved plan template, as listed for reuse. */
 export interface TemplateRow {
   id: string;
   name: string;
@@ -109,6 +119,7 @@ export function canEdit(role: Role | undefined): boolean {
   return role === "owner" || role === "planner";
 }
 
+/** Each role in the family's words. */
 export const ROLE_LABEL: Record<Role, string> = {
   owner: "Owner",
   planner: "Co-planner",

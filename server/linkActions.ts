@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { Stall } from "../src/data/communityTypes";
 import type { PlannrEvent } from "../src/data/types";
 import type { EventAction } from "../src/shared/engine";
+import type { AddRecord } from "../src/shared/planActions";
 import { isHelper, type PublicKind, type PublicView } from "../src/shared/public";
 import { findRecord } from "../src/shared/records";
 import { count } from "./admin";
@@ -43,14 +43,14 @@ const shiftsScope: ScopeCheck = (_, action, ev) => {
 /** A guest may add photos, but only ones uploaded to this event's own store. */
 const albumScope: ScopeCheck = (r, action) => {
   if (action.type !== "addRecord" || action.coll !== "album") return NOT_ALLOWED;
-  const url = (action.record as { url?: string }).url ?? "";
+  const url = action.record.url;
   return isEventPhoto(url, r.eventId) ? undefined : "Photos must be uploaded through Plannr";
 };
 /** A stallholder may ask for a stall: unconfirmed and unpaid. */
 const stallsScope: ScopeCheck = (_, action) => {
   if (action.type !== "addRecord" || action.coll !== "stalls") return NOT_ALLOWED;
-  const s = action.record as { status?: string; paid?: boolean };
-  return s.status === "requested" && s.paid === false ? undefined : NOT_ALLOWED;
+  const { status, paid } = action.record;
+  return status === "requested" && !paid ? undefined : NOT_ALLOWED;
 };
 /** The changes each kind of link may make, checked against the plan as it is now. Others are read-only. */
 const SCOPES: Partial<Record<PublicKind, ScopeCheck>> = {
@@ -90,13 +90,15 @@ function fromLink(r: Resolved, action: EventAction): EventAction {
   if (action.type === "rsvp" && r.kind === "rsvp") return { ...action, householdId: r.target };
   if (action.type !== "addRecord") return action;
   // Records made from a link get their id here, never from the browser.
-  const record = { ...action.record, id: newId(action.coll) };
-  if (action.coll !== "stalls") return { ...action, record };
+  const id = newId(action.coll);
+  if (action.coll !== "stalls") return withId(action, id);
   // A stall request pays the event's own fee and starts unconfirmed.
-  return {
-    ...action,
-    record: { ...(record as Stall), fee: stallFee(r.event), status: "requested", paid: false },
-  };
+  const stall = { ...action.record, id, fee: stallFee(r.event), status: "requested" as const, paid: false };
+  return { ...action, record: stall };
+}
+
+function withId<A extends AddRecord>(action: A, id: string): A {
+  return { ...action, record: { ...action.record, id } };
 }
 /** Most changes one request from a shared link may carry. */
 const MAX_LINK_ACTIONS = 5;

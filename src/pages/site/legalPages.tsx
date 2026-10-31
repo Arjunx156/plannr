@@ -1,7 +1,9 @@
+import type { JSX } from "react";
 import { Link } from "react-router";
 import { Prose, SitePage } from "./siteLayout";
 
-export function Privacy() {
+/** The privacy policy. */
+export function Privacy(): JSX.Element {
   return (
     <SitePage
       title="Privacy"
@@ -81,7 +83,8 @@ export function Privacy() {
   );
 }
 
-export function Terms() {
+/** The terms of use. */
+export function Terms(): JSX.Element {
   return (
     <SitePage
       title="Terms"

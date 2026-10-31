@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { type JSX, useRef, useState } from "react";
 import { useAiOn } from "../../components/useAiOn";
 import { aiRead, type ReadResult } from "../../lib/ai";
+import { errorMessage } from "../../shared/guards";
 import { toast, useStore } from "../../store/store";
 
 /**
@@ -17,7 +18,7 @@ export function ReadDocument({
   categories: string[];
   guests?: number;
   onRead: (r: ReadResult) => void;
-}) {
+}): JSX.Element | null {
   const { dispatch } = useStore();
   const ai = useAiOn();
   const input = useRef<HTMLInputElement>(null);
@@ -29,7 +30,7 @@ export function ReadDocument({
     try {
       onRead(await aiRead(file, { categories, guests }));
     } catch (e) {
-      dispatch(toast((e as Error).message));
+      dispatch(toast(errorMessage(e)));
     }
     setBusy(false);
     if (input.current) input.current.value = "";

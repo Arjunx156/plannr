@@ -1,4 +1,4 @@
-import { type DragEvent, useState } from "react";
+import { type DragEvent, type JSX, useState } from "react";
 import { useEditable } from "../../../components/taskHooks";
 import type { FunctionDay } from "../../../data/baseTypes";
 import type { Household, SeatTable } from "../../../data/guestTypes";
@@ -48,7 +48,7 @@ interface Chips {
 }
 
 /** Tables and who sits where, by drag and drop or by picking a table from a list. */
-export function Seating({ ev }: { ev: PlannrEvent }) {
+export function Seating({ ev }: { ev: PlannrEvent }): JSX.Element {
   const editable = useEditable(ev);
   const tables = list(ev, "tables");
   const fns = functionsOf(ev);
@@ -84,7 +84,7 @@ export function Seating({ ev }: { ev: PlannrEvent }) {
         />
       ) : (
         <>
-          <span className="text-xs text-muted">
+          <span className="text-muted text-xs">
             Drag a household onto a table, or choose its table from the list. Counts use their RSVP when
             they've answered.
           </span>
@@ -121,7 +121,7 @@ function FunctionSelect({
   onChange: (id: string) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-body">
+    <label className="flex items-center gap-2 text-body text-sm">
       For
       <select
         className="field h-9 min-h-0 appearance-auto py-0 text-sm"
@@ -147,7 +147,7 @@ interface NoTablesProps {
 
 function NoTables({ invited, needed, editable, onAdd }: NoTablesProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-body">
+    <div className="flex flex-wrap items-center justify-between gap-3 text-body text-sm">
       <span>
         No tables for this function yet.{" "}
         {invited > 0 ? `${needed} tables of ${TABLE_SEATS} would seat everyone invited.` : ""}
@@ -173,7 +173,7 @@ function Unseated({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: dragging is a shortcut; each household also has a table picker
     <div
-      className="flex min-h-12 flex-wrap gap-1.5 rounded-xl border border-dashed border-line-2 p-2"
+      className="flex min-h-12 flex-wrap gap-1.5 rounded-xl border border-line-2 border-dashed p-2"
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
       title="Not seated yet"
@@ -203,7 +203,7 @@ function TableCard({ table, guests, chips, onDrop }: TableProps) {
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
     >
-      <span className="flex justify-between text-xs font-semibold">
+      <span className="flex justify-between font-semibold text-xs">
         {table.name}
         <span className={over ? "text-rust-ink" : "text-muted"}>
           {used}/{table.seats}
@@ -226,7 +226,7 @@ function SeatChip({ h, chips, current }: { h: Household; chips: Chips; current?:
         e.dataTransfer.setData("text/plain", h.id);
         onDrag(h.id);
       }}
-      className="flex items-center gap-1.5 rounded-lg bg-surface px-2 py-1 text-xs shadow-[0_1px_2px_rgba(0,0,0,.06)]"
+      className="flex min-w-0 max-w-full items-center gap-1.5 rounded-lg bg-surface px-2 py-1 text-xs shadow-[0_1px_2px_rgba(0,0,0,.06)]"
     >
       <span className="min-w-0 flex-1 truncate" title={h.name}>
         {h.name} · {seatsFor(h, fnId)}

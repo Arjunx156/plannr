@@ -1,11 +1,16 @@
+import type { JSX } from "react";
 import type { GuestText } from "../../lib/guestText";
 import type { PublicBasics } from "../../shared/public";
 import { FunctionFacts } from "./shell";
 
 /** One household's answer for one function. */
-export type Answer = { status: "pending" | "yes" | "no"; count: number };
+export interface Answer {
+  status: "pending" | "yes" | "no";
+  count: number;
+}
 /** A household may bring up to two more people than were invited. */
 export const EXTRA_GUESTS = 2;
+/** Whether a guest has answered for a function, yes or no. */
 export const isAnswered = (a: Answer | undefined): a is Answer => !!a && a.status !== "pending";
 /** One function on the RSVP form: when and where, then going (and how many) or can't come. */
 export function FunctionAnswer({
@@ -21,7 +26,7 @@ export function FunctionAnswer({
   invited: number;
   t: GuestText;
   onChange: (next: Answer) => void;
-}) {
+}): JSX.Element {
   const set = (patch: Partial<Answer>) => onChange({ ...a, ...patch });
   const most = invited + EXTRA_GUESTS;
   return (
@@ -36,7 +41,7 @@ export function FunctionAnswer({
           type="button"
           aria-pressed={a.status === "yes"}
           onClick={() => set({ status: "yes", count: a.count || invited })}
-          className={`min-h-11 rounded-lg border text-sm font-semibold ${a.status === "yes" ? "border-leaf bg-leaf-tint text-leaf-ink" : "border-line-2"}`}
+          className={`min-h-11 rounded-lg border font-semibold text-sm ${a.status === "yes" ? "border-leaf bg-leaf-tint text-leaf-ink" : "border-line-2"}`}
         >
           {a.status === "yes" ? "✓ " : ""}
           {t.going}
@@ -45,7 +50,7 @@ export function FunctionAnswer({
           type="button"
           aria-pressed={a.status === "no"}
           onClick={() => set({ status: "no" })}
-          className={`min-h-11 rounded-lg border text-sm font-semibold ${a.status === "no" ? "border-line-2 bg-sand" : "border-line-2"}`}
+          className={`min-h-11 rounded-lg border font-semibold text-sm ${a.status === "no" ? "border-line-2 bg-sand" : "border-line-2"}`}
         >
           {t.cant}
         </button>

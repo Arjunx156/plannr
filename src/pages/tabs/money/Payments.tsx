@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { Modal } from "../../../components/overlays";
 import { QrCode } from "../../../components/qr";
 import type { Payment } from "../../../data/budgetTypes";
@@ -15,7 +15,7 @@ import { MarkPaid } from "./MarkPaid";
 import { METHOD_LABEL } from "./shared";
 
 /** The payment schedule: what is due when, with UPI links and marking as paid. */
-export function Payments({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
+export function Payments({ ev, editable }: { ev: PersonalEvent; editable: boolean }): JSX.Element {
   const { dispatch } = useStore();
   const [paying, setPaying] = useState<Payment | null>(null);
   const [qr, setQr] = useState<UpiQr | null>(null);
@@ -59,7 +59,7 @@ export function Payments({ ev, editable }: { ev: PersonalEvent; editable: boolea
           />
         ))}
         {open.length === 0 && !showPaid && (
-          <li className="text-sm text-muted">Nothing due. Everything scheduled is paid.</li>
+          <li className="text-muted text-sm">Nothing due. Everything scheduled is paid.</li>
         )}
       </ul>
       <MarkPaid ev={ev} payment={paying} onClose={() => setPaying(null)} />
@@ -67,8 +67,8 @@ export function Payments({ ev, editable }: { ev: PersonalEvent; editable: boolea
         {qr && (
           <div className="flex flex-col items-center gap-3 text-center">
             <QrCode text={qr.link} size={240} label={`UPI payment QR: ${qr.label}`} />
-            <span className="text-sm text-body">{qr.label}</span>
-            <span className="text-xs text-muted">
+            <span className="text-body text-sm">{qr.label}</span>
+            <span className="text-muted text-xs">
               Open any UPI app on your phone and scan. Mark it paid here once it goes through.
             </span>
           </div>
@@ -92,7 +92,10 @@ function paymentNote(p: Payment, late: boolean): string {
   return p.estimate ? "Estimate" : (p.by ?? "");
 }
 
-type UpiQr = { link: string; label: string };
+interface UpiQr {
+  link: string;
+  label: string;
+}
 
 /** One scheduled payment: its date, what it's for, and paying it by UPI or marking it paid. */
 function PaymentRow({
@@ -112,15 +115,15 @@ function PaymentRow({
 }) {
   const late = !p.paid && p.date < TODAY;
   return (
-    <li className="flex flex-wrap items-center gap-3 border-t border-sand-2 py-2.5 text-sm first:border-0">
+    <li className="flex flex-wrap items-center gap-3 border-sand-2 border-t py-2.5 text-sm first:border-0">
       <span
-        className={`w-16 shrink-0 text-xs tabular ${late ? "font-semibold text-rust-ink" : "text-muted"}`}
+        className={`tabular w-16 shrink-0 text-xs ${late ? "font-semibold text-rust-ink" : "text-muted"}`}
       >
         {shortDate(p.date)}
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="font-medium">{p.label}</span>
-        <span className="text-xs text-muted">{paymentNote(p, late)}</span>
+        <span className="text-muted text-xs">{paymentNote(p, late)}</span>
       </span>
       <span className="tabular font-semibold">{inr(p.amount)}</span>
       {p.paid && editable && (

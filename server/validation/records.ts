@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { keysOf } from "../../src/shared/guards";
 import type { Coll } from "../../src/shared/records";
 import { hhmm, id, iso, lang, money, name, phone, stamp, str, tone, upi } from "./fields";
 
+/** A household's answer for one function: status and head count. */
 export const answer = z.object({
   status: z.enum(["pending", "yes", "no"]),
   count: z.number().int().min(0).max(502),
@@ -57,6 +59,7 @@ const vendor = z.object({
   lang: lang.optional(),
   rating: z.number().int().min(1).max(5).optional(),
 });
+/** One item under a budget line. */
 export const lineItem = z.object({
   id,
   name: name(160),
@@ -66,6 +69,7 @@ export const lineItem = z.object({
   status: z.enum(["paid", "advance", "unpaid", "included", "quote"]),
   due: iso.optional(),
 });
+/** The shape of a record in each collection. */
 export const RECORDS: Record<Coll, z.ZodObject> = {
   households: household,
   tables: z.object({ id, fnId: id, name: name(60), seats: z.number().int().min(1).max(100) }),
@@ -210,7 +214,9 @@ export const RECORDS: Record<Coll, z.ZodObject> = {
   }),
   sources: z.object({ id, label: name(120), expected: money, received: money, note: str(120), tone }),
 };
-export const coll = z.enum(Object.keys(RECORDS) as [Coll, ...Coll[]]);
+/** The name of a record collection. */
+export const coll = z.enum(keysOf(RECORDS));
+/** The event website's settings and content. */
 export const site = z.object({
   published: z.boolean().optional(),
   story: str(3000).optional(),

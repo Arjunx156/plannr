@@ -3,9 +3,12 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import { del, list, put } from "@vercel/blob";
 import { getTableColumns } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
+import { z } from "zod";
+import { DAY_MS } from "../src/lib/dates";
 import { account, user } from "./db/authSchema";
 import { changes, comments, events, invites, links, members, pushSubs, templates } from "./db/schema";
 import type { Db } from "./db/types";
+import type { ServerEnv } from "./env";
 
 /**
  * Nightly backups. Every table that matters (accounts, plans, members, history, links,
@@ -31,25 +34,30 @@ export const BACKUP_TABLES: [string, PgTable][] = [
 const MAGIC = Buffer.from("PLNB1");
 const KEEP_DAYS = 14;
 
-export interface Backup {
-  version: 1;
-  at: string;
-  tables: Record<string, Record<string, unknown>[]>;
-}
+const BACKUP = z.object({
+  version: z.literal(1),
+  at: z.string(),
+  tables: z.record(z.string(), z.array(z.record(z.string(), z.unknown()))),
+});
 
+/** Every table's rows at one moment, as JSON. */
+export type Backup = z.infer<typeof BACKUP>;
+
+/** The 32-byte backup key from its base64 setting, or undefined when it's missing or the wrong size. */
 export function backupKey(raw: string | undefined): Buffer | undefined {
   if (!raw) return undefined;
   const key = Buffer.from(raw, "base64");
   return key.length === 32 ? key : undefined;
 }
 
+/** Every table's rows, ready to back up. */
 export async function exportTables(db: Db): Promise<Backup> {
   const tables: Backup["tables"] = {};
-  for (const [name, table] of BACKUP_TABLES)
-    tables[name] = (await db.select().from(table)) as Record<string, unknown>[];
+  for (const [name, table] of BACKUP_TABLES) tables[name] = await db.select().from(table);
   return { version: 1, at: new Date().toISOString(), tables };
 }
 
+/** Compresses and encrypts a backup with AES-256-GCM. */
 export function encrypt(backup: Backup, key: Buffer): Buffer {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
@@ -57,6 +65,7 @@ export function encrypt(backup: Backup, key: Buffer): Buffer {
   return Buffer.concat([MAGIC, iv, cipher.getAuthTag(), body]);
 }
 
+/** Decrypts and reads a backup, refusing anything that isn't one. */
 export function decrypt(bytes: Buffer, key: Buffer): Backup {
   if (!bytes.subarray(0, MAGIC.length).equals(MAGIC)) throw new Error("Not a Plannr backup");
   const iv = bytes.subarray(MAGIC.length, MAGIC.length + 12);
@@ -64,7 +73,9 @@ export function decrypt(bytes: Buffer, key: Buffer): Backup {
   const decipher = createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(tag);
   const plain = Buffer.concat([decipher.update(bytes.subarray(MAGIC.length + 28)), decipher.final()]);
-  return JSON.parse(gunzipSync(plain).toString("utf8")) as Backup;
+  const parsed = BACKUP.safeParse(JSON.parse(gunzipSync(plain).toString("utf8")));
+  if (!parsed.success) throw new Error("That backup's contents aren't in Plannr's format");
+  return parsed.data;
 }
 
 /** Loads a backup into a database, skipping rows that are already there. */
@@ -79,10 +90,15 @@ export async function restore(db: Db, backup: Backup): Promise<Record<string, nu
       .map(([k]) => k);
     const ready = rows.map((r) => {
       const out = { ...r };
-      for (const k of dated) if (typeof out[k] === "string") out[k] = new Date(out[k] as string);
+      for (const k of dated) {
+        const v = out[k];
+        if (typeof v === "string") out[k] = new Date(v);
+      }
       return out;
     });
     for (let i = 0; i < ready.length; i += 200)
+      // Each table's rows came from that same table and passed the backup schema; Drizzle can't
+      // type an insert into a table picked at runtime.
       await db
         .insert(table)
         .values(ready.slice(i, i + 200) as never)
@@ -95,7 +111,7 @@ export async function restore(db: Db, backup: Backup): Promise<Record<string, nu
 /** Tonight's backup into the Blob store, and backups older than two weeks removed. */
 export async function nightlyBackup(
   db: Db,
-  env: Record<string, string | undefined>,
+  env: Pick<ServerEnv, "BACKUP_KEY" | "BLOB_READ_WRITE_TOKEN">,
 ): Promise<{ stored: string; bytes: number; removed: number } | { skipped: string }> {
   const key = backupKey(env.BACKUP_KEY);
   const token = env.BLOB_READ_WRITE_TOKEN;
@@ -109,11 +125,11 @@ export async function nightlyBackup(
     addRandomSuffix: true,
     contentType: "application/octet-stream",
   });
-  const cutoff = Date.now() - KEEP_DAYS * 86400000;
+  const cutoff = Date.now() - KEEP_DAYS * DAY_MS;
   const old: string[] = [];
   let cursor: string | undefined;
   do {
-    const page = await list({ prefix: "backups/", token, cursor });
+    const page = await list({ prefix: "backups/", token, ...(cursor ? { cursor } : {}) });
     for (const b of page.blobs) if (b.uploadedAt.getTime() < cutoff) old.push(b.url);
     cursor = page.hasMore ? page.cursor : undefined;
   } while (cursor);

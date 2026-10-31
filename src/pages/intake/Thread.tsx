@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { PriorityPicker } from "../../components/intake";
 import { ThinkingDots } from "../../components/ui";
 import type { Profile } from "../../data/types";
@@ -6,6 +7,7 @@ import type { ChatTurn, Draft } from "../../store/types";
 import { KIND_FROM_CHIP } from "./conversation";
 import { AiMark } from "./ProfilePanel";
 
+/** The two ranked lists in the intake: what matters most, and what can go. */
 export type PriorityList = "priorities" | "cuts";
 
 interface TurnHandlers {
@@ -13,19 +15,20 @@ interface TurnHandlers {
   onToggle: (option: string, list: PriorityList) => void;
 }
 
+/** The intake chat: every turn so far, the chips for the current question, and Plannr thinking. */
 export function Thread({
   draft,
   thinking,
   onPick,
   onToggle,
-}: { draft: Draft; thinking: boolean } & TurnHandlers) {
+}: { draft: Draft; thinking: boolean } & TurnHandlers): JSX.Element {
   return (
     <div className="flex flex-col gap-5" aria-live="polite">
       {draft.chat.map((t, i) =>
         t.role === "user" ? (
           <div
             key={t.id}
-            className="rise max-w-[86%] self-end rounded-[18px_18px_4px_18px] bg-ink px-[18px] py-3.5 text-base leading-normal whitespace-pre-wrap text-paper sm:max-w-[76%]"
+            className="rise max-w-[86%] self-end whitespace-pre-wrap rounded-[18px_18px_4px_18px] bg-ink px-[18px] py-3.5 text-base text-paper leading-normal sm:max-w-[76%]"
           >
             {t.text}
           </div>
@@ -86,7 +89,7 @@ function Chips({
             disabled={!live && !on}
             aria-pressed={on}
             onClick={() => onPick(question, o)}
-            className={`inline-flex min-h-9 items-center rounded-full border px-[13px] text-sm font-medium ${on ? "border-peacock bg-peacock-tint text-peacock" : "border-line text-muted hover:border-line-2 hover:text-ink disabled:hover:border-line disabled:hover:text-muted"}`}
+            className={`inline-flex min-h-9 items-center rounded-full border px-[13px] font-medium text-sm ${on ? "border-peacock bg-peacock-tint text-peacock" : "border-line text-muted hover:border-line-2 hover:text-ink disabled:hover:border-line disabled:hover:text-muted"}`}
           >
             {on ? `✓ ${o}` : o}
           </button>

@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Field } from "../../../components/fields";
 import { toneText } from "../../../components/ui";
 import type { FundSource } from "../../../data/communityTypes";
@@ -12,7 +12,7 @@ import { newId } from "../ids";
 import { Section } from "../layout";
 
 /** A source once `received` is in: settled when it meets what was expected, else what's left to collect. */
-function collected(s: FundSource, received: number): Partial<FundSource> {
+function collected(s: FundSource, received: number): Pick<FundSource, "received" | "tone" | "note"> {
   const settled = received >= s.expected;
   return {
     received,
@@ -22,7 +22,7 @@ function collected(s: FundSource, received: number): Partial<FundSource> {
 }
 
 /** Where the money comes from: the society fund, sponsors, stall fees and dues. */
-export function Sources({ ev, editable }: { ev: CommunityEvent; editable: boolean }) {
+export function Sources({ ev, editable }: { ev: CommunityEvent; editable: boolean }): JSX.Element {
   const own = list(ev, "sources");
   return (
     <Section title="Where the money comes from">
@@ -46,7 +46,7 @@ interface RowProps {
   ev: CommunityEvent;
   s: FundSource;
   /** The planner's own record; sponsor and stall totals are worked out from their lists instead. */
-  mine?: FundSource;
+  mine?: FundSource | undefined;
   editable: boolean;
 }
 
@@ -63,7 +63,7 @@ function SourceRow({ ev, s, mine, editable }: RowProps) {
     setValue(null);
   };
   return (
-    <li className="flex flex-col gap-1 border-t border-sand-2 py-2.5 text-sm first:border-0">
+    <li className="flex flex-col gap-1 border-sand-2 border-t py-2.5 text-sm first:border-0">
       <span className="flex items-baseline justify-between gap-3">
         <span className="font-medium">{s.label}</span>
         {value === null ? (
@@ -96,7 +96,7 @@ function SourceRow({ ev, s, mine, editable }: RowProps) {
           </button>
         )}
         {!mine && (
-          <span className="text-xs text-muted">
+          <span className="text-muted text-xs">
             from the {s.id === "sponsors" ? "sponsor list" : "stall list"}
           </span>
         )}

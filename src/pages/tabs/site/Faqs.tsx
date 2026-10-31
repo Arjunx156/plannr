@@ -1,7 +1,8 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import type { SiteInfo } from "../../../data/recordTypes";
 import { Section } from "../layout";
 
+/** The website's questions and answers, editable in place. */
 export function Faqs({
   site,
   editable,
@@ -10,7 +11,7 @@ export function Faqs({
   site: SiteInfo;
   editable: boolean;
   onSave: (p: Partial<SiteInfo>, m?: string) => void;
-}) {
+}): JSX.Element {
   const faqs = site.faqs ?? [];
   const [q, setQ] = useState("");
   const [a, setA] = useState("");
@@ -27,11 +28,11 @@ export function Faqs({
         {faqs.map((f, i) => (
           <li
             key={f.q}
-            className="flex items-start justify-between gap-3 border-t border-sand-2 pt-2.5 first:border-0 first:pt-0"
+            className="flex items-start justify-between gap-3 border-sand-2 border-t pt-2.5 first:border-0 first:pt-0"
           >
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold">{f.q}</span>
-              <span className="text-sm text-body">{f.a}</span>
+              <span className="font-semibold text-sm">{f.q}</span>
+              <span className="text-body text-sm">{f.a}</span>
             </div>
             {editable && (
               <button
@@ -46,7 +47,7 @@ export function Faqs({
           </li>
         ))}
         {faqs.length === 0 && (
-          <li className="text-sm text-muted">Parking, dress code, children, gifts: answer them once here.</li>
+          <li className="text-muted text-sm">Parking, dress code, children, gifts: answer them once here.</li>
         )}
       </ul>
       {editable && (

@@ -6,6 +6,7 @@
 
 export type GuestLang = "en" | "ml" | "hi" | "ta";
 
+/** Each guest language in its own script. */
 export const LANG_NAME: Record<GuestLang, string> = {
   en: "English",
   ml: "മലയാളം",
@@ -13,6 +14,7 @@ export const LANG_NAME: Record<GuestLang, string> = {
   ta: "தமிழ்",
 };
 
+/** A language code if it's one guest pages are written in, else undefined. */
 export function guestLang(code: string | undefined): GuestLang | undefined {
   return code === "ml" || code === "hi" || code === "ta" || code === "en" ? code : undefined;
 }
@@ -51,6 +53,7 @@ const en = {
   rsvpNote: "Your RSVP link is in the invitation the family sent you.",
 };
 
+/** Every string on the RSVP and website pages, in one language. */
 export type GuestText = typeof en;
 
 const ml: GuestText = {
@@ -157,6 +160,7 @@ const ta: GuestText = {
 
 const TEXT: Record<GuestLang, GuestText> = { en, ml, hi, ta };
 
+/** The guest pages' strings in one language. */
 export function guestText(lang: GuestLang): GuestText {
   return TEXT[lang];
 }

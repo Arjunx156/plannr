@@ -1,3 +1,4 @@
+import type { FunctionDay } from "../data/baseTypes";
 import type { Household, Rsvp } from "../data/guestTypes";
 import type { RunItem } from "../data/recordTypes";
 import type { PlannrEvent } from "../data/types";
@@ -17,8 +18,10 @@ export function comingCount(h: Household): number {
   return Math.max(0, ...Object.values(h.rsvp).map((a) => (a.status === "yes" ? a.count : 0)));
 }
 
+/** Where a household stands across all its invitations. */
 export type HouseholdState = "not-sent" | "waiting" | "coming" | "declined";
 
+/** A household's overall answer: coming if anyone is, declined if everyone said no. */
 export function householdState(h: Household): HouseholdState {
   const answers = h.functions.map((f) => h.rsvp[f]?.status ?? "pending");
   if (answers.some((a) => a === "yes")) return "coming";
@@ -54,6 +57,7 @@ export function rsvpSummary(ev: PlannrEvent): Rsvp {
   return { total, invited, confirmed, declined, pending, notSent };
 }
 
+/** Invitations and answers for one function. */
 export interface FunctionCount {
   fnId: string;
   invited: number;
@@ -122,6 +126,7 @@ export function duplicateGroups(hs: Household[]): Household[][] {
 
 // ---------------------------------------------------------------- vendors
 
+/** Each vendor stage in the family's words. */
 export const STAGE_LABEL: Record<Vendor["stage"], string> = {
   needed: "Still to find",
   enquired: "Enquired",
@@ -129,6 +134,7 @@ export const STAGE_LABEL: Record<Vendor["stage"], string> = {
   booked: "Booked",
 };
 
+/** Vendor categories grouped by where they stand: booked, in talks, or still needed. */
 export function vendorSummary(ev: PlannrEvent): { booked: string[]; talking: string[]; needed: string[] } {
   const vs = vendorsOf(ev);
   return {
@@ -153,6 +159,7 @@ export function clock(time: string): string {
   return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
+/** One function's run sheet, in time order. */
 export function runsheetFor(ev: PlannrEvent, fnId: string): RunItem[] {
   return list(ev, "runsheet")
     .filter((r) => r.fnId === fnId)
@@ -160,7 +167,7 @@ export function runsheetFor(ev: PlannrEvent, fnId: string): RunItem[] {
 }
 
 /** What's happening at a time of day, and what comes next. */
-export function nowAndNext(items: RunItem[], hhmm: string): { now?: RunItem; next: RunItem[] } {
+export function nowAndNext(items: RunItem[], hhmm: string): { now?: RunItem | undefined; next: RunItem[] } {
   const open = items.filter((i) => !i.done);
   const started = open.filter((i) => i.time <= hhmm);
   const now = started[started.length - 1];
@@ -175,7 +182,7 @@ export function checkInCount(ev: PlannrEvent, fnId: string): { inside: number; e
 }
 
 /** The function on a date, or the next one after it. */
-export function functionOn(ev: PlannrEvent, date: string) {
+export function functionOn(ev: PlannrEvent, date: string): FunctionDay | undefined {
   const fns = functionsOf(ev)
     .slice()
     .sort((a, b) => a.date.localeCompare(b.date));

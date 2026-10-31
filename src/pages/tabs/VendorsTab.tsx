@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { type JSX, useMemo, useState } from "react";
 import { Modal } from "../../components/overlays";
 import { RippleDialog } from "../../components/ripple";
 import { useEditable } from "../../components/taskHooks";
@@ -31,7 +31,7 @@ function bestQuote(ev: PlannrEvent, v: Vendor): { q: Quote; total: number } | un
 }
 
 /** /events/:id/vendors — who's booked, who's quoted, and the comparison that picks between them. */
-export function VendorsTab({ ev }: { ev: PlannrEvent }) {
+export function VendorsTab({ ev }: { ev: PlannrEvent }): JSX.Element {
   const { dispatch } = useStore();
   const editable = useEditable(ev);
   const vendors = list(ev, "vendors");
@@ -149,7 +149,7 @@ function Board({
               {items.map((v) => (
                 <VendorCard key={v.id} ev={ev} v={v} onOpen={() => onOpen(v.id)} />
               ))}
-              {items.length === 0 && <li className="text-xs text-muted">None</li>}
+              {items.length === 0 && <li className="text-muted text-xs">None</li>}
             </ul>
           </section>
         );
@@ -170,7 +170,7 @@ function VendorCard({ ev, v, onOpen }: { ev: PlannrEvent; v: Vendor; onOpen: () 
         <span className="font-semibold">{v.category}</span>
         <span className="text-body">{v.name || "Still looking"}</span>
         {b && (
-          <span className="text-xs tabular text-muted">
+          <span className="tabular text-muted text-xs">
             {inr(b.total)}
             {b.q.perGuest ? ` · ${inr(b.q.amount)} a plate` : ""}
             {v.quotes.length > 1 ? ` · ${v.quotes.length} quotes` : ""}
@@ -205,7 +205,7 @@ function Checklist({
     <Section
       title="Vendor checklist"
       aside={
-        <span className="text-sm text-body">
+        <span className="text-body text-sm">
           {p.booked} of {p.total} booked
           {p.late ? <span className="text-rust-ink"> · {p.late} past their book-by date</span> : null}
         </span>
@@ -215,15 +215,15 @@ function Checklist({
         {items.map((i) => {
           const m = CHECK_MARK[i.state];
           return (
-            <li key={i.category} className="flex items-start gap-3 border-t border-sand-2 py-2.5">
+            <li key={i.category} className="flex items-start gap-3 border-sand-2 border-t py-2.5">
               <span
                 aria-hidden="true"
-                className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-[5px] text-xs font-bold ${m.tone}`}
+                className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-[5px] font-bold text-xs ${m.tone}`}
               >
                 {m.mark}
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-sm font-medium">
+                <span className="font-medium text-sm">
                   {i.category}
                   <span className="sr-only">: {m.label}</span>
                   {i.vendorName && <span className="font-normal text-body"> · {i.vendorName}</span>}

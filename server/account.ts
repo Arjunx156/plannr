@@ -36,6 +36,7 @@ export async function exportAccount(db: Db, userId: string) {
   };
 }
 
+/** Deletes a person's account. Events they own pass to another member, a planner first; events no one else is on go with it. */
 export async function deleteAccount(
   db: Db,
   userId: string,

@@ -1,4 +1,5 @@
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
+import { errorMessage } from "../../shared/guards";
 import type { AlbumView } from "../../shared/public";
 import { Card, PublicShell, useLinkLang } from "./shell";
 
@@ -9,9 +10,9 @@ export function AlbumPage({
   preview,
 }: {
   view: AlbumView;
-  upload?: (file: File, by: string, caption: string) => Promise<void>;
+  upload?: ((file: File, by: string, caption: string) => Promise<void>) | undefined;
   preview?: ReactNode;
-}) {
+}): JSX.Element {
   const { t, shell } = useLinkLang(view.event);
   const [by, setBy] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,7 +29,7 @@ export function AlbumPage({
     try {
       await upload(file, by.trim(), "");
     } catch (e) {
-      setError((e as Error).message);
+      setError(errorMessage(e));
     }
     setBusy(false);
   };
@@ -58,9 +59,9 @@ export function AlbumPage({
             onChange={(e) => pick(e.target.files)}
           />
         </label>
-        {!upload && <span className="text-xs text-muted">{t.albumClosed}</span>}
+        {!upload && <span className="text-muted text-xs">{t.albumClosed}</span>}
         {error && (
-          <p role="alert" className="m-0 text-sm font-medium text-rust-ink">
+          <p role="alert" className="m-0 font-medium text-rust-ink text-sm">
             {error}
           </p>
         )}
@@ -75,12 +76,12 @@ export function AlbumPage({
                 loading="lazy"
                 className="aspect-square w-full rounded-xl object-cover"
               />
-              <span className="text-xs text-muted">{p.by}</span>
+              <span className="text-muted text-xs">{p.by}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="m-0 text-center text-sm text-muted">{t.noPhotos}</p>
+        <p className="m-0 text-center text-muted text-sm">{t.noPhotos}</p>
       )}
     </PublicShell>
   );

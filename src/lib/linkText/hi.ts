@@ -1,5 +1,6 @@
 import type { LinkText } from "./en";
 
+/** Shared pages in Hindi. */
 export const hi: LinkText = {
   helperList: "{name} की सूची",
   helperHello: "नमस्ते, {name}।",

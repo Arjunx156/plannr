@@ -16,6 +16,7 @@ function post(path: string, body: unknown): void {
   }
 }
 
+/** Sends a crash report to the server, at most five per page load, in production only. */
 export function reportError(error: unknown): void {
   if (!import.meta.env.PROD || sent >= 5) return;
   const e = error instanceof Error ? error : new Error(String(error));
@@ -25,6 +26,7 @@ export function reportError(error: unknown): void {
   post("/api/errors", { message: e.message, stack: e.stack, url: location.pathname });
 }
 
+/** Reports uncaught errors and counts the visit, in production only. */
 export function startReporting(): void {
   if (typeof window === "undefined" || !import.meta.env.PROD) return;
   try {

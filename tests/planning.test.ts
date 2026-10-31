@@ -5,8 +5,9 @@ import type { Vendor } from "../src/data/vendorTypes";
 import { TODAY } from "../src/lib/dates";
 import { buildTimeline, checklistProgress, vendorChecklist } from "../src/shared/planning";
 import { linkExpiry } from "../src/shared/public";
+import { demo } from "./support";
 
-const [wedding, birthday, mela] = seedEvents() as [PersonalEvent, PersonalEvent, CommunityEvent];
+const { wedding, birthday, mela } = demo();
 
 function withVendors<T extends PersonalEvent | CommunityEvent>(ev: T, vendorList: Vendor[]): T {
   return { ...ev, vendorList };

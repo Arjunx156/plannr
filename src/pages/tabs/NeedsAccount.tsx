@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 import { Link } from "react-router";
 import type { PlannrEvent } from "../../data/types";
 import { TabPage } from "./layout";
@@ -12,11 +12,11 @@ export function NeedsAccount({
   ev: PlannrEvent;
   title: string;
   children: ReactNode;
-}) {
+}): JSX.Element {
   return (
     <TabPage eyebrow={ev.name} title={title}>
       <div className="flex flex-col items-start gap-4 rounded-2xl border border-line bg-surface p-6">
-        <p className="m-0 max-w-[560px] text-[15px] leading-normal text-body">{children}</p>
+        <p className="m-0 max-w-[560px] text-[15px] text-body leading-normal">{children}</p>
         <Link to="/signup" className="btn btn-primary">
           Create a free account
         </Link>

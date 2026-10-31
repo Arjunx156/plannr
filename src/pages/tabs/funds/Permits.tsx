@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Modal } from "../../../components/overlays";
 import { Pill, toneText } from "../../../components/ui";
 import type { Permit } from "../../../data/communityTypes";
@@ -57,14 +57,14 @@ function PermitRow({
   permit: PermitRecord;
   editable: boolean;
   onLetter: () => void;
-  onChange: (patch: Partial<Permit>) => void;
+  onChange: (patch: Partial<PermitRecord>) => void;
 }) {
   const cleared = p.tone === "ok";
   const late = !cleared && !!p.due && p.due < TODAY;
   const isPermit = p.permit !== false;
   const done = isPermit ? "Cleared" : "Booked";
   return (
-    <li className="flex flex-wrap items-center gap-2 border-t border-sand-2 py-2.5 text-sm first:border-0">
+    <li className="flex flex-wrap items-center gap-2 border-sand-2 border-t py-2.5 text-sm first:border-0">
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="font-medium">{p.label}</span>
         <span className={`text-xs ${late ? "text-rust-ink" : toneText(p.tone)}`}>{permitNote(p, late)}</span>
@@ -100,12 +100,12 @@ function PermitRow({
 }
 
 /** Permits the event needs, who is filing each, and a drafted application letter. */
-export function Permits({ ev, editable }: { ev: CommunityEvent; editable: boolean }) {
+export function Permits({ ev, editable }: { ev: CommunityEvent; editable: boolean }): JSX.Element {
   const { dispatch } = useStore();
   const permits = list(ev, "permits");
   const [writing, setWriting] = useState<PermitRecord | null>(null);
   const [label, setLabel] = useState("");
-  const set = (p: PermitRecord, patch: Partial<Permit>) =>
+  const set = (p: PermitRecord, patch: Partial<PermitRecord>) =>
     dispatch({ type: "updateRecord", eventId: ev.id, coll: "permits", id: p.id, patch });
   const add = (e: FormEvent) => {
     e.preventDefault();

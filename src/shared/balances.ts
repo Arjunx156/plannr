@@ -1,9 +1,11 @@
+import type { Payment } from "../data/budgetTypes";
 import type { FundSource } from "../data/communityTypes";
 import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../data/types";
 import { list } from "./records";
 
 // ---------------------------------------------------------------- money
 
+/** One side of a split budget: its share, what it has paid and what it still owes. */
 export interface SideBalance {
   name: string;
   share: number;
@@ -49,12 +51,13 @@ export function settleUp(balances: SideBalance[]): { from: string; to: string; a
 }
 
 /** Payments due on or before a date that aren't paid yet, soonest first. */
-export function paymentsDue(ev: PlannrEvent, until: string) {
+export function paymentsDue(ev: PlannrEvent, until: string): Payment[] {
   return list(ev, "payments")
     .filter((p) => !p.paid && p.date <= until)
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** How many gifts came in, the cash among them, and how many still need a thank-you. */
 export function giftTotals(ev: PlannrEvent): { count: number; cash: number; toThank: number } {
   const gifts = list(ev, "gifts");
   return {
@@ -65,6 +68,7 @@ export function giftTotals(ev: PlannrEvent): { count: number; cash: number; toTh
 }
 // ---------------------------------------------------------------- community
 
+/** A community event's money: every source, what came in and what went out. */
 export interface FundTotals {
   /** Manual sources plus sponsorships and stall fees from their lists. */
   sources: FundSource[];
@@ -76,6 +80,7 @@ export interface FundTotals {
   passes: { issued: number; capacity: number; checkedIn: number };
 }
 
+/** Adds up a community event's funds from its sources, sponsors, stall fees and approved expenses. */
 export function fundTotals(ev: CommunityEvent): FundTotals {
   const stalls = ev.stallList ?? [];
   const sponsors = ev.sponsors ?? [];

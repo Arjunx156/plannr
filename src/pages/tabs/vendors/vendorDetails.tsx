@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Field, TextField } from "../../../components/fields";
 import type { PlannrEvent } from "../../../data/types";
 import type { Vendor } from "../../../data/vendorTypes";
@@ -43,7 +43,7 @@ interface Props {
 }
 
 /** Name, contact, payment and day-of details, and removing the vendor. */
-export function VendorDetails({ ev, v, patch, onClose }: Props) {
+export function VendorDetails({ ev, v, patch, onClose }: Props): JSX.Element {
   const { dispatch } = useStore();
   const [form, setForm] = useState(() => formFor(v));
   const set: Setter = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
@@ -59,7 +59,7 @@ export function VendorDetails({ ev, v, patch, onClose }: Props) {
     onClose();
   };
   return (
-    <form onSubmit={save} className="flex flex-col gap-3 border-t border-line pt-4">
+    <form onSubmit={save} className="flex flex-col gap-3 border-line border-t pt-4">
       <h3 className="font-semibold">Details</h3>
       <ContactFields form={form} set={set} />
       {cats.length > 0 && (

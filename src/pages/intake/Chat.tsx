@@ -1,9 +1,10 @@
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { type JSX, type RefObject, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { canDraft, type ImagePreview, imagesFrom } from "../../components/intake";
-import type { Profile } from "../../data/types";
+import { VENUE_STATUSES } from "../../data/types";
 import { extractWithAi, mergeAiProfile } from "../../lib/aiIntake";
 import { type Question, togglePick } from "../../lib/intakeQuestions";
+import { oneOf } from "../../shared/guards";
 import { useStore } from "../../store/store";
 import type { ChatTurn, Draft } from "../../store/types";
 import { Composer } from "./Composer";
@@ -27,7 +28,7 @@ const REPLY_PAUSE_MS = 650;
 /** The profile after a chip is picked, and the turn Plannr answers with. */
 function chipAnswer(current: Draft, q: Question, option: string) {
   if (q.field === "venue") {
-    const profile = { ...current.profile, venueStatus: option as Profile["venueStatus"] };
+    const profile = { ...current.profile, venueStatus: oneOf(option, VENUE_STATUSES) };
     const asked = [...new Set([...current.asked, "venue" as const])];
     const next = questionAfter(profile, asked, "venue");
     const reply: ChatTurn = { id: turnId(), role: "ai", text: next ? "" : DONE, question: next ?? undefined };
@@ -100,7 +101,15 @@ function useReplies(draftRef: RefObject<Draft>) {
 }
 
 /** The conversation that builds the event's profile, with the profile so far beside it. */
-export function Chat({ draft, autoSend, onEdit }: { draft: Draft; autoSend?: string; onEdit: () => void }) {
+export function Chat({
+  draft,
+  autoSend,
+  onEdit,
+}: {
+  draft: Draft;
+  autoSend?: string | undefined;
+  onEdit: () => void;
+}): JSX.Element {
   const { dispatch } = useStore();
   const navigate = useNavigate();
   const [images, setImages] = useState<ImagePreview[]>([]);

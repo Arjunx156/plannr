@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Link } from "react-router";
 import { bindText, TextField } from "../../../components/fields";
 import type { Pass } from "../../../data/communityTypes";
@@ -15,7 +15,7 @@ const SHOWN = 60;
 const EMPTY_FORM = { name: "", count: "2", phone: "" };
 
 /** Entry passes by flat or name, with check-ins from the gate. */
-export function Passes({ ev, editable }: { ev: CommunityEvent; editable: boolean }) {
+export function Passes({ ev, editable }: { ev: CommunityEvent; editable: boolean }): JSX.Element {
   const passes = list(ev, "passes");
   const aside = (
     <span className="flex flex-wrap items-center gap-2">
@@ -66,10 +66,10 @@ function PassList({ ev, passes, editable }: { ev: CommunityEvent; passes: Pass[]
         {shown.map((p) => (
           <PassRow key={p.id} p={p} onCancel={editable ? () => cancel(p) : undefined} />
         ))}
-        {passes.length === 0 && <li className="text-sm text-muted">No passes issued yet.</li>}
+        {passes.length === 0 && <li className="text-muted text-sm">No passes issued yet.</li>}
       </ul>
       {passes.length > shown.length && (
-        <span className="text-xs text-muted">
+        <span className="text-muted text-xs">
           Showing {shown.length} of {passes.length}. Search to find the rest.
         </span>
       )}
@@ -77,11 +77,11 @@ function PassList({ ev, passes, editable }: { ev: CommunityEvent; passes: Pass[]
   );
 }
 
-function PassRow({ p, onCancel }: { p: Pass; onCancel?: () => void }) {
+function PassRow({ p, onCancel }: { p: Pass; onCancel?: (() => void) | undefined }) {
   return (
-    <li className="flex items-center justify-between gap-2 border-t border-sand-2 py-2 text-sm">
+    <li className="flex items-center justify-between gap-2 border-sand-2 border-t py-2 text-sm">
       <span className="font-medium">{p.name}</span>
-      <span className="flex items-center gap-2 text-xs text-muted">
+      <span className="flex items-center gap-2 text-muted text-xs">
         {p.checkedIn ? `${p.checkedIn}/${p.count} in` : `${p.count} ${p.count === 1 ? "pass" : "passes"}`}
         {onCancel && (
           <button

@@ -1,10 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { and, asc, eq, sql } from "drizzle-orm";
+import { DAY_MS } from "../src/lib/dates";
 import type { InvitePreview, Member, Role } from "../src/shared/types";
 import { user } from "./db/authSchema";
 import { changes, comments, events, invites, members } from "./db/schema";
 import type { Db } from "./db/types";
-
 import { HttpError, RANK, requireRole, roleOf } from "./plans";
 
 /**
@@ -30,12 +30,13 @@ export async function listMembers(db: Db, eventId: string, userId: string): Prom
   return rows.map((r) => ({ ...r, guest: !!r.guest, email: r.guest ? null : r.email }));
 }
 
+/** Changes a co-planner's role; only the owner can. */
 export async function updateMember(
   db: Db,
   eventId: string,
   userId: string,
   memberId: string,
-  patch: { role?: Role; side?: string | null },
+  patch: { role?: Role | undefined; side?: string | null | undefined },
 ): Promise<void> {
   const myRole = await requireRole(db, eventId, userId, "planner");
   const target = await roleOf(db, eventId, memberId);
@@ -52,6 +53,7 @@ export async function updateMember(
     .where(and(eq(members.eventId, eventId), eq(members.userId, memberId)));
 }
 
+/** Removes a co-planner, or lets someone leave an event they don't own. */
 export async function removeMember(db: Db, eventId: string, userId: string, memberId: string): Promise<void> {
   const myRole = await requireRole(db, eventId, userId, "viewer");
   const target = await roleOf(db, eventId, memberId);
@@ -65,17 +67,22 @@ export async function removeMember(db: Db, eventId: string, userId: string, memb
 
 const INVITE_DAYS = 14;
 
+/** Makes an invite link for a role, valid for two weeks. */
 export async function createInvite(
   db: Db,
   eventId: string,
   userId: string,
-  opts: { role: Exclude<Role, "owner">; side?: string | null; maxUses?: number | null },
+  opts: {
+    role: Exclude<Role, "owner">;
+    side?: string | null | undefined;
+    maxUses?: number | null | undefined;
+  },
 ): Promise<{ token: string; expiresAt: string }> {
   const myRole = await requireRole(db, eventId, userId, "planner");
   if (opts.role === "planner" && myRole !== "owner" && myRole !== "planner")
     throw new HttpError(403, "You can't invite planners");
   const token = randomBytes(18).toString("base64url");
-  const expiresAt = new Date(Date.now() + INVITE_DAYS * 86400000);
+  const expiresAt = new Date(Date.now() + INVITE_DAYS * DAY_MS);
   await db.insert(invites).values({
     token,
     eventId,
@@ -105,6 +112,7 @@ function inviteProblem(invite: typeof invites.$inferSelect): string | undefined 
   return undefined;
 }
 
+/** What an invite offers, before anyone accepts it. */
 export async function previewInvite(db: Db, token: string): Promise<InvitePreview> {
   const row = await inviteRow(db, token);
   if (!row) throw new HttpError(404, "This invite link isn't valid");
@@ -122,6 +130,7 @@ export async function previewInvite(db: Db, token: string): Promise<InvitePrevie
   };
 }
 
+/** Accepts an invite: adds the person to the event with the offered role. */
 export async function acceptInvite(
   db: Db,
   token: string,

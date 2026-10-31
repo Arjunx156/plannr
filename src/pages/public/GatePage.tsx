@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { detectorClass, Scanner } from "../../components/scanner";
 import { fill } from "../../lib/guestText";
 import type { LinkText } from "../../lib/linkText/en";
@@ -26,7 +26,15 @@ function useCheckIn(act: Act | undefined) {
 }
 
 /** The gate volunteer's page: find a flat or scan its pass, then count people in. */
-export function GatePage({ view, act, preview }: { view: GateView; act?: Act; preview?: ReactNode }) {
+export function GatePage({
+  view,
+  act,
+  preview,
+}: {
+  view: GateView;
+  act?: Act | undefined;
+  preview?: ReactNode;
+}): JSX.Element {
   const { t, shell } = useLinkLang(view.event);
   const { busy, set } = useCheckIn(act);
   const [q, setQ] = useState("");
@@ -63,7 +71,7 @@ export function GatePage({ view, act, preview }: { view: GateView; act?: Act; pr
       eyebrow={t.gate}
       preview={preview}
       {...shell}
-      aside={<span className="mt-2 font-mono text-[28px] text-white tabular">{count}</span>}
+      aside={<span className="tabular mt-2 font-mono text-[28px] text-white">{count}</span>}
     >
       <label htmlFor="gate-q" className="label">
         {t.findPass}
@@ -83,7 +91,7 @@ export function GatePage({ view, act, preview }: { view: GateView; act?: Act; pr
         )}
       </div>
       {note && (
-        <p role="status" className="m-0 text-[15px] font-medium text-leaf-ink">
+        <p role="status" className="m-0 font-medium text-[15px] text-leaf-ink">
           {note}
         </p>
       )}
@@ -111,7 +119,7 @@ function GateRow({ p, t, disabled, onSet }: RowProps) {
     <li className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3">
       <span className="flex flex-col">
         <span className="font-semibold">{p.name}</span>
-        <span className="text-xs text-muted">{fill(t.inOf, { c: p.checkedIn, n: p.count })}</span>
+        <span className="text-muted text-xs">{fill(t.inOf, { c: p.checkedIn, n: p.count })}</span>
       </span>
       <span className="flex items-center gap-2">
         <button

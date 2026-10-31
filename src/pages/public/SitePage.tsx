@@ -1,11 +1,11 @@
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import { type GuestLang, guestLang, guestText } from "../../lib/guestText";
 import type { SiteView } from "../../shared/public";
 import { CalendarButton } from "./CalendarButton";
 import { Card, FunctionFacts, PublicShell } from "./shell";
 
 /** The event's own website: the story, the functions with maps, and a way to answer. */
-export function SitePage({ view, preview }: { view: SiteView; preview?: ReactNode }) {
+export function SitePage({ view, preview }: { view: SiteView; preview?: ReactNode }): JSX.Element {
   const local = guestLang(view.site.lang);
   const langs: GuestLang[] = local && local !== "en" && view.site.storyLocal ? ["en", local] : ["en"];
   const [lang, setLang] = useState<GuestLang>("en");
@@ -23,7 +23,7 @@ export function SitePage({ view, preview }: { view: SiteView; preview?: ReactNod
       {story && (
         <Card label={t.story}>
           <h2 className="font-serif text-[24px]">{t.story}</h2>
-          <p className="m-0 text-[16px] leading-relaxed text-body" lang={lang}>
+          <p className="m-0 text-[16px] text-body leading-relaxed" lang={lang}>
             {story}
           </p>
         </Card>
@@ -32,7 +32,7 @@ export function SitePage({ view, preview }: { view: SiteView; preview?: ReactNod
         <h2 className="font-serif text-[24px]">{t.schedule}</h2>
         <ol className="m-0 flex list-none flex-col p-0">
           {view.event.functions.map((f, i) => (
-            <li key={f.id} className={`flex flex-col gap-0.5 py-3 ${i ? "border-t border-sand-2" : ""}`}>
+            <li key={f.id} className={`flex flex-col gap-0.5 py-3 ${i ? "border-sand-2 border-t" : ""}`}>
               <span className="font-serif text-[20px]">{f.label}</span>
               <FunctionFacts f={f} t={t} />
             </li>
@@ -55,7 +55,7 @@ export function SitePage({ view, preview }: { view: SiteView; preview?: ReactNod
           </dl>
         </Card>
       )}
-      <p className="m-0 text-center text-sm text-muted">{t.rsvpNote}</p>
+      <p className="m-0 text-center text-muted text-sm">{t.rsvpNote}</p>
     </PublicShell>
   );
 }

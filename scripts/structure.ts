@@ -1,61 +1,81 @@
 /**
- * Keeps the code easy to find your way around: no source file over 300 lines, and no import
- * cycles between the project's own modules. Demo seed data is exempt from the length cap,
- * since it is data rather than logic. Run by `just check` and CI.
+ * The architecture fitness checks, run by `just check` and CI. Each prints one line, then lists
+ * whatever broke it:
+ *
+ * 1. no file over 300 lines, tests included; demo seed data is data rather than logic, so it's exempt;
+ * 2. no import cycles between the project's own files;
+ * 3. imports follow the layers in ARCHITECTURE.md;
+ * 4. a doc comment on every export;
+ * 5. type assertions only in the files allowed below, each with its reason in a comment above it;
+ * 6. no inline `style` props, so the CSP can refuse inline styles.
  */
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { castsIn } from "./structure/casts";
+import { importCycles } from "./structure/cycles";
+import { undocumented } from "./structure/docs";
+import { layerBreaks } from "./structure/layers";
+import { sources } from "./structure/sources";
+import { inlineStyles } from "./structure/styles";
 
-const ROOT = join(import.meta.dir, "..");
 const MAX_LINES = 300;
 const EXEMPT = /^src\/data\/demo\//;
-/** A static import or re-export of a relative path; lazy `import()` calls are left out on purpose. */
-const IMPORT = /(?:^import\s*|\bfrom\s*)["'](\.{1,2}\/[^"']+)["']/gm;
 
-const files = [...new Bun.Glob("{src,server,scripts}/**/*.{ts,tsx}").scanSync(ROOT)]
-  .map((f) => f.replaceAll("\\", "/"))
-  .sort();
+/** Where a cast may appear, and how many. Each sits at a boundary TypeScript can't follow. */
+const ALLOWED_CASTS: Record<string, number> = {
+  "src/shared/guards.ts": 2, // keysOf and mapStrings, which keep the shape they were given
+  "src/shared/records.ts": 1, // one collection's store, picked by its key
+  "src/store/store.tsx": 1, // saved state this same app wrote
+  "src/lib/api.ts": 1, // answers the server already validated
+  "server/validate.ts": 1, // input zod has just checked
+  "server/backup.ts": 1, // an insert into a table picked at runtime
+  "server/db/local.ts": 1, // PGlite and Neon behind one Drizzle type
+  "server/db/neon.ts": 1,
+};
 
-/** The file an import names, trying the extensions and index files TypeScript would. */
-function resolveImport(from: string, spec: string): string | undefined {
-  const base = relative(ROOT, join(ROOT, dirname(from), spec)).replaceAll("\\", "/");
-  const tries = [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`];
-  return tries.find((f) => /\.tsx?$/.test(f) && existsSync(join(ROOT, f)));
+const files = sources(["src", "server", "scripts", "tests", "e2e"]);
+
+function longFiles(): string[] {
+  return files
+    .filter((f) => f.lines > MAX_LINES && !EXEMPT.test(f.file))
+    .map((f) => `${f.file}: ${f.lines} lines`);
 }
 
-/** Every import cycle, each as the path that closes it. */
-function findCycles(graph: Map<string, string[]>): string[][] {
-  const state = new Map<string, "open" | "done">();
-  const path: string[] = [];
-  const cycles: string[][] = [];
-  const visit = (file: string) => {
-    state.set(file, "open");
-    path.push(file);
-    for (const next of graph.get(file) ?? []) {
-      if (state.get(next) === "open") cycles.push([...path.slice(path.indexOf(next)), next]);
-      else if (!state.has(next)) visit(next);
-    }
-    path.pop();
-    state.set(file, "done");
-  };
-  for (const file of graph.keys()) if (!state.has(file)) visit(file);
-  return cycles;
+function castProblems(): string[] {
+  const casts = files.flatMap((f) => castsIn(f.source));
+  const lines = new Map<string, number[]>();
+  for (const c of casts) lines.set(c.file, [...(lines.get(c.file) ?? []), c.line]);
+  const over = [...lines]
+    .filter(([file, at]) => at.length > (ALLOWED_CASTS[file] ?? 0))
+    .map(
+      ([file, at]) =>
+        `${file}: ${at.length} cast(s), ${ALLOWED_CASTS[file] ?? 0} allowed (lines ${at.join(", ")})`,
+    );
+  const unexplained = casts
+    .filter((c) => !c.explained)
+    .map((c) => `${c.file}:${c.line}: no reason above \`${c.text}\``);
+  return [...over, ...unexplained];
 }
 
-const graph = new Map<string, string[]>();
-const long: { file: string; lines: number }[] = [];
-for (const file of files) {
-  const text = readFileSync(join(ROOT, file), "utf8");
-  const lines = text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
-  if (lines > MAX_LINES && !EXEMPT.test(file)) long.push({ file, lines });
-  const deps = [...text.matchAll(IMPORT)].flatMap((m) => resolveImport(file, m[1] ?? "") ?? []);
-  graph.set(file, deps);
-}
-const cycles = findCycles(graph);
+const checks: { rule: string; problems: string[] }[] = [
+  { rule: `no file over ${MAX_LINES} lines`, problems: longFiles() },
+  {
+    rule: "no import cycles",
+    problems: importCycles(files).map((c) => `cycle: ${c.join(" → ")}`),
+  },
+  {
+    rule: "imports follow the layers",
+    problems: layerBreaks(files).map((b) => `${b.file} imports ${b.imports}: ${b.why}`),
+  },
+  {
+    rule: "every export documented",
+    problems: files.flatMap((f) => undocumented(f.source)).map((u) => `${u.file}:${u.line} ${u.name}`),
+  },
+  { rule: "casts only where allowed, each with a reason", problems: castProblems() },
+  { rule: "no inline style props", problems: files.flatMap((f) => inlineStyles(f.source)) },
+];
 
-console.log(
-  `${files.length} files · ${long.length} over ${MAX_LINES} lines · ${cycles.length} import cycles`,
-);
-for (const { file, lines } of long) console.error(`  ${file}: ${lines} lines`);
-for (const cycle of cycles) console.error(`  cycle: ${cycle.join(" → ")}`);
-if (long.length > 0 || cycles.length > 0) process.exit(1);
+console.log(`${files.length} files`);
+for (const { rule, problems } of checks) {
+  console.log(problems.length > 0 ? `FAIL  ${rule}: ${problems.length}` : `ok    ${rule}`);
+  for (const p of problems) console.error(`        ${p}`);
+}
+if (checks.some((c) => c.problems.length > 0)) process.exit(1);

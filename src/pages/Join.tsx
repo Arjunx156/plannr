@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, type JSX, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { CardPage, PAPER_CARD } from "../components/brand";
 import { Field } from "../components/fields";
@@ -7,6 +7,7 @@ import { Spinner } from "../components/ui";
 import { ApiError, api } from "../lib/api";
 import { longDate } from "../lib/dates";
 import { KIND_LABEL } from "../lib/profileRows";
+import { errorMessage } from "../shared/guards";
 import { type InvitePreview, ROLE_LABEL } from "../shared/types";
 import { useAccount } from "../store/account";
 import { toast, useStore } from "../store/store";
@@ -61,7 +62,7 @@ function useJoin(token: string) {
       await work();
     } catch (e) {
       setBusy(false);
-      setError((e as Error).message || "Something went wrong. Try again.");
+      setError(errorMessage(e));
     }
   };
   const join = () => void run(accept);
@@ -82,7 +83,7 @@ function useJoin(token: string) {
 }
 
 /** /join/:token: an invitation to plan an event together. */
-export function Join() {
+export function Join(): JSX.Element {
   const { token = "" } = useParams();
   usePageMeta("You're invited", { private: true });
   const { state } = useStore();
@@ -121,7 +122,7 @@ export function Join() {
               onJoinAsGuest={onJoinAsGuest}
             />
             {error && (
-              <p id="join-error" role="alert" className="m-0 text-[13px] font-medium text-rust-ink">
+              <p id="join-error" role="alert" className="m-0 font-medium text-[13px] text-rust-ink">
                 {error}
               </p>
             )}
@@ -171,7 +172,7 @@ function InviteDetails({ invite }: { invite: InvitePreview }) {
           {invite.side ? ` · ${invite.side}` : ""}
         </dd>
       </dl>
-      <p className="m-0 text-[15px] leading-normal text-body">{CAN[invite.role]}</p>
+      <p className="m-0 text-[15px] text-body leading-normal">{CAN[invite.role]}</p>
     </>
   );
 }
@@ -238,7 +239,7 @@ function JoinChoice({
           </button>
         </form>
       )}
-      <span className="text-sm text-body">
+      <span className="text-body text-sm">
         Have an account?{" "}
         <Link to={`/signin${next}`} className="link">
           Log in to join

@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { CardPage, PAPER_CARD } from "../components/brand";
 import { usePageMeta } from "../components/pageMeta";
@@ -63,7 +63,7 @@ function useSaveProfile() {
 }
 
 /** /onboarding — a name, a city and a language, so plans fit where the planner lives. */
-export function Onboarding() {
+export function Onboarding(): JSX.Element {
   usePageMeta("Almost there", { private: true });
   const { state } = useStore();
   const next = useContinue();
@@ -140,7 +140,7 @@ function NameField({ value, onChange, error }: FieldProps & { error: string }) {
         aria-describedby={error ? "name-error" : undefined}
       />
       {error && (
-        <span id="name-error" role="alert" className="text-[13px] font-medium text-rust-ink">
+        <span id="name-error" role="alert" className="font-medium text-[13px] text-rust-ink">
           {error}
         </span>
       )}
@@ -168,7 +168,7 @@ function CityField({ value, onChange }: FieldProps) {
         {district && <span className="hidden text-[13px] text-muted sm:inline">{district}</span>}
       </div>
       {cityName && (
-        <span className="text-xs leading-[1.4] text-peacock">
+        <span className="text-peacock text-xs leading-[1.4]">
           ◆ Vendor suggestions, prices and booking windows will use {cityName}.
         </span>
       )}
@@ -200,13 +200,13 @@ function LanguagePicker({ value, onChange }: FieldProps) {
           <button
             type="button"
             onClick={() => setMore(true)}
-            className="chip min-h-10 rounded-[10px] border-dashed border-line-2 px-3.5 text-[15px] text-body"
+            className="chip min-h-10 rounded-[10px] border-line-2 border-dashed px-3.5 text-[15px] text-body"
           >
             More
           </button>
         )}
       </div>
-      <span className="text-xs leading-[1.4] text-muted">
+      <span className="text-muted text-xs leading-[1.4]">
         The assistant replies in any of these, whatever this is set to.
       </span>
     </fieldset>

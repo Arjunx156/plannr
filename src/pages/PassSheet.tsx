@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Link, useParams } from "react-router";
 import { usePageMeta } from "../components/pageMeta";
 import { QrCode } from "../components/qr";
@@ -12,7 +13,7 @@ import { useStore } from "../store/store";
  * /events/:id/passes — every pass on one printable sheet, each with its QR code. Cut them
  * apart and hand them out; the gate team scans them from the gate link or the Day of tab.
  */
-export function PassSheet() {
+export function PassSheet(): JSX.Element {
   const { id } = useParams();
   const { state } = useStore();
   const ev = state.events.find((e) => e.id === id);
@@ -27,7 +28,7 @@ export function PassSheet() {
               ← Stalls & passes
             </Link>
             <h1 className="font-serif text-[32px] leading-none">Passes{ev ? ` · ${ev.name}` : ""}</h1>
-            <span className="text-sm text-body">
+            <span className="text-body text-sm">
               {passes.length} {passes.length === 1 ? "pass" : "passes"}. Print, cut along the lines, and hand
               them out.
             </span>
@@ -54,12 +55,12 @@ function PassGrid({ ev, passes }: { ev: PlannrEvent | undefined; passes: Pass[] 
       {passes.map((p) => (
         <li
           key={p.id}
-          className="flex break-inside-avoid flex-col items-center gap-1.5 border border-dashed border-line-2 p-4 text-center"
+          className="flex break-inside-avoid flex-col items-center gap-1.5 border border-line-2 border-dashed p-4 text-center"
         >
           <span className="eyebrow text-muted">{ev.name}</span>
           <QrCode text={passCode(p.id)} size={132} label={`Pass for ${p.name}`} />
           <span className="font-serif text-[20px] leading-tight">{p.name}</span>
-          <span className="text-sm text-body">
+          <span className="text-body text-sm">
             Admits {p.count} · {longDate(ev.date)}
           </span>
         </li>

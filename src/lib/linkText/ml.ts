@@ -1,5 +1,6 @@
 import type { LinkText } from "./en";
 
+/** Shared pages in Malayalam. */
 export const ml: LinkText = {
   helperList: "{name}-ന്റെ പട്ടിക",
   helperHello: "നമസ്കാരം, {name}.",

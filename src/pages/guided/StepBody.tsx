@@ -1,13 +1,14 @@
-import { type ReactNode, useState } from "react";
+import { type JSX, type ReactNode, useState } from "react";
 import type { ImagePreview } from "../../components/intake";
 import { PriorityPicker } from "../../components/intake";
 import type { Kind } from "../../data/baseTypes";
-import type { Profile } from "../../data/types";
+import { VENUE_STATUSES } from "../../data/types";
 import { addDays, longDate, TODAY } from "../../lib/dates";
 import { inr } from "../../lib/format";
 import { togglePick } from "../../lib/intakeQuestions";
 import { KIND_LABEL } from "../../lib/profileRows";
-import { TEMPLATES, type TemplateId, templateProfile } from "../../lib/templates";
+import { TEMPLATES, templateProfile } from "../../lib/templates";
+import { keysOf, oneOf } from "../../shared/guards";
 import { useStore } from "../../store/store";
 import { CoPlannersStep } from "./CoPlannersStep";
 import { Block, Chips, QuickPicks, type StepProps, toggle } from "./fields";
@@ -38,10 +39,10 @@ function KindStep({ p, set }: StepProps) {
       <Block label="Event type">
         <Chips
           single
-          options={(Object.keys(KIND_LABEL) as Kind[]).map(label)}
+          options={keysOf(KIND_LABEL).map(label)}
           selected={p.kind ? [label(p.kind)] : []}
           onToggle={(o) => {
-            const kind = (Object.keys(KIND_LABEL) as Kind[]).find((k) => label(k) === o) ?? "other";
+            const kind = keysOf(KIND_LABEL).find((k) => label(k) === o) ?? "other";
             // A wedding always has its ceremony; the planner adds the rest.
             set({
               kind,
@@ -61,7 +62,7 @@ function KindStep({ p, set }: StepProps) {
       </Block>
       <Block label="Or start from a template">
         <div className="flex flex-wrap gap-2">
-          {(Object.keys(TEMPLATES) as TemplateId[]).map((id) => (
+          {keysOf(TEMPLATES).map((id) => (
             <button
               key={id}
               type="button"
@@ -74,7 +75,7 @@ function KindStep({ p, set }: StepProps) {
             </button>
           ))}
         </div>
-        <span className="text-xs text-muted">
+        <span className="text-muted text-xs">
           A template fills every step. Change anything that's different for you.
         </span>
       </Block>
@@ -110,7 +111,7 @@ function DateStep({ p, set }: StepProps) {
           })
         }
       />
-      {p.dateText && <span className="text-xs text-peacock">◆ Tasks will work back from {p.dateText}.</span>}
+      {p.dateText && <span className="text-peacock text-xs">◆ Tasks will work back from {p.dateText}.</span>}
     </Block>
   );
 }
@@ -131,9 +132,9 @@ function PlaceStep({ p, set }: StepProps) {
       <Block label="Venue">
         <Chips
           single
-          options={["Booked", "Shortlisted", "Not started"]}
+          options={[...VENUE_STATUSES]}
           selected={p.venueStatus ? [p.venueStatus] : []}
-          onToggle={(o) => set({ venueStatus: o as Profile["venueStatus"] })}
+          onToggle={(o) => set({ venueStatus: oneOf(o, VENUE_STATUSES) })}
         />
       </Block>
       {named && (
@@ -184,7 +185,7 @@ function BudgetStep({ p, set }: StepProps) {
           onChange={(e) => set({ budget: Number(e.target.value) || undefined })}
         />
       </div>
-      {p.budget ? <span className="text-xs text-peacock">◆ {inr(p.budget)}</span> : null}
+      {p.budget ? <span className="text-peacock text-xs">◆ {inr(p.budget)}</span> : null}
       <QuickPicks
         values={[40000, 250000, 500000, 1000000, 1800000]}
         current={p.budget}
@@ -237,7 +238,7 @@ const STEP_BODIES: ((props: StepProps) => ReactNode)[] = [
 ];
 
 /** The questions for one step of the guided form. */
-export function StepBody({ step, p, set }: Pick<StepProps, "p" | "set"> & { step: number }) {
+export function StepBody({ step, p, set }: Pick<StepProps, "p" | "set"> & { step: number }): JSX.Element {
   const [previews, setPreviews] = useState<ImagePreview[]>([]);
   const Body = STEP_BODIES[step] ?? CoPlannersStep;
   return (

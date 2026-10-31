@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import type { PlannrEvent } from "../../../data/types";
 import type { Vendor } from "../../../data/vendorTypes";
 import { longDate } from "../../../lib/dates";
@@ -17,7 +18,7 @@ export function OnTheDay({
   v: Vendor;
   editable: boolean;
   patch: PatchVendor;
-}) {
+}): JSX.Element {
   const fns = functionsOf(ev);
   const arrivals = v.arrivals ?? [];
   const setArrival = (fnId: string, time: string) =>
@@ -52,7 +53,7 @@ export function OnTheDay({
           );
         })}
       </ul>
-      <span className="text-xs text-muted">
+      <span className="text-muted text-xs">
         Their call sheet shows when to arrive, the run sheet, what they need and what's been paid. Nothing
         else.
       </span>

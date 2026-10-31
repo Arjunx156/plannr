@@ -45,8 +45,8 @@ export async function spendAi(db: Db, key: string, cost: number, limit: number):
 export function aiRoutes(app: Api, { db, auth, ai, allow }: RouteDeps): void {
   app.get("/ai/status", async (c) => {
     const out = await handleAi("status", {}, ai());
-    return c.json(out.body as object, {
-      status: out.status as 200,
+    return c.json(out.body, {
+      status: out.status,
       headers: { "cache-control": "no-store" },
     });
   });
@@ -105,6 +105,6 @@ export function aiRoutes(app: Api, { db, auth, ai, allow }: RouteDeps): void {
     const meter = { tokens: 0 };
     const out = await handleAi(route, input, ai(), fetch, meter);
     await addTokens(db, allowed.key, meter.tokens);
-    return c.json(out.body as object, out.status as 200);
+    return c.json(out.body, out.status);
   });
 }

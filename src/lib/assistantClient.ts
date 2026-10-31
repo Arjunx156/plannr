@@ -2,7 +2,9 @@ import type { AiProposal, Message } from "../data/messageTypes";
 import type { PlannrEvent } from "../data/types";
 import { fundTotals } from "../shared/balances";
 import { rsvpSummary } from "../shared/derive";
+import { isRecord } from "../shared/guards";
 import { aiEnabled, post } from "./ai";
+import { fromServer } from "./api";
 import { TODAY } from "./dates";
 import { budgetTotals, communityReadiness, personalReadiness, settle } from "./metrics";
 
@@ -73,6 +75,7 @@ function compactEvent(ev: PlannrEvent): unknown {
   return rest;
 }
 
+/** The assistant's answer: its text, where it came from, and any changes it proposes. */
 export interface AssistantAnswer {
   text: string;
   source?: string;
@@ -137,29 +140,42 @@ async function openAssistantStream(body: unknown): Promise<ReadableStream<Uint8A
   }
 }
 
+function streamText(data: string): string | undefined {
+  const chunk: unknown = JSON.parse(data);
+  return isRecord(chunk) && typeof chunk["text"] === "string" ? chunk["text"] : undefined;
+}
+
+// Each complete server-sent event in the stream, in order.
+async function* sseEvents(
+  stream: ReadableStream<Uint8Array>,
+): AsyncGenerator<{ event: string; data: string }> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (let r = await reader.read(); !r.done; r = await reader.read()) {
+    buffer += decoder.decode(r.value, { stream: true });
+    for (let e = nextEvent(buffer); e; e = nextEvent(buffer)) {
+      buffer = e.rest;
+      yield e;
+    }
+  }
+}
+
 /** Reads server-sent events: "text" carries the answer so far, then "done" or "error". */
 async function readAssistantStream(
   stream: ReadableStream<Uint8Array>,
   onText: (soFar: string) => void,
 ): Promise<StreamOutcome> {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
   let shown = false;
   try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      for (let e = nextEvent(buffer); e; e = nextEvent(buffer)) {
-        buffer = e.rest;
-        if (e.event === "done") return { kind: "done", answer: JSON.parse(e.data) as AssistantAnswer };
-        if (e.event === "error") return { kind: "failed", shown };
-        if (e.event === "text") {
-          shown = true;
-          onText((JSON.parse(e.data) as { text: string }).text);
-        }
-      }
+    for await (const e of sseEvents(stream)) {
+      if (e.event === "done")
+        return { kind: "done", answer: fromServer<AssistantAnswer>(JSON.parse(e.data)) };
+      if (e.event === "error") return { kind: "failed", shown };
+      if (e.event !== "text") continue;
+      shown = true;
+      const text = streamText(e.data);
+      if (text !== undefined) onText(text);
     }
   } catch {
     // The connection dropped part-way.

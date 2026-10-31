@@ -5,12 +5,14 @@
  */
 export type Service = "vendors" | "directory" | "receipt";
 
+/** Whether a simulated service call should fail: offline, or asked to by the gallery. */
 export function shouldFail(service: Service): boolean {
   if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).getAll("fail").includes(service);
 }
 
+/** Resolves after a delay, for simulated network calls. */
 export function wait(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }

@@ -2,23 +2,24 @@ import { describe, expect, test } from "bun:test";
 import { handleAi } from "../server/ai.ts";
 import { ideasRequest, sanitizeIdeas } from "../server/prompts/ideas.ts";
 import { seedEvents } from "../src/data/seed";
-import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 import { toCsv } from "../src/lib/csv";
-import { deviceIdeas, ideaBrief, ideaRecord } from "../src/lib/ideas";
+import { deviceIdeas, type IdeaSuggestion, ideaBrief, ideaRecord } from "../src/lib/ideas";
 import { list } from "../src/shared/records";
+import { demo, personal } from "./support";
 
 const config = { apiKey: "test-key", model: "test-model" };
-const wedding = seedEvents().find((e) => e.id === "ananya-rohan") as PersonalEvent;
+const wedding = personal(seedEvents().find((e) => e.id === "ananya-rohan"));
 
-const idea = (over: Record<string, unknown> = {}) => ({
+const RUNNERS: IdeaSuggestion = {
   title: "Kasavu runners on every table",
   detail: "Cream and gold runners tie the reception to the ceremony.",
   because: "A Kerala wedding in Kochi",
   effort: "low",
   cost: 12000,
   category: "Décor",
-  ...over,
-});
+};
+// Gemini's raw answer may hold anything, so overrides here aren't held to the type.
+const idea = (over: Record<string, unknown> = {}) => ({ ...RUNNERS, ...over });
 
 function gemini(payload: unknown) {
   const sent: string[] = [];
@@ -114,7 +115,7 @@ describe("ideas on the device", () => {
     const lines = wedding.budget.categories;
     const line = lines[0];
     if (!line) throw new Error("no budget lines");
-    const rec = ideaRecord(idea({ category: line.name.toUpperCase() }) as never, lines, "i9");
+    const rec = ideaRecord({ ...RUNNERS, category: line.name.toUpperCase() }, lines, "i9");
     expect(rec).toMatchObject({
       id: "i9",
       status: "idea",
@@ -150,7 +151,7 @@ describe("ideas from the family's own notes", () => {
   });
 
   test("a birthday's allergy note and a mela's sound rule shape their ideas", () => {
-    const [, birthday, mela] = seedEvents() as [PersonalEvent, PersonalEvent, CommunityEvent];
+    const { birthday, mela } = demo();
     expect(deviceIdeas(birthday)[0]?.title).toBe("Allergy labels on every dish");
     const melaIdeas = deviceIdeas(mela).map((i) => i.title);
     expect(melaIdeas).toContain("Steel plates and a washing station");

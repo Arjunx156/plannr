@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import type { EventAction } from "../shared/engine";
 import { chosenActions, type Ripple } from "../shared/ripple";
 import { toast, useStore } from "../store/store";
@@ -18,7 +18,7 @@ export function RipplePreview({
   onDone?: (applied: EventAction[]) => void;
   onCancel?: () => void;
   applyLabel?: string;
-}) {
+}): JSX.Element {
   const { dispatch } = useStore();
   const [kept, setKept] = useState(
     () => new Set(ripple.lines.filter((l) => l.optional && l.actions.length > 0).map((l) => l.id)),
@@ -27,7 +27,7 @@ export function RipplePreview({
   const apply = (all: boolean) => {
     const set = all ? new Set(ripple.lines.map((l) => l.id)) : kept;
     const actions = chosenActions(ripple, set);
-    for (const a of actions) dispatch(a as Parameters<typeof dispatch>[0]);
+    for (const a of actions) dispatch(a);
     dispatch(
       toast(
         `Applied ${actions.length} ${actions.length === 1 ? "change" : "changes"}. Undo any of them from History.`,
@@ -41,13 +41,13 @@ export function RipplePreview({
         <span className="font-semibold">
           {ripple.title} · {actionable.length} connected {actionable.length === 1 ? "change" : "changes"}
         </span>
-        <span className="rounded-full bg-peacock px-2 py-0.5 text-xs font-semibold text-white">Preview</span>
+        <span className="rounded-full bg-peacock px-2 py-0.5 font-semibold text-white text-xs">Preview</span>
       </div>
       <ul className="m-0 flex list-none flex-col p-0">
         {ripple.lines.map((l) => (
           <li
             key={l.id}
-            className="grid grid-cols-[20px_minmax(0,110px)_1fr] items-baseline gap-2 border-t border-peacock-line py-2 text-sm first:border-0"
+            className="grid grid-cols-[20px_minmax(0,110px)_1fr] items-baseline gap-2 border-peacock-line border-t py-2 text-sm first:border-0"
           >
             {l.actions.length > 0 ? (
               <input
@@ -90,7 +90,7 @@ export function RipplePreview({
           </button>
         )}
       </div>
-      <span className="text-xs text-muted">
+      <span className="text-muted text-xs">
         Everyone working on the plan sees what changed and who changed it.
       </span>
     </div>
@@ -98,7 +98,13 @@ export function RipplePreview({
 }
 
 /** The preview in a dialog, for changes started from a button. */
-export function RippleDialog({ ripple, onClose }: { ripple: Ripple | null; onClose: () => void }) {
+export function RippleDialog({
+  ripple,
+  onClose,
+}: {
+  ripple: Ripple | null;
+  onClose: () => void;
+}): JSX.Element {
   return (
     <Modal open={!!ripple} onClose={onClose} label={ripple?.title ?? "Preview"} width={560}>
       {ripple && <RipplePreview ripple={ripple} onDone={onClose} onCancel={onClose} />}

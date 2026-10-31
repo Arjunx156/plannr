@@ -28,6 +28,7 @@ export const PROPOSAL_KINDS = [
   "addChecklist",
 ] as const;
 
+/** The JSON schema for the plan changes the assistant may propose. */
 export const proposalSchema = {
   type: "array",
   description:
@@ -52,63 +53,67 @@ export const proposalSchema = {
   },
 } as const;
 
+/** Keeps only proposals with a known kind and the fields that kind needs. */
 export function sanitizeProposals(raw: unknown): Json[] {
   if (!Array.isArray(raw)) return [];
   const out: Json[] = [];
   for (const p of raw.filter(isObject).slice(0, 6)) {
-    const kind = oneOf(p.kind, PROPOSAL_KINDS);
+    const kind = oneOf(p["kind"], PROPOSAL_KINDS);
     if (!kind) continue;
     const clean: Json = { kind };
     const put = (k: string, v: unknown) => {
       if (v !== undefined) clean[k] = v;
     };
-    put("taskId", str(p.taskId, 80));
-    put("title", str(p.title, 120));
-    put("due", isoDate(p.due));
-    put("who", str(p.who, 60));
-    put("guests", int(p.guests, 1, 100000));
-    put("categoryId", str(p.categoryId, 80));
-    put("amount", int(p.amount, 0, 1000000000));
-    put("text", str(p.text, 400));
-    put("fnId", str(p.fnId, 80));
-    put("date", isoDate(p.date));
-    put("label", str(p.label, 120));
+    put("taskId", str(p["taskId"], 80));
+    put("title", str(p["title"], 120));
+    put("due", isoDate(p["due"]));
+    put("who", str(p["who"], 60));
+    put("guests", int(p["guests"], 1, 100000));
+    put("categoryId", str(p["categoryId"], 80));
+    put("amount", int(p["amount"], 0, 1000000000));
+    put("text", str(p["text"], 400));
+    put("fnId", str(p["fnId"], 80));
+    put("date", isoDate(p["date"]));
+    put("label", str(p["label"], 120));
     out.push(clean);
   }
   return out;
 }
 // ---------------------------------------------------------------- assistant
 
+/** One question to the assistant, with the plan, its computed facts and the thread so far. */
 export interface AssistantRequest {
   text: string;
   event: unknown;
   facts: unknown;
   history: { role: "user" | "ai"; text: string }[];
   today: string;
-  lang?: string;
+  lang?: string | undefined;
 }
 
+/** Checks an assistant request's fields; throws BadRequest when one is missing or malformed. */
 export function assistantRequest(body: unknown): AssistantRequest {
   if (!isObject(body)) throw new BadRequest("Expected a JSON object");
-  if (!isObject(body.event)) throw new BadRequest("event is required");
-  const history = Array.isArray(body.history) ? body.history : [];
+  if (!isObject(body["event"])) throw new BadRequest("event is required");
+  const history = Array.isArray(body["history"]) ? body["history"] : [];
   return {
-    text: requireText(body.text, "text"),
-    event: body.event,
-    facts: body.facts ?? {},
+    text: requireText(body["text"], "text"),
+    event: body["event"],
+    facts: body["facts"] ?? {},
     history: history
       .filter(isObject)
       .map((t) => ({
-        role: t.role === "user" ? ("user" as const) : ("ai" as const),
-        text: str(t.text, LIMITS.turnText) ?? "",
+        role: t["role"] === "user" ? ("user" as const) : ("ai" as const),
+        text: str(t["text"], LIMITS.turnText) ?? "",
       }))
       .filter((t) => t.text)
       .slice(-LIMITS.turns),
-    today: isoDate(body.today) ?? new Date().toISOString().slice(0, 10),
-    lang: oneOf(body.lang, Object.keys(LANG_NAMES)),
+    today: isoDate(body["today"]) ?? new Date().toISOString().slice(0, 10),
+    lang: oneOf(body["lang"], Object.keys(LANG_NAMES)),
   };
 }
 
+/** The JSON schema for the assistant's answer. */
 export const assistantSchema = {
   type: "object",
   properties: {
@@ -127,6 +132,7 @@ export const assistantSchema = {
   required: ["text"],
 } as const;
 
+/** The assistant's system prompt and the conversation, with the newest question last. */
 export function assistantPrompt(r: AssistantRequest): {
   system: string;
   contents: { role: "user" | "model"; parts: { text: string }[] }[];
@@ -160,22 +166,24 @@ Event data: ${clip(r.event)}`;
   return { system, contents };
 }
 
+/** The assistant's answer after cleaning: text, its source, and checked proposals. */
 export interface AssistantResult {
   text: string;
-  source?: string;
-  translation?: string;
-  actions?: Json[];
+  source?: string | undefined;
+  translation?: string | undefined;
+  actions?: Json[] | undefined;
 }
 
+/** Cleans the assistant's raw answer: trims the text and keeps only valid proposals. */
 export function sanitizeAssistant(raw: unknown): AssistantResult {
   const r = isObject(raw) ? raw : {};
-  const text = typeof r.text === "string" ? r.text.trim().slice(0, 1500) : "";
+  const text = typeof r["text"] === "string" ? r["text"].trim().slice(0, 1500) : "";
   if (!text) throw new Error("Empty answer");
-  const actions = sanitizeProposals(r.actions);
+  const actions = sanitizeProposals(r["actions"]);
   return {
     text,
-    source: str(r.source, 240),
-    translation: str(r.translation, 1500),
+    source: str(r["source"], 240),
+    translation: str(r["translation"], 1500),
     ...(actions.length > 0 ? { actions } : {}),
   };
 }

@@ -1,8 +1,10 @@
+import type { JSX } from "react";
 import { Link } from "react-router";
 import type { Task } from "../data/baseTypes";
 import type { PlannrEvent } from "../data/types";
 import { dueLabel } from "../lib/dates";
 
+/** One task: tick it off, see when it's due, open it for details. */
 export function TaskRow({
   ev,
   task,
@@ -17,11 +19,11 @@ export function TaskRow({
   onToggle: (t: Task) => void;
   onOpen?: (t: Task) => void;
   showEvent?: boolean;
-}) {
+}): JSX.Element {
   const due = dueLabel(task.due);
   const id = `task-${ev.id}-${task.id}`;
   return (
-    <li className="flex items-start gap-3 border-t border-sand-2 py-2.5">
+    <li className="flex items-start gap-3 border-sand-2 border-t py-2.5">
       <input
         type="checkbox"
         id={id}
@@ -36,19 +38,19 @@ export function TaskRow({
           <button
             type="button"
             onClick={() => onOpen(task)}
-            className={`text-left text-sm font-medium hover:underline hover:underline-offset-4 ${task.done ? "text-muted line-through" : ""}`}
+            className={`text-left font-medium text-sm hover:underline hover:underline-offset-4 ${task.done ? "text-muted line-through" : ""}`}
           >
             {task.title}
           </button>
         ) : (
-          <label htmlFor={id} className={`text-sm font-medium ${task.done ? "text-muted line-through" : ""}`}>
+          <label htmlFor={id} className={`font-medium text-sm ${task.done ? "text-muted line-through" : ""}`}>
             {task.title}
           </label>
         )}
-        <span className="text-xs text-muted">
+        <span className="text-muted text-xs">
           {showEvent && (
             <>
-              <Link to={`/events/${ev.id}`} className="link text-xs text-muted">
+              <Link to={`/events/${ev.id}`} className="link text-muted text-xs">
                 {ev.name}
               </Link>
               {" · "}
@@ -59,7 +61,7 @@ export function TaskRow({
         </span>
       </span>
       <span
-        className={`shrink-0 text-xs font-medium ${due.late && !task.done ? "text-rust-ink" : "text-body"}`}
+        className={`shrink-0 font-medium text-xs ${due.late && !task.done ? "text-rust-ink" : "text-body"}`}
       >
         {due.text}
       </span>

@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type Dispatch, type JSX, type ReactNode, type SetStateAction, useState } from "react";
 import { Link } from "react-router";
 import { Logo, Toran } from "../../components/brand";
 import { SkipLink } from "../../components/ui";
@@ -6,14 +6,20 @@ import { dateRange, dayLine } from "../../lib/dates";
 import { timeAgo } from "../../lib/format";
 import { type GuestLang, type GuestText, guestLang, LANG_NAME } from "../../lib/guestText";
 import { mapLink } from "../../lib/ics";
-import { linkText } from "../../lib/linkText";
+import { type LinkText, linkText } from "../../lib/linkText";
 import type { PublicBasics } from "../../shared/public";
 
 /** Languages a shared page can switch between. */
 const ALL_LANGS: GuestLang[] = ["en", "ml", "hi", "ta"];
 
+/** A shared page's words in the chosen language, and the switcher that changes it. */
+export interface LinkLang {
+  t: LinkText;
+  shell: { lang: GuestLang; langs: GuestLang[]; onLang: Dispatch<SetStateAction<GuestLang>> };
+}
+
 /** The language for a helper's or neighbour's page: the family's, else the phone's, else English. */
-export function useLinkLang(event: PublicBasics) {
+export function useLinkLang(event: PublicBasics): LinkLang {
   const [lang, setLang] = useState<GuestLang>(() => {
     const phone = typeof navigator === "undefined" ? undefined : guestLang(navigator.language?.slice(0, 2));
     return guestLang(event.lang) ?? phone ?? "en";
@@ -31,11 +37,13 @@ const HERO: Record<PublicBasics["hue"], string> = {
   leaf: "bg-leaf-deep",
 };
 
+/** The event's dates as one line: "24–26 Apr 2027". */
 export function span(e: PublicBasics): string {
   const dates = e.functions.map((f) => f.date).sort();
   return dateRange(dates[0] ?? e.date, dates[dates.length - 1] ?? e.date);
 }
 
+/** The frame every shared page sits in: the event's colours, title, language switcher and footer. */
 export function PublicShell({
   event,
   eyebrow,
@@ -54,7 +62,7 @@ export function PublicShell({
   langs?: GuestLang[];
   onLang?: (l: GuestLang) => void;
   preview?: ReactNode;
-}) {
+}): JSX.Element {
   return (
     // The page's language, so screen readers pronounce Malayalam, Hindi or Tamil correctly.
     <div className="min-h-dvh bg-paper text-ink" lang={lang ?? event.lang ?? "en"}>
@@ -80,7 +88,7 @@ export function PublicShell({
             </fieldset>
           )}
           <span className="eyebrow text-gold-soft">{eyebrow}</span>
-          <h1 className="font-serif text-[clamp(34px,8vw,52px)] leading-[1.02] text-white">{event.name}</h1>
+          <h1 className="font-serif text-[clamp(34px,8vw,52px)] text-white leading-[1.02]">{event.name}</h1>
           <span className="text-[15px] text-gold-soft">{span(event)}</span>
           {aside}
         </div>
@@ -94,9 +102,9 @@ export function PublicShell({
         {children}
       </main>
       <footer className="mx-auto flex max-w-[720px] flex-col items-center gap-2 px-5 pt-4 pb-10 text-center">
-        <span className="font-mono text-xs tracking-[0.08em] text-muted uppercase">Made with</span>
+        <span className="font-mono text-muted text-xs uppercase tracking-[0.08em]">Made with</span>
         <Logo to="/" />
-        <Link to="/" className="link text-xs text-muted">
+        <Link to="/" className="link text-muted text-xs">
           Plan your own celebration
         </Link>
       </footer>
@@ -129,7 +137,7 @@ export function MapLink({
   place: string;
   address?: string | undefined;
   label: string;
-}) {
+}): JSX.Element {
   return (
     <a href={mapLink(address ?? place)} target="_blank" rel="noopener noreferrer" className="link text-sm">
       {place} · {label}
@@ -138,13 +146,13 @@ export function MapLink({
 }
 
 /** When a function is, where (with a map), and what to wear. */
-export function FunctionFacts({ f, t }: { f: PublicBasics["functions"][number]; t: GuestText }) {
+export function FunctionFacts({ f, t }: { f: PublicBasics["functions"][number]; t: GuestText }): JSX.Element {
   return (
     <>
-      <span className="text-sm text-body">{dayLine(f.date, f.time)}</span>
+      <span className="text-body text-sm">{dayLine(f.date, f.time)}</span>
       {f.place && <MapLink place={f.place} address={f.address} label={t.map} />}
       {f.dress && (
-        <span className="text-xs text-muted">
+        <span className="text-muted text-xs">
           {t.dress}: {f.dress}
         </span>
       )}
@@ -152,7 +160,8 @@ export function FunctionFacts({ f, t }: { f: PublicBasics["functions"][number]; 
   );
 }
 
-export function Card({ children, label }: { children: ReactNode; label?: string }) {
+/** A card on a shared page, labelled for screen readers. */
+export function Card({ children, label }: { children: ReactNode; label?: string }): JSX.Element {
   return (
     <section aria-label={label} className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5">
       {children}

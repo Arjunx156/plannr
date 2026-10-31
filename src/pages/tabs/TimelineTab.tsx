@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { type JSX, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useEditable, useTaskToggle } from "../../components/taskHooks";
 import { TaskRow } from "../../components/tasks";
@@ -19,7 +19,13 @@ function countdownText(daysLeft: number): string {
 }
 
 /** /events/:id/timeline — the plan in date order: what's due, what to book, what to pay, and the day itself. */
-export function TimelineTab({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (id: string) => void }) {
+export function TimelineTab({
+  ev,
+  onOpenTask,
+}: {
+  ev: PlannrEvent;
+  onOpenTask: (id: string) => void;
+}): JSX.Element {
   const [view, setView] = useState<View>("phases");
   const tasks = ev.layout === "empty" ? [] : ev.tasks.list;
   const done = tasks.filter((t) => t.done).length;
@@ -29,7 +35,7 @@ export function TimelineTab({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (
       eyebrow={ev.name}
       title="Timeline"
       aside={
-        <span className="text-sm text-body">
+        <span className="text-body text-sm">
           {done} of {plural(tasks.length, "task")} done · {countdownText(left)}
         </span>
       }
@@ -114,7 +120,7 @@ function Phases({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (id: string) 
                   );
                 })}
                 {p.entries.length === 0 && (
-                  <li className="border-t border-sand-2 py-2.5 text-sm text-muted">
+                  <li className="border-sand-2 border-t py-2.5 text-muted text-sm">
                     Nothing due in this stretch.
                   </li>
                 )}
@@ -136,12 +142,12 @@ function entryState(e: TimelineEntry): string {
 function EntryRow({ ev, entry: e }: { ev: PlannrEvent; entry: TimelineEntry }) {
   const tab = e.kind === "task" ? "timeline" : KIND_TAB[e.kind];
   return (
-    <li className="flex items-start gap-3 border-t border-sand-2 py-2.5">
-      <span className="w-[64px] shrink-0 pt-0.5 text-xs tabular text-muted">{dayMonth(e.date)}</span>
+    <li className="flex items-start gap-3 border-sand-2 border-t py-2.5">
+      <span className="tabular w-[64px] shrink-0 pt-0.5 text-muted text-xs">{dayMonth(e.date)}</span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <Link
           to={`/events/${ev.id}/${tab}`}
-          className={`text-sm font-medium hover:underline hover:underline-offset-4 ${e.done ? "text-muted line-through" : ""}`}
+          className={`font-medium text-sm hover:underline hover:underline-offset-4 ${e.done ? "text-muted line-through" : ""}`}
         >
           {e.title}
           {e.amount ? ` · ${inr(e.amount)}` : ""}

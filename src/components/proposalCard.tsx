@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import type { Message, Preview } from "../data/messageTypes";
 import type { CommunityEvent, PersonalEvent } from "../data/types";
 import { TODAY } from "../lib/dates";
@@ -5,11 +6,18 @@ import { proposalRipple } from "../shared/proposals";
 import { useStore } from "../store/store";
 import { RipplePreview } from "./ripple";
 
-export function PreviewCard({ preview, onDecide }: { preview: Preview; onDecide: (apply: boolean) => void }) {
+/** A change the assistant proposed, with what it would do and buttons to apply or dismiss it. */
+export function PreviewCard({
+  preview,
+  onDecide,
+}: {
+  preview: Preview;
+  onDecide: (apply: boolean) => void;
+}): JSX.Element {
   return (
     <div className="card-ai flex flex-col gap-2.5 rounded-xl p-3.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[13px] font-semibold">{preview.title}</span>
+        <span className="font-semibold text-[13px]">{preview.title}</span>
         <span className="pill pill-ai">{preview.tag}</span>
       </div>
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -39,7 +47,7 @@ export function PreviewCard({ preview, onDecide }: { preview: Preview; onDecide:
         </div>
       ) : (
         <span
-          className={`text-xs font-semibold ${preview.status === "applied" ? "text-leaf-ink" : "text-muted"}`}
+          className={`font-semibold text-xs ${preview.status === "applied" ? "text-leaf-ink" : "text-muted"}`}
         >
           {preview.status === "applied" ? "✓ Applied" : "Not applied"}
         </span>
@@ -48,19 +56,19 @@ export function PreviewCard({ preview, onDecide }: { preview: Preview; onDecide:
   );
 }
 /** Changes the assistant proposed, as a preview of everything they move, applied only on yes. */
-export function Proposal({ ev, m }: { ev: PersonalEvent | CommunityEvent; m: Message }) {
+export function Proposal({ ev, m }: { ev: PersonalEvent | CommunityEvent; m: Message }): JSX.Element {
   const { dispatch } = useStore();
   const status = m.proposalStatus ?? "pending";
   if (status !== "pending")
     return (
-      <span className={`text-xs font-semibold ${status === "applied" ? "text-leaf-ink" : "text-muted"}`}>
+      <span className={`font-semibold text-xs ${status === "applied" ? "text-leaf-ink" : "text-muted"}`}>
         {status === "applied" ? "✓ Applied" : "Not applied"}
       </span>
     );
   const ripple = proposalRipple(ev, m.proposals ?? [], TODAY);
   if (!ripple)
     return (
-      <span className="text-xs text-muted">The suggested change no longer fits the plan as it is now.</span>
+      <span className="text-muted text-xs">The suggested change no longer fits the plan as it is now.</span>
     );
   const decide = (s: "applied" | "rejected") =>
     dispatch({ type: "previewStatus", eventId: ev.id, messageId: m.id, status: s });

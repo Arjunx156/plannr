@@ -1,5 +1,7 @@
 import type { Profile } from "../data/types";
 import { list } from "../shared/records";
+import { err, ok, type Result } from "../shared/result";
+import { fromServer, problem } from "./api";
 import { TODAY } from "./dates";
 import { type IdeaSuggestion, ideaBrief, type PlannedEvent } from "./ideas";
 import { shrinkImage } from "./images";
@@ -8,8 +10,8 @@ import type { PlanNotes } from "./tailor";
 
 /**
  * Gemini, through Plannr's own /api/ai routes. Every call here is optional: when the
- * server has no key, the network is down or the model is slow, the caller gets
- * `undefined` and falls back to the on-device logic, so the app never blocks on AI.
+ * server has no key, the network is down or the model is slow, the caller gets the reason
+ * (or `undefined`) and falls back to the on-device logic, so the app never blocks on AI.
  */
 
 let status: Promise<boolean> | undefined;
@@ -23,21 +25,52 @@ export function aiEnabled(): Promise<boolean> {
   return status;
 }
 
-export async function post<T>(route: string, body: unknown, timeoutMs: number): Promise<T | undefined> {
-  if (typeof window === "undefined" || !(await aiEnabled())) return undefined;
+/**
+ * How long the browser waits on each AI route: a little longer than the server gives Gemini
+ * (BUDGET_MS in server/ai.ts), so the server's own timeout answers first, with a clear message.
+ */
+export const AI_TIMEOUT_MS: Record<"intake" | "plan" | "ideas" | "write" | "read", number> = {
+  intake: 12_000,
+  plan: 20_000,
+  ideas: 20_000,
+  write: 30_000,
+  read: 45_000,
+};
+
+/** Why Gemini gave no answer, so a page can say so in plain words. */
+export type AiFailure = "off" | "offline" | "timeout" | "busy" | "failed";
+
+/** Calls one /api/ai route. Never throws: a failure comes back with its reason. */
+export async function askAi<T>(
+  route: string,
+  body: unknown,
+  timeoutMs: number,
+): Promise<Result<T, AiFailure>> {
+  if (typeof window === "undefined" || !(await aiEnabled())) return err("off");
+  let res: Response;
   try {
-    const res = await fetch(`/api/ai/${route}`, {
+    res = await fetch(`/api/ai/${route}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
-    return res.ok ? ((await res.json()) as T) : undefined;
-  } catch {
-    return undefined;
+  } catch (e) {
+    return err(e instanceof DOMException && e.name === "TimeoutError" ? "timeout" : "offline");
   }
+  if (res.status === 429) return err("busy");
+  if (res.status === 503) return err("off");
+  const answer: unknown = res.ok ? await res.json().catch(() => undefined) : undefined;
+  return answer === undefined ? err("failed") : ok(fromServer<T>(answer));
 }
 
+/** The answer, or undefined: for callers that fall back to on-device logic whatever the reason. */
+export async function post<T>(route: string, body: unknown, timeoutMs: number): Promise<T | undefined> {
+  const answer = await askAi<T>(route, body, timeoutMs);
+  return answer.ok ? answer.value : undefined;
+}
+
+/** What Plannr can write for the family. */
 export type WriteTask =
   | "translate"
   | "enquiry"
@@ -54,7 +87,7 @@ export async function aiWrite(req: {
   text?: string;
   context?: Record<string, unknown>;
 }): Promise<string | undefined> {
-  const out = await post<{ text?: string }>("write", req, 30000);
+  const out = await post<{ text?: string }>("write", req, AI_TIMEOUT_MS.write);
   return out?.text?.trim() || undefined;
 }
 
@@ -92,7 +125,7 @@ function base64(blob: Blob): Promise<string> {
  */
 export async function aiRead(
   file: File,
-  context: { categories: string[]; guests?: number },
+  context: { categories: string[]; guests?: number | undefined },
 ): Promise<ReadResult> {
   if (!(await aiEnabled())) throw new Error("Reading documents needs AI, which isn't switched on here.");
   const blob = await shrinkImage(file);
@@ -104,19 +137,19 @@ export async function aiRead(
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ mime, data: await base64(blob), today: TODAY, ...context }),
-    signal: AbortSignal.timeout(45000),
+    signal: AbortSignal.timeout(AI_TIMEOUT_MS.read),
   }).catch(() => undefined);
   if (!res) throw new Error("Couldn't reach Plannr. Check the connection and try again.");
-  const body = (await res.json().catch(() => ({}))) as ReadResult & { error?: string };
-  if (!res.ok) throw new Error(body.error ?? "Couldn't read that document.");
-  return body;
+  const body: unknown = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(problem(body) ?? "Couldn't read that document.");
+  return fromServer<ReadResult>(body);
 }
 
 // ---------------------------------------------------------------- plan draft
 
 /** Gemini's budget split, dated tasks, vendors and notes for a draft, tailored from Plannr's standard one. */
-export function planNotes(profile: Profile, plan: PlanDraft): Promise<PlanNotes | undefined> {
-  return post<PlanNotes>("plan", { profile, plan, today: TODAY }, 20000);
+export function planNotes(profile: Profile, plan: PlanDraft): Promise<Result<PlanNotes, AiFailure>> {
+  return askAi<PlanNotes>("plan", { profile, plan, today: TODAY }, AI_TIMEOUT_MS.plan);
 }
 
 // ---------------------------------------------------------------- ideas
@@ -126,7 +159,7 @@ export async function suggestIdeas(ev: PlannedEvent): Promise<IdeaSuggestion[] |
   const out = await post<{ ideas?: IdeaSuggestion[] }>(
     "ideas",
     { brief: ideaBrief(ev), avoid: list(ev, "ideas").map((i) => i.title), today: TODAY },
-    20000,
+    AI_TIMEOUT_MS.ideas,
   );
   return out?.ideas?.length ? out.ideas : undefined;
 }

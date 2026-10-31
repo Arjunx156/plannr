@@ -1,6 +1,7 @@
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, type JSX, type ReactNode, useState } from "react";
 import { QrCode } from "../../components/qr";
 import { fill, type GuestLang, type GuestText, guestLang, guestText } from "../../lib/guestText";
+import { errorMessage } from "../../shared/guards";
 import type { RsvpView } from "../../shared/public";
 import { CalendarButton } from "./CalendarButton";
 import { type Answer, FunctionAnswer, isAnswered } from "./functionAnswer";
@@ -36,7 +37,7 @@ function finalAnswers(answers: Record<string, Answer>): Record<string, Answer> {
 /** The couple's story under the event name, in the guest's language when there is a translation. */
 function SiteStory({ site, lang }: { site: NonNullable<RsvpView["site"]>; lang: GuestLang }) {
   return (
-    <p className="m-0 mt-2 max-w-[560px] text-[15px] leading-normal text-cream" lang={lang}>
+    <p className="m-0 mt-2 max-w-[560px] text-[15px] text-cream leading-normal" lang={lang}>
       {lang !== "en" && site.storyLocal ? site.storyLocal : site.story}
     </p>
   );
@@ -53,7 +54,7 @@ function AnswerSummary({ view, t, onChange }: { view: RsvpView; t: GuestText; on
           const a = h.rsvp[f.id];
           const going = a?.status === "yes";
           return (
-            <li key={f.id} className="flex justify-between gap-3 border-t border-sand-2 pt-1.5">
+            <li key={f.id} className="flex justify-between gap-3 border-sand-2 border-t pt-1.5">
               <span>{f.label}</span>
               <span className={going ? "text-leaf-ink" : "text-body"}>
                 {going ? `${t.going} · ${a.count}` : t.cant}
@@ -69,9 +70,9 @@ function AnswerSummary({ view, t, onChange }: { view: RsvpView; t: GuestText; on
         <CalendarButton view={view} label={t.calendar} />
       </div>
       {view.entry && (
-        <div className="flex items-center gap-3 border-t border-sand-2 pt-3">
+        <div className="flex items-center gap-3 border-sand-2 border-t pt-3">
           <QrCode text={view.entry} size={112} label={t.entry} />
-          <span className="text-sm text-body">{t.entry}</span>
+          <span className="text-body text-sm">{t.entry}</span>
         </div>
       )}
     </Card>
@@ -129,7 +130,7 @@ function useRsvpForm(h: Household, t: GuestText, act: Act | undefined, onSent: (
       await act([rsvpAction(answers, extras)]);
       onSent();
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorMessage(err));
     }
     setBusy(false);
   };
@@ -140,7 +141,15 @@ function useRsvpForm(h: Household, t: GuestText, act: Act | undefined, onSent: (
 }
 
 /** A household's RSVP page: who is coming to which function, meals and stay needs. */
-export function RsvpPage({ view, act, preview }: { view: RsvpView; act?: Act; preview?: ReactNode }) {
+export function RsvpPage({
+  view,
+  act,
+  preview,
+}: {
+  view: RsvpView;
+  act?: Act | undefined;
+  preview?: ReactNode;
+}): JSX.Element {
   const h = view.household;
   const { langs, initial } = rsvpLangs(h.lang, view.site?.lang);
   const [lang, setLang] = useState<GuestLang>(initial);
@@ -179,7 +188,7 @@ export function RsvpPage({ view, act, preview }: { view: RsvpView; act?: Act; pr
           ))}
           <ExtrasCard extras={form.extras} t={t} onChange={form.patch} />
           {form.error && (
-            <p role="alert" className="m-0 text-sm font-medium text-rust-ink">
+            <p role="alert" className="m-0 font-medium text-rust-ink text-sm">
               {form.error}
             </p>
           )}

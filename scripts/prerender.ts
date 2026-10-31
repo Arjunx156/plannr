@@ -5,7 +5,9 @@
  */
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { readEnv } from "../server/env";
 import { PUBLIC_ROUTES, siteUrl } from "../server/seo";
+import type { PageMeta } from "../src/components/pageMeta";
 
 const root = join(import.meta.dir, "..");
 const ssrOut = join(root, "dist-ssr");
@@ -21,13 +23,15 @@ const proc = Bun.spawn(
 );
 if ((await proc.exited) !== 0) throw new Error("SSR build failed");
 
-const { render } = (await import(join(ssrOut, "prerender.js"))) as {
-  render: (url: string) => Promise<{ html: string; title: string; description: string }>;
-};
+// The SSR build of src/prerender.tsx, loaded by path.
+const { render }: { render: (url: string) => Promise<PageMeta & { html: string }> } = await import(
+  join(ssrOut, "prerender.js")
+);
 const shell = await Bun.file(join(root, "dist", "index.html")).text();
-const site = siteUrl(process.env);
+const site = siteUrl(readEnv());
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
+/** The file a route is written to: "/" → index.html, "/weddings" → weddings.html. */
 export function fileFor(route: string): string {
   return route === "/" ? "index.html" : `${route.slice(1)}.html`;
 }

@@ -92,6 +92,7 @@ const cashShort: Rule<CommunityEvent> = (ev) => {
     },
   ];
 };
+/** Every notice rule for a community event, in the order they show. */
 export const COMMUNITY_RULES: Rule<CommunityEvent>[] = [
   pendingApprovals,
   permitsDue,

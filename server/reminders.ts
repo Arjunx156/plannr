@@ -1,9 +1,11 @@
 import { eq, inArray } from "drizzle-orm";
 import webpush from "web-push";
 import type { PlannrEvent } from "../src/data/types";
+import { isRecord } from "../src/shared/guards";
 import { morningMessage } from "../src/shared/reminders";
 import { events, members, pushSubs } from "./db/schema";
 import type { Db } from "./db/types";
+import type { ServerEnv } from "./env";
 
 /**
  * Morning reminders by web push. A daily job asks each subscribed person's plans what's
@@ -27,7 +29,9 @@ export type PushSender = (
 const PUSH_TTL_SECONDS = 12 * 3600;
 
 /** Web push through VAPID, or undefined when the keys aren't configured. */
-export function webPushSender(env: Record<string, string | undefined>): PushSender | undefined {
+export function webPushSender(
+  env: Pick<ServerEnv, "VAPID_PUBLIC_KEY" | "VAPID_PRIVATE_KEY" | "BETTER_AUTH_URL">,
+): PushSender | undefined {
   const pub = env.VAPID_PUBLIC_KEY;
   const priv = env.VAPID_PRIVATE_KEY;
   if (!pub || !priv) return undefined;
@@ -47,7 +51,8 @@ export function webPushSender(env: Record<string, string | undefined>): PushSend
       );
       return true;
     } catch (e) {
-      const status = (e as { statusCode?: number }).statusCode;
+      // web-push rejects with the push service's HTTP status; 404 and 410 mean the subscription is gone.
+      const status = isRecord(e) ? e["statusCode"] : undefined;
       if (status === 404 || status === 410) return false;
       throw e;
     }

@@ -1,16 +1,19 @@
-import type { Kind } from "../data/baseTypes";
+import type { Kind, Swatch } from "../data/baseTypes";
 import type { Profile } from "../data/types";
 import { addDays, parseDate, TODAY } from "./dates";
 import { type DraftTask, type DraftVendor, timelineFor, vendorsFor } from "./draftLists";
+import { LAKH } from "./format";
 
+/** One line of the draft budget. */
 export interface BudgetLine {
   name: string;
   amount: number;
-  color: string;
+  color: Swatch;
   /** Why this share, when Gemini drafted the split. */
   why?: string;
 }
 
+/** The draft plan Plannr makes from a profile, before it becomes an event. */
 export interface PlanDraft {
   title: string;
   kind: Kind;
@@ -22,7 +25,7 @@ export interface PlanDraft {
   tasks: number;
   vendors: DraftVendor[];
   vendorNote: string;
-  guests: { total: number; groups: { name: string; count: number }[]; note?: string };
+  guests: { total: number; groups: { name: string; count: number }[]; note?: string | undefined };
   ideas: string;
   /** Which parts Gemini drafted; the rest are Plannr's standard draft. */
   byGemini: { budget: boolean; timeline: boolean; vendors: boolean };
@@ -72,15 +75,17 @@ const SPLITS: Record<Kind, [string, number][]> = {
   ],
 };
 
-export const SPLIT_COLORS = ["#6E1F2E", "#D9962B", "#3D7A4F", "#1F5F6B", "#B5452B"];
-const REST_COLOR = "#CFC5B4";
+/** Colours for the sides of a family split, in order. */
+export const SPLIT_COLORS: Swatch[] = ["maroon", "marigold", "leaf", "peacock", "rust"];
+const REST_COLOR: Swatch = "line-2";
 
 function roundTo(total: number): number {
-  if (total >= 500000) return 5000;
-  if (total >= 100000) return 1000;
+  if (total >= 5 * LAKH) return 5000;
+  if (total >= LAKH) return 1000;
   return 500;
 }
 
+/** One side's share of a split budget. */
 export interface Share {
   name: string;
   /** Fraction of the total, 0 to 1. */
@@ -92,7 +97,7 @@ export interface Share {
  * Amounts for each share of the total, rounded to a step that suits its size. The line at `sink`
  * absorbs the rounding, so the lines always add up to the total exactly.
  */
-export function budgetLines(total: number, shares: Share[], sink = shares.length - 1): BudgetLine[] {
+export function budgetLines(total: number, shares: Share[], sink: number = shares.length - 1): BudgetLine[] {
   const step = roundTo(total);
   const lines: BudgetLine[] = shares.map(({ name, share, why }, i) => ({
     name,
@@ -114,6 +119,7 @@ export function splitBudget(kind: Kind, total: number): BudgetLine[] {
   );
 }
 
+/** About how many tasks an event of this kind and size needs. */
 export function countTasks(kind: Kind, functions: number, guests: number): number {
   if (kind === "wedding") return 45 + 6 * Math.max(1, functions) + (guests > 200 ? 2 : 0);
   if (kind === "birthday") return 18;

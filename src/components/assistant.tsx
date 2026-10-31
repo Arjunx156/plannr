@@ -1,4 +1,4 @@
-import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, type JSX, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { Message, Preview } from "../data/messageTypes";
 import type { CommunityEvent, PersonalEvent } from "../data/types";
 import { type AssistantContext, introFor, reply } from "../lib/assistant";
@@ -91,7 +91,13 @@ function useConversation(ev: AnyEvent, context: AssistantContext, lang: SpeechCo
  * planner approves. Everything else is answered by Gemini from the live plan and
  * computed facts, with the on-device answer as the fallback when AI is off.
  */
-export function AssistantPanel({ ev, context = "dashboard" }: { ev: AnyEvent; context?: AssistantContext }) {
+export function AssistantPanel({
+  ev,
+  context = "dashboard",
+}: {
+  ev: AnyEvent;
+  context?: AssistantContext;
+}): JSX.Element {
   const [text, setText] = useState("");
   const [lang, setLang] = useState<SpeechCode>("EN");
   const talk = useConversation(ev, context, lang);
@@ -118,7 +124,7 @@ export function AssistantPanel({ ev, context = "dashboard" }: { ev: AnyEvent; co
       <PanelHeader />
       <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto px-[18px] py-4" aria-live="polite">
         {thread.length === 0 && (
-          <span className="text-sm leading-[1.5] text-body">{introFor(ev, context)}</span>
+          <span className="text-body text-sm leading-[1.5]">{introFor(ev, context)}</span>
         )}
         {thread.map((m) =>
           m.role === "user" ? (
@@ -153,7 +159,7 @@ export function AssistantPanel({ ev, context = "dashboard" }: { ev: AnyEvent; co
 function PanelHeader() {
   const ai = useAiOn() === true;
   return (
-    <header className="flex items-center justify-between gap-3 border-b border-line px-[18px] py-3.5">
+    <header className="flex items-center justify-between gap-3 border-line border-b px-[18px] py-3.5">
       <span className="flex items-center gap-2.5">
         <span
           aria-hidden="true"
@@ -175,7 +181,7 @@ function PanelHeader() {
 
 function UserBubble({ text }: { text: string }) {
   return (
-    <div className="max-w-[88%] self-end rounded-[14px_14px_4px_14px] bg-ink px-3.5 py-2.5 text-sm leading-normal text-paper">
+    <div className="max-w-[88%] self-end rounded-[14px_14px_4px_14px] bg-ink px-3.5 py-2.5 text-paper text-sm leading-normal">
       {text}
     </div>
   );
@@ -196,8 +202,8 @@ function AiBubble({ ev, m, onAction, onDecide }: AiBubbleProps) {
       <span lang={m.lang} className="whitespace-pre-wrap">
         {m.text}
       </span>
-      {m.translation && <span className="text-xs text-muted italic">{m.translation}</span>}
-      {m.source && <span className="text-xs leading-[1.4] text-peacock">{m.source}</span>}
+      {m.translation && <span className="text-muted text-xs italic">{m.translation}</span>}
+      {m.source && <span className="text-peacock text-xs leading-[1.4]">{m.source}</span>}
       {action && (
         <button
           type="button"
@@ -210,7 +216,7 @@ function AiBubble({ ev, m, onAction, onDecide }: AiBubbleProps) {
       )}
       {preview && <PreviewCard preview={preview} onDecide={(apply) => onDecide(m, preview, apply)} />}
       {m.proposals && <Proposal ev={ev} m={m} />}
-      {m.footnote && <span className="text-xs text-muted">{m.footnote}</span>}
+      {m.footnote && <span className="text-muted text-xs">{m.footnote}</span>}
     </div>
   );
 }
@@ -258,7 +264,10 @@ function Composer({ id, text, onText, lang, onLang, busy, onSend }: ComposerProp
     onSend(text);
   };
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-2 border-t border-line px-[18px] py-3">
+    <form
+      onSubmit={onSubmit}
+      className="focus-frame flex flex-col gap-2 border-line border-t px-[18px] py-3 outline-offset-[-2px]"
+    >
       <label htmlFor={id} className="sr-only">
         Ask about this event
       </label>

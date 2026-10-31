@@ -36,16 +36,18 @@ export function linkExpiry(ev: PlannrEvent, kind: PublicKind): string {
   return addDays(last, LINK_DAYS_AFTER[kind] ?? LINK_DAYS_DEFAULT);
 }
 
+/** A function as a shared page shows it: when, where and what to wear. */
 export interface PublicFunction {
   id: string;
   label: string;
   date: string;
-  time?: string;
-  place?: string;
-  address?: string;
-  dress?: string;
+  time?: string | undefined;
+  place?: string | undefined;
+  address?: string | undefined;
+  dress?: string | undefined;
 }
 
+/** What every shared page shows about the event, and nothing more. */
 export interface PublicBasics {
   name: string;
   kind: PlannrEvent["kind"];
@@ -54,9 +56,10 @@ export interface PublicBasics {
   functions: PublicFunction[];
   announcements: Announcement[];
   /** The family's language for guest pages, e.g. "ml". */
-  lang?: string;
+  lang?: string | undefined;
 }
 
+/** A household's invitation: its functions, its answers so far and the meal choices. */
 export interface RsvpView {
   kind: "rsvp";
   event: PublicBasics;
@@ -64,17 +67,19 @@ export interface RsvpView {
     Household,
     "name" | "expected" | "functions" | "rsvp" | "meal" | "stay" | "pickup" | "note" | "lang"
   >;
-  site?: Pick<SiteInfo, "story" | "storyLocal" | "lang">;
+  site?: Pick<SiteInfo, "story" | "storyLocal" | "lang"> | undefined;
   /** What the QR at the entrance holds once they've said yes; the hosts scan it on the day. */
-  entry?: string;
+  entry?: string | undefined;
 }
 
+/** A published event website. */
 export interface SiteView {
   kind: "site";
   event: PublicBasics;
   site: Omit<SiteInfo, "published">;
 }
 
+/** One helper's tasks, with the contacts they need. */
 export interface HelperView {
   kind: "helper";
   event: PublicBasics;
@@ -83,15 +88,23 @@ export interface HelperView {
   checklist: { id: string; label: string; done: boolean }[];
 }
 
+/** One vendor's call sheet: arrival times, contacts and what is needed. */
 export interface VendorView {
   kind: "vendor";
   event: PublicBasics;
-  vendor: { category: string; name: string; needs?: string };
-  arrivals: { label: string; date: string; time: string; place?: string; note?: string }[];
+  vendor: { category: string; name: string; needs?: string | undefined };
+  arrivals: {
+    label: string;
+    date: string;
+    time: string;
+    place?: string | undefined;
+    note?: string | undefined;
+  }[];
   runsheet: { label: string; time: string; title: string }[];
   payments: { label: string; amount: number; date: string; paid: boolean }[];
 }
 
+/** Open volunteer shifts and who has signed up. */
 export interface ShiftsView {
   kind: "shifts";
   event: PublicBasics;
@@ -99,6 +112,7 @@ export interface ShiftsView {
   roles: { role: string; slots: { need: number; filled: number; names: string[] }[] }[];
 }
 
+/** A community event's money, as residents see it. */
 export interface FundView {
   kind: "fund";
   event: PublicBasics;
@@ -112,12 +126,14 @@ export interface FundView {
   sponsors: { name: string; tier: string }[];
 }
 
+/** The shared photo album. */
 export interface AlbumView {
   kind: "album";
   event: PublicBasics;
   photos: Photo[];
 }
 
+/** The stalls still open, the fee and the request form. */
 export interface StallsView {
   kind: "stalls";
   event: PublicBasics;
@@ -127,6 +143,7 @@ export interface StallsView {
   categories: string[];
 }
 
+/** The gate volunteer's check-in list. */
 export interface GateView {
   kind: "gate";
   event: PublicBasics;
@@ -136,6 +153,7 @@ export interface GateView {
   capacity: number;
 }
 
+/** Everything a shared link can show, one shape per kind of link. */
 export type PublicView =
   | RsvpView
   | SiteView

@@ -5,6 +5,7 @@ import { BadRequest, clip, int, isObject, isoDate, oneOf, str, strList, VOICE } 
 export const EFFORTS = ["low", "medium", "high"] as const;
 const MAX_IDEAS = 6;
 
+/** An ideas request: the event brief, titles to avoid and today's date. */
 export interface IdeasRequest {
   brief: unknown;
   /** Titles already on the ideas board, so the model suggests something new. */
@@ -12,15 +13,17 @@ export interface IdeasRequest {
   today: string;
 }
 
+/** Checks an ideas request; throws BadRequest when the brief is missing. */
 export function ideasRequest(body: unknown): IdeasRequest {
-  if (!isObject(body) || !isObject(body.brief)) throw new BadRequest("brief is required");
+  if (!isObject(body) || !isObject(body["brief"])) throw new BadRequest("brief is required");
   return {
-    brief: body.brief,
-    avoid: strList(body.avoid, 40, 160),
-    today: isoDate(body.today) ?? new Date().toISOString().slice(0, 10),
+    brief: body["brief"],
+    avoid: strList(body["avoid"], 40, 160),
+    today: isoDate(body["today"]) ?? new Date().toISOString().slice(0, 10),
   };
 }
 
+/** The JSON schema for a list of ideas. */
 export const ideasSchema = {
   type: "object",
   properties: {
@@ -50,6 +53,7 @@ export const ideasSchema = {
   required: ["ideas"],
 } as const;
 
+/** The ideas prompt: specific to this event, never generic. */
 export function ideasPrompt(r: IdeasRequest): { system: string; user: string } {
   return {
     system: `${VOICE}
@@ -65,13 +69,14 @@ Nothing generic that would suit any event. Keep costs realistic and inside the b
   };
 }
 
+/** One idea after cleaning. */
 export interface IdeaSuggestion {
   title: string;
   detail: string;
   because: string;
   effort: (typeof EFFORTS)[number];
   cost?: number;
-  category?: string;
+  category?: string | undefined;
 }
 
 /** Keeps complete ideas only, none the board already has, and fails when nothing is left. */
@@ -79,19 +84,19 @@ export function sanitizeIdeas(raw: unknown, avoid: string[] = []): { ideas: Idea
   const r = isObject(raw) ? raw : {};
   const seen = new Set(avoid.map((t) => t.toLowerCase()));
   const ideas: IdeaSuggestion[] = [];
-  for (const x of (Array.isArray(r.ideas) ? r.ideas : []).filter(isObject)) {
-    const title = str(x.title, 120);
-    const detail = str(x.detail, 320);
-    const because = str(x.because, 200);
+  for (const x of (Array.isArray(r["ideas"]) ? r["ideas"] : []).filter(isObject)) {
+    const title = str(x["title"], 120);
+    const detail = str(x["detail"], 320);
+    const because = str(x["because"], 200);
     if (!title || !detail || !because || seen.has(title.toLowerCase())) continue;
     seen.add(title.toLowerCase());
-    const cost = int(x.cost, 1, 10_000_000);
-    const category = str(x.category, 60);
+    const cost = int(x["cost"], 1, 10_000_000);
+    const category = str(x["category"], 60);
     ideas.push({
       title,
       detail,
       because,
-      effort: oneOf(x.effort, EFFORTS) ?? "medium",
+      effort: oneOf(x["effort"], EFFORTS) ?? "medium",
       ...(cost ? { cost } : {}),
       ...(category ? { category } : {}),
     });

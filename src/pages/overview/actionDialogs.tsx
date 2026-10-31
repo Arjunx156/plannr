@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Field } from "../../components/fields";
 import { Modal } from "../../components/overlays";
 import type { PersonalEvent } from "../../data/types";
@@ -14,7 +14,7 @@ export function BookPhotographer({
   ev: PersonalEvent;
   open: boolean;
   onClose: () => void;
-}) {
+}): JSX.Element {
   const { dispatch } = useStore();
   const [studio, setStudio] = useState("");
   const [price, setPrice] = useState("");
@@ -29,7 +29,7 @@ export function BookPhotographer({
   return (
     <Modal open={open} onClose={onClose} title="Book the photographer">
       <form onSubmit={submit} className="flex flex-col gap-3.5">
-        <p className="m-0 text-sm text-body">
+        <p className="m-0 text-body text-sm">
           Which of your shortlisted studios did you choose? The budget, vendor list and task update together.
         </p>
         <Field label="Studio" htmlFor="studio">
@@ -53,6 +53,7 @@ export function BookPhotographer({
   );
 }
 
+/** Ways to bring the budget back under its total, for the planner to pick from. */
 export function Savings({
   ev,
   open,
@@ -63,7 +64,7 @@ export function Savings({
   open: boolean;
   onClose: () => void;
   onAsk: (text: string) => void;
-}) {
+}): JSX.Element {
   return (
     <Modal open={open} onClose={onClose} title="Ways to save">
       {ev.budget.savings.length > 0 ? (
@@ -74,12 +75,12 @@ export function Savings({
                 {s.title}
                 <span className="tabular text-leaf-ink">−{inr(s.amount)}</span>
               </span>
-              <span className="text-sm text-body">{s.why}</span>
+              <span className="text-body text-sm">{s.why}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="m-0 text-sm text-body">No savings ideas yet. Ask Plannr where the budget is tight.</p>
+        <p className="m-0 text-body text-sm">No savings ideas yet. Ask Plannr where the budget is tight.</p>
       )}
       <button
         type="button"

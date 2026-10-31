@@ -4,6 +4,7 @@ import type { PlanNotes } from "../lib/tailor";
 import type { EventAction } from "../shared/engine";
 import type { AccountUser, ActivityEntry, PlanSummary, Role, SignInMethods } from "../shared/types";
 
+/** Who is using the app on this device, as the screens greet them. */
 export interface Session {
   signedIn: boolean;
   name: string;
@@ -14,13 +15,15 @@ export interface Session {
   plan: string;
 }
 
+/** One message in the intake chat. */
 export interface ChatTurn {
   id: string;
   role: "user" | "ai";
   text: string;
-  question?: Question;
+  question?: Question | undefined;
 }
 
+/** A plan being described in the intake, before it becomes an event. */
 export interface Draft {
   profile: Profile;
   asked: QuestionField[];
@@ -29,18 +32,19 @@ export interface Draft {
   /** Set once the plan is generated, so the summary can be revisited. */
   generated: boolean;
   /** The event the draft becomes when accepted, if it fills in an existing one. */
-  forEvent?: string;
+  forEvent?: string | undefined;
   /**
    * What Gemini drafted for this profile: the split, the dates, the vendors and the ideas, kept so they
    * survive signing up on the way to accepting. A new profile clears them.
    */
-  notes?: PlanNotes;
+  notes?: PlanNotes | undefined;
 }
 
+/** A message shown briefly at the bottom of the screen. */
 export interface Toast {
   id: string;
   text: string;
-  undo?: Action;
+  undo?: Action | undefined;
 }
 
 /** Where a plan lives on the server, and what this person may do with it. */
@@ -50,18 +54,21 @@ export interface RemoteMeta {
   side: string | null;
 }
 
+/** The signed-in account, if any, as the server last reported it. */
 export interface Account {
   status: "unknown" | "signed-out" | "signed-in";
-  user?: AccountUser;
+  user?: AccountUser | undefined;
   /** What the server offers; all false when accounts aren't switched on there. */
-  methods?: SignInMethods;
+  methods?: SignInMethods | undefined;
 }
 
+/** How many changes are waiting to reach the server, and whether the device is offline. */
 export interface SyncStatus {
   pending: number;
   offline: boolean;
 }
 
+/** Everything the app keeps in memory and on the device. */
 export interface AppState {
   version: 2;
   /** Days the demo story was moved when it was seeded; a new week reseeds it. */
@@ -70,7 +77,7 @@ export interface AppState {
    * Which sample data the demo events were made from; new samples replace old ones. 0 until the
    * samples have loaded: they're fetched only when someone opens the demo.
    */
-  seed?: number;
+  seed?: number | undefined;
   /** "demo": everything stays in this browser. "account": plans live on the server and sync. */
   mode: "demo" | "account";
   account: Account;
@@ -90,6 +97,7 @@ export interface AppState {
   toasts: Toast[];
 }
 
+/** Every change the store accepts: plan changes, plus session, draft and interface actions. */
 export type Action =
   | EventAction
   | { type: "signIn" }

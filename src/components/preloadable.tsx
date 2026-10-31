@@ -1,5 +1,6 @@
 import { type ComponentType, createElement, lazy, useState } from "react";
 
+/** A lazy page component that can also be loaded ahead of time. */
 export interface Preloadable<P extends object> {
   (props: P): ReturnType<typeof createElement>;
   /** Loads the page's code now; resolves once it can render without suspending. */

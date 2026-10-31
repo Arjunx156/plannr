@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { usePageMeta } from "../components/pageMeta";
 import { Spinner } from "../components/ui";
@@ -137,7 +137,7 @@ function useSignIn(mode: Mode, next: string | null, query: string, failed: boole
 }
 
 /** /signin, /signup: Google, an emailed code or a guest account, whichever this server offers. */
-export function Auth({ mode }: { mode: Mode }) {
+export function Auth({ mode }: { mode: Mode }): JSX.Element {
   const { state, dispatch } = useStore();
   const navigate = useNavigate();
   const [params] = useSearchParams();

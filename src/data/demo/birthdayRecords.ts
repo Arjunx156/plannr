@@ -29,6 +29,7 @@ const BDAY: [string, number, number | "no" | null, Partial<Household>?][] = [
   ["Football club friends", 7, 4],
 ];
 
+/** The birthday demo's guests, vendors and lists. */
 export const birthdayRecords: PlanRecords = {
   households: BDAY.map(([name, expected, answer, extra], i) => ({
     id: `bh${i + 1}`,

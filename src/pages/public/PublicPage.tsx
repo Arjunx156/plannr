@@ -1,17 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
+import { type JSX, useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { Logo } from "../../components/brand";
 import { usePageMeta } from "../../components/pageMeta";
 import { Spinner } from "../../components/ui";
 import { ApiError, api } from "../../lib/api";
 import { shrinkImage } from "../../lib/images";
-import type { PublicKind, PublicView } from "../../shared/public";
+import { type EventAction, isEventAction } from "../../shared/engine";
+import { isRecord, isString, keysOf, oneOf } from "../../shared/guards";
+import { PUBLIC_PATH, type PublicKind, type PublicView } from "../../shared/public";
 import { projectView } from "../../shared/publicViews";
 import { demoLoading, useStore } from "../../store/store";
 import { viewPage } from "./views";
 
 /** /r/:token and friends: a shared page, loaded from the link's token. No account needed. */
-export function PublicPage({ kind }: { kind: PublicKind }) {
+export function PublicPage({ kind }: { kind: PublicKind }): JSX.Element {
   const { token = "" } = useParams();
   const [view, setView] = useState<PublicView | null>();
   const [error, setError] = useState("");
@@ -68,24 +70,34 @@ function Broken({ message }: { message: string }) {
   );
 }
 
+// A guest's action replayed in the demo: scoped to this event, and an RSVP to the household previewed.
+function previewAction(a: unknown, eventId: string, householdId: string): EventAction | undefined {
+  const type = isRecord(a) ? a["type"] : undefined;
+  if (!isRecord(a) || !isString(type)) return undefined;
+  const own = type === "rsvp" ? { householdId } : {};
+  const action = { ...a, ...own, type, eventId };
+  return isEventAction(action) ? action : undefined;
+}
+
 /**
  * /preview/:kind/:eventId/:target? — the same page, drawn from the plan in this browser, so
  * hosts see what guests will see. In the demo it works for real: an RSVP here updates the
  * guest list. With an account, guests answer from their own link, so the preview is read-only.
  */
-export function PreviewPage() {
+export function PreviewPage(): JSX.Element {
   const { kind = "", eventId = "", target = "" } = useParams();
   const { state, dispatch } = useStore();
   usePageMeta("Preview", { private: true });
   const ev = state.events.find((e) => e.id === eventId);
-  const view = ev ? projectView(ev, kind as PublicKind, decodeURIComponent(target)) : undefined;
+  const linkKind = oneOf(kind, keysOf(PUBLIC_PATH));
+  const view = ev && linkKind ? projectView(ev, linkKind, decodeURIComponent(target)) : undefined;
   const demo = state.mode === "demo";
   const back = `/events/${eventId}`;
   const act = demo
     ? (actions: unknown[]) => {
-        for (const a of actions as { type: string; householdId?: string }[]) {
-          const action = a.type === "rsvp" ? { ...a, householdId: decodeURIComponent(target) } : a;
-          dispatch({ ...(action as object), eventId } as Parameters<typeof dispatch>[0]);
+        for (const a of actions) {
+          const action = previewAction(a, eventId, decodeURIComponent(target));
+          if (action) dispatch(action);
         }
         return Promise.resolve();
       }
@@ -105,7 +117,7 @@ export function PreviewPage() {
       />
     );
   const banner = (
-    <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 bg-ink px-4 py-2 text-sm text-paper">
+    <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 bg-ink px-4 py-2 text-paper text-sm">
       <span>
         <strong>Preview.</strong>{" "}
         {demo

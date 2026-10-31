@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import type { Household } from "../../../data/guestTypes";
 import type { PlannrEvent } from "../../../data/types";
 import { plural } from "../../../lib/format";
@@ -5,7 +6,13 @@ import { duplicateGroups } from "../../../shared/derive";
 import { toast, useStore } from "../../../store/store";
 
 /** Households that look like one family added twice, each group with a way to merge it. */
-export function Duplicates({ ev, households }: { ev: PlannrEvent; households: Household[] }) {
+export function Duplicates({
+  ev,
+  households,
+}: {
+  ev: PlannrEvent;
+  households: Household[];
+}): JSX.Element | null {
   const { dispatch } = useStore();
   const dupes = duplicateGroups(households);
   if (dupes.length === 0) return null;

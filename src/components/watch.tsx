@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { useNavigate } from "react-router";
 import type { CommunityEvent, PersonalEvent } from "../data/types";
 import { addDays, TODAY } from "../lib/dates";
 import { useRain } from "../lib/weather";
+import { fieldsOf, isString } from "../shared/guards";
 import { headcountRipple, type Ripple } from "../shared/ripple";
 import { rainWatch, watchPlan } from "../shared/watch";
 import type { Watch, WatchAction } from "../shared/watchRule";
 import { toast, useStore } from "../store/store";
 import { RippleDialog } from "./ripple";
 import { useEditable } from "./taskHooks";
-
 import { NOTICE_CARD, Pill } from "./ui";
 
 const KEY = "plannr:watch-hidden";
@@ -17,7 +17,7 @@ const KEY = "plannr:watch-hidden";
 /** "Not now" hides a notice on this device for three days, or until the situation changes. */
 function hidden(): Record<string, string> {
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? "{}") as Record<string, string>;
+    return fieldsOf(JSON.parse(localStorage.getItem(KEY) ?? "{}"), isString);
   } catch {
     return {};
   }
@@ -33,6 +33,7 @@ function hide(id: string): void {
   }
 }
 
+/** The notices for an event, minus those hidden on this device, with rain warnings added. */
 export function useWatches(ev: PersonalEvent | CommunityEvent): Watch[] {
   const rain = useRain(ev);
   const off = hidden();
@@ -42,7 +43,7 @@ export function useWatches(ev: PersonalEvent | CommunityEvent): Watch[] {
 }
 
 /** The overview's "needs attention": live from the plan, every button doing something real. */
-export function WatchList({ ev }: { ev: PersonalEvent | CommunityEvent }) {
+export function WatchList({ ev }: { ev: PersonalEvent | CommunityEvent }): JSX.Element | null {
   const { dispatch } = useStore();
   const navigate = useNavigate();
   const editable = useEditable(ev);
@@ -57,7 +58,7 @@ export function WatchList({ ev }: { ev: PersonalEvent | CommunityEvent }) {
     if (a.kind === "go") void navigate(a.to);
     else if (a.kind === "headcount" && ev.layout === "personal") setRipple(headcountRipple(ev, a.guests));
     else if (a.kind === "apply") {
-      for (const x of a.actions) dispatch(x as Parameters<typeof dispatch>[0]);
+      for (const x of a.actions) dispatch(x);
       dispatch(toast(`${a.done} Undo it from History.`));
     }
   };
@@ -73,8 +74,8 @@ export function WatchList({ ev }: { ev: PersonalEvent | CommunityEvent }) {
               className={`flex flex-col gap-2 rounded-2xl border p-4 ${NOTICE_CARD[w.tone]}`}
             >
               <Pill tone={w.tone === "info" ? "idle" : w.tone}>{w.label}</Pill>
-              <span className="text-[15px] leading-[1.4] font-medium">{w.text}</span>
-              {w.why && <span className="text-xs leading-[1.4] text-peacock">{w.why}</span>}
+              <span className="font-medium text-[15px] leading-[1.4]">{w.text}</span>
+              {w.why && <span className="text-peacock text-xs leading-[1.4]">{w.why}</span>}
               <div className="mt-1 flex flex-wrap gap-2">
                 {w.primary && canRun(w.primary) && (
                   <button

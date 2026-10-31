@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 import { Link } from "react-router";
 import { useEditable } from "../../components/taskHooks";
 import { Pill } from "../../components/ui";
@@ -8,7 +8,7 @@ import { useStore } from "../../store/store";
 import { TabPage } from "./layout";
 
 /** Shown when a community-only page is opened for a wedding or birthday. */
-export function NotCommunity({ ev, title }: { ev: PlannrEvent; title: string }) {
+export function NotCommunity({ ev, title }: { ev: PlannrEvent; title: string }): JSX.Element {
   return (
     <TabPage eyebrow={ev.name} title={title}>
       <p className="m-0 text-body">
@@ -45,7 +45,7 @@ export function ApprovalDecision({
   /** What a pending claim says to someone who can't decide it. */
   waiting: string;
   onDecide: (status: "approved" | "declined") => void;
-}) {
+}): JSX.Element {
   if (approval.status !== "pending")
     return <Pill tone={approval.status === "approved" ? "ok" : "idle"}>{approval.status}</Pill>;
   if (!canDecide) return <Pill tone="due">{waiting}</Pill>;
@@ -70,13 +70,13 @@ export function ShiftGrid({
   slots: string[];
   wide?: boolean;
   children: ReactNode;
-}) {
+}): JSX.Element {
   return (
     // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users must be able to scroll a wide table (WCAG scrollable-region-focusable)
     <section className="scroll-x" aria-label="Volunteer shifts by role and time" tabIndex={0}>
       <table className={`w-full border-collapse text-sm ${wide ? "min-w-[720px]" : "min-w-[620px]"}`}>
         <thead>
-          <tr className="text-left text-xs text-muted">
+          <tr className="text-left text-muted text-xs">
             <th className="py-2 font-medium">Role</th>
             {slots.map((s) => (
               <th key={s} className="py-2 font-medium">
@@ -109,7 +109,7 @@ export function AssignSelect({
   free: string[];
   className: string;
   onAssign: (name: string) => void;
-}) {
+}): JSX.Element {
   return (
     <select
       className={className}

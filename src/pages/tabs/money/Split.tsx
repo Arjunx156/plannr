@@ -1,3 +1,5 @@
+import type { JSX } from "react";
+import { cssVars, percent } from "../../../components/cssVars";
 import type { PersonalEvent } from "../../../data/types";
 import { longDate, TODAY } from "../../../lib/dates";
 import { inr } from "../../../lib/format";
@@ -15,7 +17,7 @@ function balanceLine(balance: number): { color: string; text: string } {
 }
 
 /** How costs are shared between the families, and who owes whom to settle up. */
-export function Split({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
+export function Split({ ev, editable }: { ev: PersonalEvent; editable: boolean }): JSX.Element {
   const { dispatch } = useStore();
   const balances = splitBalances(ev);
   const transfers = settleUp(balances);
@@ -24,13 +26,14 @@ export function Split({ ev, editable }: { ev: PersonalEvent; editable: boolean }
   return (
     <Section
       title="Between the families"
-      aside={<span className="text-sm text-muted">{ev.budget.split?.label}</span>}
+      aside={<span className="text-muted text-sm">{ev.budget.split?.label}</span>}
     >
       <div className="flex h-3 overflow-hidden rounded-full bg-sand-2" aria-hidden="true">
         {balances.map((b) => (
           <span
             key={b.name}
-            style={{ width: `${(b.paid / Math.max(1, total)) * 100}%`, background: b.color }}
+            ref={cssVars({ "--w": percent(b.paid / Math.max(1, total)), "--c": b.color })}
+            className="w-(--w) bg-(--c)"
           />
         ))}
       </div>
@@ -38,7 +41,11 @@ export function Split({ ev, editable }: { ev: PersonalEvent; editable: boolean }
         {balances.map((b) => (
           <li key={b.name} className="flex flex-col gap-1 rounded-xl bg-sand p-3.5 text-sm">
             <span className="flex items-center gap-2 font-semibold">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: b.color }} aria-hidden="true" />
+              <span
+                ref={cssVars({ "--c": b.color })}
+                className="h-2.5 w-2.5 rounded-full bg-(--c)"
+                aria-hidden="true"
+              />
               {b.name} · {Math.round(b.share * 100)}%
             </span>
             <span className="tabular">
@@ -77,10 +84,10 @@ export function Split({ ev, editable }: { ev: PersonalEvent; editable: boolean }
           ))}
         </div>
       ) : (
-        <span className="text-sm text-leaf-ink">The families are even at the agreed split.</span>
+        <span className="text-leaf-ink text-sm">The families are even at the agreed split.</span>
       )}
       {settlements.length > 0 && (
-        <ul className="m-0 flex list-none flex-col p-0 text-xs text-muted">
+        <ul className="m-0 flex list-none flex-col p-0 text-muted text-xs">
           {settlements.map((s) => (
             <li key={s.id} className="flex items-center justify-between gap-2 py-1">
               <span>

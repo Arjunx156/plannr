@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { bindText, TextField } from "../../../components/fields";
 import { Modal } from "../../../components/overlays";
 import type { FunctionDay } from "../../../data/baseTypes";
@@ -21,7 +21,7 @@ export function RunSheet({
   fn: FunctionDay;
   live: boolean;
   editable: boolean;
-}) {
+}): JSX.Element {
   const { dispatch } = useStore();
   const now = useClock();
   const items = runsheetFor(ev, fn.id);
@@ -40,7 +40,7 @@ export function RunSheet({
       title="Run sheet"
       aside={
         <span className="flex items-center gap-2">
-          {live && <span className="font-mono text-sm tabular text-muted">{clock(now)}</span>}
+          {live && <span className="tabular font-mono text-muted text-sm">{clock(now)}</span>}
           {editable && (
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing("new")}>
               + Add
@@ -71,7 +71,7 @@ export function RunSheet({
           {editable && (
             <div className="flex flex-col gap-2 rounded-xl border border-line p-4">
               <span className="font-semibold">Running late?</span>
-              <span className="text-sm text-body">Moves “{anchor.title}” and everything after it.</span>
+              <span className="text-body text-sm">Moves “{anchor.title}” and everything after it.</span>
               <span className="flex flex-wrap gap-1.5">
                 {[5, 10, 15, 30].map((m) => (
                   <button key={m} type="button" className="btn btn-secondary btn-sm" onClick={() => late(m)}>
@@ -95,7 +95,7 @@ export function RunSheet({
           />
         ))}
         {items.length === 0 && (
-          <li className="text-sm text-muted">
+          <li className="text-muted text-sm">
             Nothing on the run sheet for {fn.label} yet. Add the timings and who's in charge of each.
           </li>
         )}
@@ -123,7 +123,7 @@ export function RunSheet({
 function RunOwner({ item: r }: { item: RunItem }) {
   if (!r.owner && !r.note) return null;
   return (
-    <span className="text-xs text-muted">
+    <span className="text-muted text-xs">
       {r.owner}
       {r.owner && r.phone && (
         <>
@@ -154,7 +154,7 @@ function RunRow({
 }) {
   return (
     <li
-      className={`grid grid-cols-[24px_64px_minmax(0,1fr)_auto] items-start gap-2 border-t border-sand-2 py-2.5 text-sm first:border-0 ${now ? "bg-peacock-tint" : ""}`}
+      className={`grid grid-cols-[24px_64px_minmax(0,1fr)_auto] items-start gap-2 border-sand-2 border-t py-2.5 text-sm first:border-0 ${now ? "bg-peacock-tint" : ""}`}
     >
       <input
         type="checkbox"
@@ -193,7 +193,7 @@ function RunItemForm({
 }: {
   ev: PlannrEvent;
   fn: FunctionDay;
-  item?: RunItem;
+  item?: RunItem | undefined;
   onDone: () => void;
 }) {
   const { dispatch } = useStore();

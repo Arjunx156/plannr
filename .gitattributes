@@ -14,3 +14,7 @@
 *.ps1 text eol=crlf
 *.bat text eol=crlf
 *.cmd text eol=crlf
+
+# Generated files: collapsed in diffs and left out of the language stats.
+bun.lock linguist-generated
+server/db/migrations/meta/*.json linguist-generated

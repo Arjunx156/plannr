@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { PlannrEvent } from "../src/data/types";
 import type { EventAction } from "../src/shared/engine";
-import { type Coll, list } from "../src/shared/records";
+import { isRecord, keysOf, oneOf } from "../src/shared/guards";
+import { type Coll, isColl, list } from "../src/shared/records";
 import { ACTIONS, task } from "./validation/actions";
 import { iso, name } from "./validation/fields";
 import { RECORDS } from "./validation/records";
@@ -47,49 +48,48 @@ export function checkPlan(raw: unknown): { ok: true; event: PlannrEvent } | { ok
   const outline = planOutline.safeParse(raw);
   if (!outline.success) return { ok: false, error: describe(outline.error) };
   if (!withinLimits(raw)) return { ok: false, error: "That plan has a field that's too large or too deep" };
-  const ev = raw as PlannrEvent;
-  const tasks = (ev as { tasks?: { list?: unknown } }).tasks?.list;
+  const ev = validated<PlannrEvent>(raw);
+  const tasks = isRecord(raw) && isRecord(raw["tasks"]) ? raw["tasks"]["list"] : undefined;
   const checkedTasks = z.array(task).max(PLAN_LIMITS.items).optional().safeParse(tasks);
   if (!checkedTasks.success) return { ok: false, error: `tasks: ${describe(checkedTasks.error)}` };
-  for (const c of Object.keys(RECORDS) as Coll[]) {
+  for (const c of keysOf(RECORDS)) {
     const problem = recordProblem(ev, c);
     if (problem) return { ok: false, error: problem };
   }
   return { ok: true, event: ev };
 }
 
-/**
- * The one place a checked change becomes an EventAction. Every field was just validated by a
- * zod shape built from the same types, but zod's inferred union doesn't line up with the
- * EventAction union structurally, so the value is re-typed here rather than at each return.
- */
-const checked = (value: unknown) => value as EventAction;
+/** The one place checked input takes its type. */
+function validated<T extends PlannrEvent | EventAction>(value: unknown): T {
+  // Every field was just validated by zod shapes built from the same types, but zod's inferred
+  // unions don't line up with Plannr's structurally, so the value is typed here once.
+  return value as T;
+}
 
 /** Checks one change; returns it cleaned, or an error message a person can read. */
 export function parseAction(raw: unknown): { ok: true; action: EventAction } | { ok: false; error: string } {
-  const type = (raw as { type?: unknown } | null)?.type;
-  const known = typeof type === "string" && Object.hasOwn(ACTIONS, type);
-  const shape = known ? ACTIONS[type as EventAction["type"]] : undefined;
-  if (!shape) return { ok: false, error: "Unknown change" };
-  const parsed = shape.safeParse(raw);
+  const type = oneOf(isRecord(raw) ? raw["type"] : undefined, keysOf(ACTIONS));
+  if (!type) return { ok: false, error: "Unknown change" };
+  const parsed = ACTIONS[type].safeParse(raw);
   if (!parsed.success) return { ok: false, error: describe(parsed.error) };
-  const action = parsed.data as Record<string, unknown>;
-  if (action.type === "replacePlan") {
-    const plan = checkPlan(action.event);
+  const action: Record<string, unknown> = { ...parsed.data };
+  if (action["type"] === "replacePlan") {
+    const plan = checkPlan(action["event"]);
     if (!plan.ok) return plan;
   }
   // Records are checked against their own collection's shape.
-  if (action.type === "addRecord") {
-    const record = RECORDS[action.coll as Coll].safeParse(action.record);
+  const coll = action["coll"];
+  if (action["type"] === "addRecord" && isColl(coll)) {
+    const record = RECORDS[coll].safeParse(action["record"]);
     if (!record.success) return { ok: false, error: describe(record.error) };
-    action.record = record.data;
+    action["record"] = record.data;
   }
-  if (action.type === "updateRecord") {
-    const patch = RECORDS[action.coll as Coll].partial().omit({ id: true }).safeParse(action.patch);
+  if (action["type"] === "updateRecord" && isColl(coll)) {
+    const patch = RECORDS[coll].partial().omit({ id: true }).safeParse(action["patch"]);
     if (!patch.success) return { ok: false, error: describe(patch.error) };
-    action.patch = patch.data;
+    action["patch"] = patch.data;
   }
-  return { ok: true, action: checked(action) };
+  return { ok: true, action: validated<EventAction>(action) };
 }
 
 function describe(error: z.ZodError): string {
@@ -99,4 +99,5 @@ function describe(error: z.ZodError): string {
   return where ? `${where}: ${issue.message}` : issue.message;
 }
 
+/** The shape a record in one collection must have. */
 export const recordShape = (c: Coll) => RECORDS[c];

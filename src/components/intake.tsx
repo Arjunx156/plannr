@@ -1,4 +1,4 @@
-import { type ReactNode, useRef } from "react";
+import { type JSX, type ReactNode, useRef } from "react";
 import type { Profile } from "../data/types";
 import { PRIORITY_OPTIONS } from "../lib/intakeQuestions";
 
@@ -7,17 +7,18 @@ export function canDraft(p: Profile): boolean {
   return !!(p.kind && p.city && p.date && p.guests && p.budget);
 }
 
+/** Ranks what matters most, and what can be cut, as tappable chips. */
 export function PriorityPicker({
   profile,
   onToggle,
 }: {
   profile: Profile;
   onToggle: (option: string, list: "priorities" | "cuts") => void;
-}) {
+}): JSX.Element {
   const options = PRIORITY_OPTIONS[profile.kind ?? "other"];
   return (
     <div className="flex flex-col gap-2">
-      <span className="font-mono text-xs font-medium tracking-[0.06em] text-muted uppercase">
+      <span className="font-medium font-mono text-muted text-xs uppercase tracking-[0.06em]">
         Most important · {profile.priorities.length} of 3
       </span>
       <div className="flex flex-wrap gap-2">
@@ -38,7 +39,7 @@ export function PriorityPicker({
           );
         })}
       </div>
-      <span className="mt-1.5 font-mono text-xs font-medium tracking-[0.06em] text-muted uppercase">
+      <span className="mt-1.5 font-medium font-mono text-muted text-xs uppercase tracking-[0.06em]">
         Okay to cut
       </span>
       <div className="flex flex-wrap gap-2">
@@ -50,7 +51,7 @@ export function PriorityPicker({
               type="button"
               aria-pressed={on}
               onClick={() => onToggle(o, "cuts")}
-              className={`inline-flex min-h-9 items-center rounded-full border px-[13px] text-sm font-medium ${on ? "border-gold bg-cream text-amber-ink" : "border-line bg-surface hover:border-line-2"}`}
+              className={`inline-flex min-h-9 items-center rounded-full border px-[13px] font-medium text-sm ${on ? "border-gold bg-cream text-amber-ink" : "border-line bg-surface hover:border-line-2"}`}
             >
               {o}
             </button>
@@ -62,7 +63,10 @@ export function PriorityPicker({
 }
 
 /** An inspiration image picked on this phone. The plan keeps only its name; the picture stays here. */
-export type ImagePreview = { name: string; url: string };
+export interface ImagePreview {
+  name: string;
+  url: string;
+}
 
 /** Previews for the images among picked or dropped files. */
 export function imagesFrom(files: Iterable<File> | null): ImagePreview[] {
@@ -80,10 +84,10 @@ export function InspirationTile({
   name: string;
   url?: string | undefined;
   className: string;
-}) {
+}): JSX.Element {
   return (
     <div
-      className={`hatch relative flex items-end overflow-hidden font-mono leading-[1.2] font-medium text-muted ${className}`}
+      className={`hatch relative flex items-end overflow-hidden font-medium font-mono text-muted leading-[1.2] ${className}`}
     >
       {url ? (
         <img src={url} alt={name} className="absolute inset-0 h-full w-full object-cover" />
@@ -103,7 +107,7 @@ export function AddImages({
   onAdd: (files: FileList) => void;
   className: string;
   children: ReactNode;
-}) {
+}): JSX.Element {
   const fileRef = useRef<HTMLInputElement>(null);
   return (
     <>
@@ -123,7 +127,7 @@ export function AddImages({
           e.preventDefault();
           onAdd(e.dataTransfer.files);
         }}
-        className={`border-[1.5px] border-dashed border-line-2 font-medium text-body hover:border-ink ${className}`}
+        className={`border-[1.5px] border-line-2 border-dashed font-medium text-body hover:border-ink ${className}`}
       >
         {children}
       </button>

@@ -2,7 +2,7 @@ import type { Task } from "../data/baseTypes";
 import type { ChangeId } from "../data/messageTypes";
 import type { PlannrEvent } from "../data/types";
 import { describePlanAction } from "./describePlanAction";
-import { type ByAction, type CoreAction, type EventAction, isPlanAction } from "./engine";
+import { type ByAction, type CoreAction, type CoreActionOf, type EventAction, isPlanAction } from "./engine";
 
 // ---------------------------------------------------------------- history lines
 const quote = (s: string) => `“${s}”`;
@@ -55,6 +55,13 @@ const DESCRIPTIONS: ByAction<string> = {
 /** One line for the history panel: what changed, in words a co-planner recognises. */
 export function describeAction(action: EventAction, ev: PlannrEvent): string {
   if (isPlanAction(action)) return describePlanAction(action, ev);
-  const describe = DESCRIPTIONS[action.type] as (ev: PlannrEvent, action: CoreAction) => string;
-  return describe(ev, action);
+  return describeCore(action.type, ev, action);
+}
+
+function describeCore<T extends CoreAction["type"]>(
+  type: T,
+  ev: PlannrEvent,
+  action: CoreActionOf<T>,
+): string {
+  return DESCRIPTIONS[type](ev, action);
 }

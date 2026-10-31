@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { type JSX, useMemo, useState } from "react";
 import { Field } from "../../../components/fields";
 import { Modal } from "../../../components/overlays";
 import type { PlannrEvent } from "../../../data/types";
@@ -28,7 +28,16 @@ export function parseGuestList(text: string): { name: string; expected: number; 
     .filter((r) => r.name.length > 1 && !/^\d+$/.test(r.name));
 }
 
-export function PasteList({ ev, open, onClose }: { ev: PlannrEvent; open: boolean; onClose: () => void }) {
+/** Adds many households at once from a pasted list, one per line. */
+export function PasteList({
+  ev,
+  open,
+  onClose,
+}: {
+  ev: PlannrEvent;
+  open: boolean;
+  onClose: () => void;
+}): JSX.Element {
   const { dispatch } = useStore();
   const [text, setText] = useState("");
   const [side, setSide] = useState("");
@@ -58,7 +67,7 @@ export function PasteList({ ev, open, onClose }: { ev: PlannrEvent; open: boolea
   };
   return (
     <Modal open={open} onClose={onClose} title="Paste a guest list" width={560}>
-      <p className="m-0 text-sm text-body">
+      <p className="m-0 text-body text-sm">
         One household per line: name, how many people, and a phone number if you have it. Copy straight from a
         spreadsheet or a WhatsApp note.
       </p>

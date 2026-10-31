@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { put } from "@vercel/blob";
+import { keysOf, oneOf } from "../src/shared/guards";
 import { HttpError } from "./plans";
 
 /**
@@ -10,6 +11,7 @@ import { HttpError } from "./plans";
 
 export const MAX_PHOTO_BYTES = 4_000_000;
 
+/** Stores a photo and returns its public URL. */
 export type StorePhoto = (eventId: string, bytes: Uint8Array, type: string) => Promise<string>;
 
 /** What the bytes say the file is, whatever the request claimed. */
@@ -24,10 +26,12 @@ export function imageType(b: Uint8Array): "image/jpeg" | "image/png" | "image/we
 
 const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const;
 
+/** Photo storage in Vercel Blob, or undefined when no token is set. */
 export function blobStore(token: string | undefined): StorePhoto | undefined {
   if (!token) return undefined;
   return async (eventId, bytes, type) => {
-    const ext = EXT[type as keyof typeof EXT] ?? "jpg";
+    const known = oneOf(type, keysOf(EXT));
+    const ext = known ? EXT[known] : "jpg";
     const blob = await put(`albums/${eventId}/${randomUUID()}.${ext}`, Buffer.from(bytes), {
       access: "public",
       contentType: type,

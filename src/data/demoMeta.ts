@@ -18,7 +18,7 @@ export const DEMO_USER = {
 };
 
 /** The sample events' ids, so the planner's own events can be told apart from them. */
-export const SEED_IDS = ["ananya-rohan", "aarav-6", "green-valley-mela", "amma-achan-35"];
+export const SEED_IDS: string[] = ["ananya-rohan", "aarav-6", "green-valley-mela", "amma-achan-35"];
 
 /** Bump when the sample events change, so returning demo visitors see the new ones. */
 export const SEED_REVISION = 5;

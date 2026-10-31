@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { Link } from "react-router";
 import { usePageMeta } from "../components/pageMeta";
 import { AppShell } from "../components/shell";
 import { TaskRow } from "../components/tasks";
-import { HUE_COLOR, Pill } from "../components/ui";
+import { Pill, SWATCH_BG } from "../components/ui";
 import type { Task } from "../data/baseTypes";
 import type { Notice } from "../data/messageTypes";
 import type { PlannrEvent } from "../data/types";
@@ -16,7 +16,10 @@ interface Due {
   task: Task;
 }
 
-type Flag = { ev: PlannrEvent; notice: Pick<Notice, "id" | "tone" | "label" | "text"> };
+interface Flag {
+  ev: PlannrEvent;
+  notice: Pick<Notice, "id" | "tone" | "label" | "text">;
+}
 
 const dueKey = ({ ev, task }: Due) => `${ev.id}/${task.id}`;
 
@@ -30,7 +33,7 @@ function dueThisWeek(events: PlannrEvent[], ticked: string[]): Due[] {
 }
 
 /** /today: what needs doing across every event, in the order it's due. */
-export function Today() {
+export function Today(): JSX.Element {
   usePageMeta("Today", { private: true });
   const { state, dispatch } = useStore();
   // Ticked here, kept in place for the visit so the tick shows and can be undone.
@@ -60,7 +63,7 @@ export function Today() {
     <AppShell>
       <main
         id="main"
-        className="mx-auto grid max-w-[1180px] gap-8 px-4 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_340px]"
+        className="mx-auto grid max-w-[1180px] grid-cols-1 gap-8 px-4 py-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_340px]"
       >
         <div className="flex min-w-0 flex-col gap-5">
           <div className="flex flex-col gap-1.5">
@@ -124,7 +127,7 @@ function DueGroup({ label, list, tone = "text-muted", editable, onToggle }: Grou
 
 function NothingDue({ hasEvents }: { hasEvents: boolean }) {
   return (
-    <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-line-2 p-8">
+    <div className="flex flex-col items-start gap-3 rounded-2xl border border-line-2 border-dashed p-8">
       <span className="font-serif text-[26px]">Nothing due this week</span>
       <span className="text-body">
         {hasEvents
@@ -153,18 +156,14 @@ function ComingUp({ events }: { events: PlannrEvent[] }) {
             to={`/events/${ev.id}`}
             className="flex items-center gap-3 rounded-xl border border-line bg-surface p-3 text-ink no-underline hover:border-line-2"
           >
-            <span
-              aria-hidden="true"
-              className="h-10 w-1.5 rounded-full"
-              style={{ background: HUE_COLOR[ev.hue] }}
-            />
+            <span aria-hidden="true" className={`h-10 w-1.5 rounded-full ${SWATCH_BG[ev.hue]}`} />
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-sm font-semibold">{ev.name}</span>
-              <span className="text-xs text-muted">{longDate(ev.date)}</span>
+              <span className="truncate font-semibold text-sm">{ev.name}</span>
+              <span className="text-muted text-xs">{longDate(ev.date)}</span>
             </span>
             <span className="text-right">
-              <span className="block font-serif text-2xl leading-none tabular">{days || "Today"}</span>
-              {days > 0 && <span className="text-xs text-muted">days</span>}
+              <span className="tabular block font-serif text-2xl leading-none">{days || "Today"}</span>
+              {days > 0 && <span className="text-muted text-xs">days</span>}
             </span>
           </Link>
         );
@@ -185,7 +184,7 @@ function NeedsDecision({ flags }: { flags: Flag[] }) {
         >
           <span className="flex items-center justify-between gap-2">
             <Pill tone={notice.tone === "info" ? "idle" : notice.tone}>{notice.label}</Pill>
-            <span className="truncate text-xs text-muted">{ev.name}</span>
+            <span className="truncate text-muted text-xs">{ev.name}</span>
           </span>
           <span className="text-sm leading-[1.4]">{notice.text}</span>
         </Link>

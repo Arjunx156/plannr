@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { aiEnabled, planNotes } from "../../lib/ai";
+import { type AiFailure, aiEnabled, planNotes } from "../../lib/ai";
 import { draftPlan, type PlanDraft } from "../../lib/plan";
 import { type PlanNotes, tailorPlan } from "../../lib/tailor";
 import { useStore } from "../../store/store";
@@ -15,6 +15,8 @@ export function useGeminiDraft(): {
   plan: PlanDraft;
   notes: PlanNotes | undefined;
   gemini: GeminiState;
+  /** Why Gemini didn't answer, when it didn't. */
+  why: AiFailure | undefined;
   retry: () => void;
 } {
   const { state, dispatch } = useStore();
@@ -22,6 +24,7 @@ export function useGeminiDraft(): {
   const base = useMemo(() => draftPlan(profile), [profile]);
   const plan = useMemo(() => tailorPlan(base, notes), [base, notes]);
   const [gemini, setGemini] = useState<GeminiState>(notes ? "done" : "checking");
+  const [why, setWhy] = useState<AiFailure>();
 
   const ask = useCallback(
     async (live: () => boolean) => {
@@ -30,8 +33,12 @@ export function useGeminiDraft(): {
       if (live()) setGemini("drafting");
       const answer = await planNotes(profile, base);
       if (!live()) return;
-      if (answer) dispatch({ type: "draft", patch: { notes: answer } });
-      else setGemini("failed");
+      if (answer.ok) {
+        dispatch({ type: "draft", patch: { notes: answer.value } });
+        return;
+      }
+      setWhy(answer.error);
+      setGemini(answer.error === "off" ? "off" : "failed");
     },
     [profile, base, dispatch],
   );
@@ -48,5 +55,5 @@ export function useGeminiDraft(): {
     };
   }, [notes, ask]);
 
-  return { plan, notes, gemini, retry: () => void ask(() => true) };
+  return { plan, notes, gemini, why, retry: () => void ask(() => true) };
 }

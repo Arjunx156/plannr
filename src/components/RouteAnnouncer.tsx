@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type JSX, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router";
 
 /** About a second of frames: long enough for a lazily loaded screen to arrive. */
@@ -9,7 +9,7 @@ const MAX_FRAMES = 60;
  * move this reads out the new screen's title and starts focus at its content, as a page load would.
  * It leaves focus alone when a dialog has just opened, so a sheet keeps the keyboard.
  */
-export function RouteAnnouncer() {
+export function RouteAnnouncer(): JSX.Element {
   const { pathname } = useLocation();
   const [message, setMessage] = useState("");
   const previous = useRef(pathname);

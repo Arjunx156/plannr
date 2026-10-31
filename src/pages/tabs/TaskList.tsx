@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { useEditable, useTaskToggle } from "../../components/taskHooks";
 import { TaskRow } from "../../components/tasks";
 import type { Task } from "../../data/baseTypes";
@@ -35,7 +35,13 @@ function groupsFor(shown: Task[], show: Show): Group[] {
 }
 
 /** Every task, grouped by urgency, with filters by state and by person. */
-export function TaskList({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (id: string) => void }) {
+export function TaskList({
+  ev,
+  onOpenTask,
+}: {
+  ev: PlannrEvent;
+  onOpenTask: (id: string) => void;
+}): JSX.Element {
   const editable = useEditable(ev);
   const { toggle, ticked } = useTaskToggle(ev);
   const [show, setShow] = useState<Show>("open");
@@ -81,7 +87,7 @@ export function TaskList({ ev, onOpenTask }: { ev: PlannrEvent; onOpenTask: (id:
           </section>
         ))}
       {shown.length === 0 && (
-        <p className="m-0 rounded-2xl border border-dashed border-line-2 p-8 text-center text-body">
+        <p className="m-0 rounded-2xl border border-line-2 border-dashed p-8 text-center text-body">
           {show === "done" ? "Nothing ticked off yet." : "Nothing open here. Enjoy the quiet."}
         </p>
       )}
@@ -118,10 +124,10 @@ function WhoPicker({
   onChange: (who: string) => void;
 }) {
   return (
-    <label className="ml-auto flex items-center gap-2 text-sm text-body">
+    <label className="ml-auto flex items-center gap-2 text-body text-sm">
       Who
       <select
-        className="field h-9 min-h-0 py-0 appearance-auto"
+        className="field h-9 min-h-0 appearance-auto py-0"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >

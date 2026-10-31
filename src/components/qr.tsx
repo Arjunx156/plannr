@@ -1,8 +1,16 @@
 import qrcode from "qrcode-generator";
-import { useMemo } from "react";
+import { type JSX, useMemo } from "react";
 
 /** A QR code drawn as one SVG path, so it stays sharp at any size and prints well. */
-export function QrCode({ text, size = 200, label }: { text: string; size?: number; label: string }) {
+export function QrCode({
+  text,
+  size = 200,
+  label,
+}: {
+  text: string;
+  size?: number;
+  label: string;
+}): JSX.Element {
   const { n, d } = useMemo(() => {
     const qr = qrcode(0, "M");
     qr.addData(text);

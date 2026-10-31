@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { type JSX, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { type InboxItem, useInbox } from "../components/inbox";
 import { usePageMeta } from "../components/pageMeta";
 import { AppShell } from "../components/shell";
+import { DAY_MS } from "../lib/dates";
 import { initials, timeAgo } from "../lib/format";
 import { useStore } from "../store/store";
 
@@ -10,12 +11,12 @@ function day(item: InboxItem): string {
   if (!item.at) return "Recent";
   const d = new Date(item.at);
   if (d.toDateString() === new Date().toDateString()) return "Today";
-  if (d.toDateString() === new Date(Date.now() - 86400000).toDateString()) return "Yesterday";
+  if (d.toDateString() === new Date(Date.now() - DAY_MS).toDateString()) return "Yesterday";
   return d.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 }
 
 /** /inbox: what co-planners changed, across every plan. */
-export function Inbox() {
+export function Inbox(): JSX.Element {
   usePageMeta("Inbox", { private: true });
   const { state, dispatch } = useStore();
   const items = useInbox();
@@ -47,12 +48,12 @@ export function Inbox() {
               const show = heading !== last;
               last = heading;
               return (
-                <li key={item.id} className={`flex flex-col ${i ? "border-t border-sand-2" : ""}`}>
+                <li key={item.id} className={`flex flex-col ${i ? "border-sand-2 border-t" : ""}`}>
                   {show && <span className="eyebrow px-5 pt-4 text-muted">{heading}</span>}
                   <div className="flex items-start gap-3 px-5 py-3.5">
                     <span
                       aria-hidden="true"
-                      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sand text-[11px] font-semibold"
+                      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sand font-semibold text-[11px]"
                     >
                       {item.by ? initials(item.by) : "◆"}
                     </span>
@@ -61,10 +62,10 @@ export function Inbox() {
                         {item.by && <strong className="font-semibold">{item.by}: </strong>}
                         {item.text}
                       </span>
-                      <span className="text-xs text-muted">
+                      <span className="text-muted text-xs">
                         {item.eventId && item.eventName && (
                           <>
-                            <Link to={`/events/${item.eventId}`} className="link text-xs text-muted">
+                            <Link to={`/events/${item.eventId}`} className="link text-muted text-xs">
                               {item.eventName}
                             </Link>
                             {" · "}
@@ -74,7 +75,7 @@ export function Inbox() {
                       </span>
                     </span>
                     {isNew(item) && (
-                      <span className="mt-1 rounded-full bg-maroon px-2 py-px text-xs font-semibold text-white">
+                      <span className="mt-1 rounded-full bg-maroon px-2 py-px font-semibold text-white text-xs">
                         New
                       </span>
                     )}
@@ -84,7 +85,7 @@ export function Inbox() {
             })}
           </ol>
         ) : (
-          <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-line-2 p-8">
+          <div className="flex flex-col items-start gap-3 rounded-2xl border border-line-2 border-dashed p-8">
             <span className="font-serif text-[26px]">All quiet</span>
             <span className="text-body">
               When co-planners tick off tasks or change a plan, it shows up here.

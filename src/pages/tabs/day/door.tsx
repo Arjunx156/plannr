@@ -1,11 +1,19 @@
-import { useState } from "react";
+import { type Dispatch, type JSX, type SetStateAction, useState } from "react";
 import { detectorClass } from "../../../components/scanner";
 
 /** Rows the door shows at once; a search narrows to the rest. */
 export const DOOR_ROWS = 12;
 
 /** What's typed at the door, and the one entry a scan picked out, which replaces the search. */
-export function useFinder() {
+export function useFinder(): {
+  q: string;
+  term: string;
+  found: string | null;
+  scanning: boolean;
+  setScanning: Dispatch<SetStateAction<boolean>>;
+  search: (text: string) => void;
+  pick: (id: string) => void;
+} {
   const [q, setQ] = useState("");
   const [scanning, setScanning] = useState(false);
   const [found, setFound] = useState<string | null>(null);
@@ -15,11 +23,11 @@ export function useFinder() {
     found,
     scanning,
     setScanning,
-    search: (text: string) => {
+    search: (text: string): void => {
       setQ(text);
       setFound(null);
     },
-    pick: (id: string) => {
+    pick: (id: string): void => {
       setFound(id);
       setQ("");
     },
@@ -35,7 +43,7 @@ interface FinderProps {
 }
 
 /** The search box, with a Scan button where the browser can read QR codes. */
-export function Finder({ id, label, placeholder, finder, canScan }: FinderProps) {
+export function Finder({ id, label, placeholder, finder, canScan }: FinderProps): JSX.Element {
   return (
     <div className="flex gap-2">
       <label htmlFor={id} className="sr-only">
@@ -58,9 +66,9 @@ export function Finder({ id, label, placeholder, finder, canScan }: FinderProps)
 }
 
 /** "12 / 40" beside the section title: who is in, out of who is expected. */
-export function Tally({ inside, of }: { inside: number; of: number }) {
+export function Tally({ inside, of }: { inside: number; of: number }): JSX.Element {
   return (
-    <span className="font-serif text-[24px] tabular">
+    <span className="tabular font-serif text-[24px]">
       {inside} <span className="text-base text-muted">/ {of}</span>
     </span>
   );
@@ -75,7 +83,8 @@ interface StepperProps {
   onSet: (n: number) => void;
 }
 
-export function Stepper({ name, n, max, showCount, onSet }: StepperProps) {
+/** A count with minus and plus buttons, for people arriving at the door. */
+export function Stepper({ name, n, max, showCount, onSet }: StepperProps): JSX.Element {
   return (
     <>
       <button
@@ -87,7 +96,7 @@ export function Stepper({ name, n, max, showCount, onSet }: StepperProps) {
       >
         −
       </button>
-      {showCount && <span className="w-6 text-center tabular">{n}</span>}
+      {showCount && <span className="tabular w-6 text-center">{n}</span>}
       <button
         type="button"
         className="btn btn-secondary btn-sm"

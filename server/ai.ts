@@ -1,3 +1,4 @@
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
   type AiConfig,
   aiConfig,
@@ -24,6 +25,7 @@ import { intakePrompt, intakeRequest, intakeSchema, sanitizeIntake } from "./pro
 import { BadRequest } from "./prompts/kit";
 import { planPrompt, planRequest, planSchema, sanitizePlan } from "./prompts/plan";
 
+/** How long one AI request may take end to end, including a retry. */
 export const TIMEOUT_MS = 25000;
 const MAX_BODY = 128 * 1024;
 /** A document to read is sent whole: a 3 MB photo or PDF, base64. */
@@ -62,11 +64,13 @@ export const BUDGET_MS: Record<string, number> = {
   read: 42000,
 };
 
+/** What an AI route sends back: an HTTP status and a JSON body. */
 export interface AiResponse {
-  status: number;
-  body: unknown;
+  status: ContentfulStatusCode;
+  body: object;
 }
 
+/** Turns a failed AI call into a response a person can read, logging the detail. */
 export function failure(route: string, e: unknown): AiResponse {
   if (e instanceof BadRequest) return { status: 400, body: { error: e.message } };
   const status = e instanceof UpstreamError && e.status === 429 ? 429 : 502;
@@ -80,7 +84,7 @@ export function failure(route: string, e: unknown): AiResponse {
 const user = (text: string) => [{ role: "user" as const, parts: [{ text }] }];
 
 /** One AI route: checks the request, builds the prompt, and cleans what the model sends back. */
-type RouteSpec = (body: unknown) => { args: GenerateArgs; finish: (raw: unknown) => unknown };
+type RouteSpec = (body: unknown) => { args: GenerateArgs; finish: (raw: unknown) => object };
 
 const ROUTES: Record<string, RouteSpec> = {
   intake: (body) => {

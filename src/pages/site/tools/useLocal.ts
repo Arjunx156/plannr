@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 
-/** A tool's saved state in this browser only; nothing is sent anywhere. */
-export function useLocal<T>(key: string, initial: T): [T, (v: T) => void] {
+/**
+ * A tool's saved state in this browser only; nothing is sent anywhere. `read` checks what was
+ * saved, since anything (an older version, another tab, a person) may have written it.
+ */
+export function useLocal<T>(key: string, initial: T, read: (saved: unknown) => T): [T, (v: T) => void] {
   const [value, setValue] = useState<T>(initial);
   useEffect(() => {
     try {
       const raw = localStorage.getItem(key);
-      if (raw) setValue(JSON.parse(raw) as T);
+      if (raw) setValue(read(JSON.parse(raw)));
     } catch {
       // Starts empty.
     }
-  }, [key]);
+  }, [key, read]);
   const set = (v: T) => {
     setValue(v);
     try {

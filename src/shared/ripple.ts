@@ -25,6 +25,7 @@ export interface RippleLine {
   warn?: boolean;
 }
 
+/** What one change would set off across the plan, line by line, for the planner to approve. */
 export interface Ripple {
   title: string;
   lines: RippleLine[];
@@ -38,8 +39,11 @@ export const ADVANCE_SHARE = 0.3;
 export const ROUNDING_SLACK = 1;
 
 type Personal = Extract<PlannrEvent, { layout: "personal" }>;
+/** A vendor as the plan lists it. */
 export type Vendor = ReturnType<typeof list<"vendors">>[number];
+/** One vendor's quote. */
 export type Quote = Vendor["quotes"][number];
+/** A budget line as the plan lists it. */
 export type Category = ReturnType<typeof list<"categories">>[number];
 
 /** Categories priced per guest, from the plan's what-if rates. */

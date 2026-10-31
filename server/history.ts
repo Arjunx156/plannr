@@ -8,6 +8,9 @@ import { changes, events, members } from "./db/schema";
 import type { Db } from "./db/types";
 import { HttpError, MAX_RETRIES, requireRole, writeIfUnchanged } from "./plans";
 
+/** How many changes the history shows unless asked for fewer. */
+export const HISTORY_LIMIT = 100;
+
 /** Rebuilds the plan from its starting point and every change that isn't undone. */
 async function rebuild(
   db: Db,
@@ -46,6 +49,7 @@ async function rebuild(
   throw new HttpError(409, "The plan is changing quickly; try again");
 }
 
+/** Undoes one change by replaying the event's history without it. */
 export async function undoChange(
   db: Db,
   eventId: string,
@@ -72,7 +76,13 @@ export async function undoChange(
   });
 }
 
-export async function history(db: Db, eventId: string, userId: string, limit = 100): Promise<HistoryEntry[]> {
+/** An event's recent changes, newest first, for its members. */
+export async function history(
+  db: Db,
+  eventId: string,
+  userId: string,
+  limit = HISTORY_LIMIT,
+): Promise<HistoryEntry[]> {
   await requireRole(db, eventId, userId, "viewer");
   const rows = await db
     .select({

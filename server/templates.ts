@@ -8,6 +8,7 @@ import { events, templates } from "./db/schema";
 import type { Db } from "./db/types";
 import { createPlan, HttpError, requireRole } from "./plans";
 
+/** Saves an event as a template for the person's future events. */
 export async function saveTemplate(
   db: Db,
   userId: string,
@@ -26,6 +27,7 @@ export async function saveTemplate(
   return { id, name, kind: data.kind, createdAt: new Date().toISOString(), date: data.date };
 }
 
+/** The person's saved templates, newest first. */
 export async function listTemplates(db: Db, userId: string): Promise<TemplateRow[]> {
   const rows = await db
     .select({
@@ -47,6 +49,7 @@ export async function listTemplates(db: Db, userId: string): Promise<TemplateRow
   }));
 }
 
+/** Deletes one of the person's templates. */
 export async function deleteTemplate(db: Db, userId: string, id: string): Promise<void> {
   await db.delete(templates).where(and(eq(templates.id, id), eq(templates.ownerId, userId)));
 }

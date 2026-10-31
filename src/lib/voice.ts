@@ -9,6 +9,7 @@ export const SPEECH_LANGS = [
   { code: "TE", lang: "te-IN", label: "తెలుగు" },
 ] as const;
 
+/** A language code the voice input understands. */
 export type SpeechCode = (typeof SPEECH_LANGS)[number]["code"];
 
 interface RecognitionResult {
@@ -21,7 +22,8 @@ interface RecognitionEvent {
   results: ArrayLike<RecognitionResult>;
 }
 
-interface Recognition {
+/** The part of the browser's speech recogniser Plannr uses. */
+export interface Recognition {
   lang: string;
   interimResults: boolean;
   continuous: boolean;
@@ -32,21 +34,21 @@ interface Recognition {
   stop(): void;
 }
 
-type RecognitionCtor = new () => Recognition;
+/** The speech recogniser's constructor. */
+export type RecognitionCtor = new () => Recognition;
 
 /** The browser's speech recogniser: standard where supported, prefixed in Chrome and Safari. */
 function ctor(): RecognitionCtor | undefined {
   if (typeof window === "undefined") return undefined;
-  // Neither name is in TypeScript's DOM types yet, so they're read by name.
-  const found: unknown =
-    Reflect.get(window, "SpeechRecognition") ?? Reflect.get(window, "webkitSpeechRecognition");
-  return typeof found === "function" ? (found as RecognitionCtor) : undefined;
+  return window.SpeechRecognition ?? window.webkitSpeechRecognition;
 }
 
+/** Whether this browser can turn speech into text. */
 export function speechSupported(): boolean {
   return !!ctor();
 }
 
+/** The browser locale for a voice language: "ml" → "ml-IN". */
 export function langFor(code: SpeechCode): string {
   return SPEECH_LANGS.find((l) => l.code === code)?.lang ?? "en-IN";
 }

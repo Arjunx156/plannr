@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type JSX, type ReactNode, useEffect, useState } from "react";
 import { Link, NavLink } from "react-router";
 import { useStore } from "../store/store";
 import { AccountMenu } from "./accountMenu";
@@ -7,7 +7,7 @@ import { CommandPalette } from "./commandPalette";
 import { useActivity, useUnread } from "./inbox";
 import { SkipLink } from "./ui";
 /** The frame around every signed-in screen: navigation, sync state, account and ⌘K. */
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children }: { children: ReactNode }): JSX.Element {
   const { state } = useStore();
   const [palette, setPalette] = useState(false);
   useActivity();
@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-dvh bg-paper">
       <SkipLink />
       <Toran />
-      <header className="border-b border-line">
+      <header className="border-line border-b">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 sm:px-8">
           <Logo to="/events" />
           <Nav />
@@ -53,7 +53,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <path d="m13 13 4.5 4.5" />
               </svg>
               <span className="hidden sm:inline">Search</span>
-              <kbd className="hidden rounded border border-line bg-sand px-1.5 font-mono text-xs text-muted sm:inline">
+              <kbd className="hidden rounded border border-line bg-sand px-1.5 font-mono text-muted text-xs sm:inline">
                 ⌘K
               </kbd>
             </button>
@@ -84,7 +84,7 @@ function Nav() {
       <NavLink to="/inbox" className={item}>
         Inbox
         {unread > 0 && (
-          <span className="ml-1.5 rounded-full bg-maroon px-1.5 py-px text-xs text-white">
+          <span className="ml-1.5 rounded-full bg-maroon px-1.5 py-px text-white text-xs">
             <span className="sr-only">, </span>
             {unread}
             <span className="sr-only"> unread</span>
@@ -108,7 +108,7 @@ function SyncBadge() {
   const { pending, offline } = state.sync;
   const [dot, text] = syncDisplay(pending, offline);
   return (
-    <span role="status" className="flex items-center gap-1.5 text-xs font-medium text-body">
+    <span role="status" className="flex items-center gap-1.5 font-medium text-body text-xs">
       <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dot}`} />
       <span className="sr-only md:not-sr-only">{text}</span>
     </span>
@@ -117,8 +117,8 @@ function SyncBadge() {
 
 function DemoRibbon() {
   return (
-    <div className="border-b border-amber-line bg-cream">
-      <p className="mx-auto m-0 flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-[13px] text-amber-ink sm:px-8">
+    <div className="border-amber-line border-b bg-cream">
+      <p className="m-0 mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-[13px] text-amber-ink sm:px-8">
         <span>
           <strong>You're exploring the demo.</strong> Changes stay in this browser.
         </span>

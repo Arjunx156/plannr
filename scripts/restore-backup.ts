@@ -17,7 +17,7 @@ const flag = (name: string) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const key = backupKey(process.env.BACKUP_KEY);
+const key = backupKey(process.env["BACKUP_KEY"]);
 if (!key) {
   console.error("Set BACKUP_KEY to the 32-byte base64 key from Vercel's environment variables.");
   process.exit(1);
@@ -25,7 +25,7 @@ if (!key) {
 
 let source = args.find((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--"));
 if (args.includes("--latest")) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = process.env["BLOB_READ_WRITE_TOKEN"];
   if (!token) throw new Error("--latest needs BLOB_READ_WRITE_TOKEN");
   const { blobs } = await list({ prefix: "backups/", token });
   const newest = blobs.sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())[0];

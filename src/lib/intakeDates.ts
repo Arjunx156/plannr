@@ -1,9 +1,13 @@
 import { addDays, longDate, MONTH_NAMES, parseDate, TODAY, toISO } from "./dates";
 import { cap, toNumber } from "./intakeWords";
 
+/** Month names and their short forms, as a regular expression fragment. */
 export const MONTH_RE =
   "(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)";
-type DateGuess = { date: string; label: string };
+interface DateGuess {
+  date: string;
+  label: string;
+}
 const UNIT_DAYS: Record<string, number> = { day: 1, week: 7, month: 30 };
 /** Where a cue puts the date in its month, and how the label says it. No cue means mid-month. */
 const MONTH_PART: Record<string, { day: number; prefix: string }> = {
@@ -59,7 +63,7 @@ function monthDate(text: string, base: Date): DateGuess | undefined {
 }
 
 /** Turns "end of April next year", "December", "in 3 weeks", "17 Oct" into a date and a readable label. */
-export function detectDate(text: string, today = TODAY): DateGuess | undefined {
+export function detectDate(text: string, today: string = TODAY): DateGuess | undefined {
   const base = parseDate(today);
   return relativeDate(text, today) ?? exactDate(text, base) ?? monthDate(text, base);
 }

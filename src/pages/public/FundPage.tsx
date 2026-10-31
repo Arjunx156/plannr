@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react";
+import { type JSX, type ReactNode, useMemo } from "react";
 import { FundProgress } from "../../components/ui";
 import { inr } from "../../lib/format";
 import { fill } from "../../lib/guestText";
@@ -6,7 +6,7 @@ import type { FundView } from "../../shared/public";
 import { Card, PublicShell, useLinkLang } from "./shell";
 
 /** The public fund report: what came in, what was spent and who sponsored it. */
-export function FundPage({ view, preview }: { view: FundView; preview?: ReactNode }) {
+export function FundPage({ view, preview }: { view: FundView; preview?: ReactNode }): JSX.Element {
   const pct = (a: number, b: number) => `${Math.round((a / Math.max(1, b)) * 100)}%`;
   const tiers = useMemo(() => {
     const out = new Map<string, string[]>();
@@ -32,8 +32,8 @@ export function FundPage({ view, preview }: { view: FundView; preview?: ReactNod
         ].map(([label, value, sub]) => (
           <div key={label} className="flex flex-col gap-1 rounded-2xl border border-line bg-surface p-4">
             <span className="eyebrow text-muted">{label}</span>
-            <span className="font-serif text-[26px] leading-none tabular">{value}</span>
-            <span className="text-xs text-body">{sub}</span>
+            <span className="tabular font-serif text-[26px] leading-none">{value}</span>
+            <span className="text-body text-xs">{sub}</span>
           </div>
         ))}
       </div>
@@ -43,7 +43,7 @@ export function FundPage({ view, preview }: { view: FundView; preview?: ReactNod
           {view.sources.map((s) => (
             <li
               key={s.label}
-              className="flex justify-between gap-3 border-t border-sand-2 py-2.5 text-sm first:border-0"
+              className="flex justify-between gap-3 border-sand-2 border-t py-2.5 text-sm first:border-0"
             >
               <span className="font-medium">{s.label}</span>
               <FundProgress received={s.received} expected={s.expected} />
@@ -58,7 +58,7 @@ export function FundPage({ view, preview }: { view: FundView; preview?: ReactNod
             {view.expenses.map((e) => (
               <li
                 key={e.label}
-                className="flex justify-between gap-3 border-t border-sand-2 py-2.5 text-sm first:border-0"
+                className="flex justify-between gap-3 border-sand-2 border-t py-2.5 text-sm first:border-0"
               >
                 <span>{e.label}</span>
                 <span className="tabular">{inr(e.amount)}</span>
@@ -66,7 +66,7 @@ export function FundPage({ view, preview }: { view: FundView; preview?: ReactNod
             ))}
           </ul>
         ) : (
-          <p className="m-0 text-sm text-muted">{t.noExpenses}</p>
+          <p className="m-0 text-muted text-sm">{t.noExpenses}</p>
         )}
       </Card>
       {tiers.length > 0 && (

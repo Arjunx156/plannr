@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Field } from "../../../components/fields";
 import type { FunctionDay } from "../../../data/baseTypes";
 import type { Household } from "../../../data/guestTypes";
@@ -8,10 +9,12 @@ export function inviteMessage(ev: PlannrEvent, h: Household): string {
   return `Namaste ${h.name}! You're invited to ${ev.name}. Please tell us who's coming:`;
 }
 
+/** A gentle WhatsApp reminder for a household that hasn't answered. */
 export function reminderMessage(ev: PlannrEvent, h: Household): string {
   return `Namaste ${h.name}, a gentle reminder from the ${ev.name} family. We'd love to know who's coming:`;
 }
 
+/** Picks one function, or all of them. */
 export function FunctionPicker({
   fns,
   value,
@@ -22,7 +25,7 @@ export function FunctionPicker({
   value: string[];
   onChange: (v: string[]) => void;
   name: string;
-}) {
+}): JSX.Element | null {
   if (fns.length <= 1) return null;
   return (
     <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
@@ -50,7 +53,8 @@ export function FunctionPicker({
   );
 }
 
-export const phoneDigits = (raw: string) => {
+/** A phone number as digits only, with India's 91 added to a 10-digit number; undefined when there are none. */
+export const phoneDigits = (raw: string): string | undefined => {
   const d = raw.replace(/\D/g, "");
   if (!d) return undefined;
   return d.length === 10 ? `91${d}` : d;
@@ -76,7 +80,7 @@ export function PeopleAndSide({
   side: string;
   onSide: (side: string) => void;
   sides: string[];
-}) {
+}): JSX.Element {
   return (
     <div className="grid grid-cols-2 gap-3">
       <Field label={label} htmlFor={`${id}-count`}>

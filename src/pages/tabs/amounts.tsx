@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 import { Field } from "../../components/fields";
 
 /**
@@ -19,7 +19,7 @@ export function WhatForAmount({
   placeholder: string;
   onChange: (patch: { label?: string; amount?: string }) => void;
   beside: ReactNode;
-}) {
+}): JSX.Element {
   return (
     <>
       <Field label="What for" htmlFor={`${id}-label`}>
@@ -62,7 +62,7 @@ export function CategorySelect({
   onChange: (categoryId: string) => void;
   none?: string;
   hint?: string;
-}) {
+}): JSX.Element {
   return (
     <Field label="Budget category" htmlFor={id} hint={hint}>
       <select id={id} className="field" value={value} onChange={(e) => onChange(e.target.value)}>

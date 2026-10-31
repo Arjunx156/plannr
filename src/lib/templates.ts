@@ -1,6 +1,7 @@
 import type { Profile } from "../data/types";
 import { emptyProfile, parseDescription } from "./intake";
 
+/** The ready-made starting points on the guided intake. */
 export type TemplateId = "wedding" | "birthday" | "mela";
 
 interface Template {
@@ -13,6 +14,7 @@ interface Template {
   colours: string[];
 }
 
+/** Each template's label, the sentence it starts from and what it adds. */
 export const TEMPLATES: Record<TemplateId, Template> = {
   wedding: {
     label: "South Indian wedding",
@@ -47,6 +49,7 @@ export const TEMPLATES: Record<TemplateId, Template> = {
   },
 };
 
+/** A profile filled in from a template, as if its sentence had been typed. */
 export function templateProfile(id: TemplateId): Profile {
   const t = TEMPLATES[id];
   const p = parseDescription(t.extras, parseDescription(t.prompt, emptyProfile()));

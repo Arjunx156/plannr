@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import type { PlannrEvent } from "../../../data/types";
 import { expectedAt, functionCount } from "../../../shared/derive";
 import { functionsOf } from "../../../shared/eventLists";
@@ -12,14 +13,14 @@ function seatsLeft(expected: number, capacity: number | undefined): string {
 }
 
 /** Headcount for each function, with the number to give the caterer and the seats left. */
-export function FunctionCounts({ ev }: { ev: PlannrEvent }) {
+export function FunctionCounts({ ev }: { ev: PlannrEvent }): JSX.Element {
   return (
     <Section title="By function" label="Headcount by function">
       {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users must be able to scroll a wide table */}
       <section className="scroll-x" aria-label="Headcount by function table" tabIndex={0}>
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
-            <tr className="text-left text-xs text-muted">
+            <tr className="text-left text-muted text-xs">
               <th className="py-2 font-medium">Function</th>
               <th className="py-2 text-right font-medium">Invited</th>
               <th className="py-2 text-right font-medium">Coming</th>
@@ -34,12 +35,12 @@ export function FunctionCounts({ ev }: { ev: PlannrEvent }) {
               const plan = expectedAt(c);
               const over = f.capacity && plan > f.capacity;
               return (
-                <tr key={f.id} className="border-t border-sand-2">
+                <tr key={f.id} className="border-sand-2 border-t">
                   <td className="py-2.5 font-medium">{f.label}</td>
-                  <td className="py-2.5 text-right tabular">{c.invited}</td>
-                  <td className="py-2.5 text-right tabular text-leaf-ink">{c.yes}</td>
-                  <td className="py-2.5 text-right tabular">{c.waiting}</td>
-                  <td className="py-2.5 text-right tabular font-semibold">{plan}</td>
+                  <td className="tabular py-2.5 text-right">{c.invited}</td>
+                  <td className="tabular py-2.5 text-right text-leaf-ink">{c.yes}</td>
+                  <td className="tabular py-2.5 text-right">{c.waiting}</td>
+                  <td className="tabular py-2.5 text-right font-semibold">{plan}</td>
                   <td className={`py-2.5 pl-4 text-xs ${over ? "text-rust-ink" : "text-body"}`}>
                     {seatsLeft(plan, f.capacity)}
                   </td>
@@ -49,7 +50,7 @@ export function FunctionCounts({ ev }: { ev: PlannrEvent }) {
           </tbody>
         </table>
       </section>
-      <span className="text-xs text-muted">
+      <span className="text-muted text-xs">
         “Plan for” counts everyone coming plus 80% of those who haven't answered. Give it to the caterer a
         week before.
       </span>

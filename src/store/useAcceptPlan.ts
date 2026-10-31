@@ -2,6 +2,7 @@ import { useNavigate } from "react-router";
 import { api } from "../lib/api";
 import { eventFromDraft } from "../lib/newEvent";
 import { planFor } from "../lib/tailor";
+import { errorMessage } from "../shared/guards";
 import { toast, useStore } from "./store";
 
 /**
@@ -25,7 +26,7 @@ export function useAcceptPlan() {
       try {
         dispatch({ type: "syncPlan", plan: await api.createPlan(event) });
       } catch (e) {
-        dispatch(toast(`Couldn't save the plan yet: ${(e as Error).message}`));
+        dispatch(toast(`Couldn't save the plan yet: ${errorMessage(e)}`));
         return false;
       }
     } else dispatch({ type: "addEvent", event });

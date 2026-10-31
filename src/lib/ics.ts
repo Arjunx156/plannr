@@ -5,13 +5,14 @@
 
 import { download } from "./download";
 
+/** One dated item for a calendar file. */
 export interface CalendarItem {
   id: string;
   title: string;
   date: string;
   /** "6:00 pm", "10:42 am (tentative)", "18:30" or undefined. */
-  time?: string;
-  place?: string;
+  time?: string | undefined;
+  place?: string | undefined;
   description?: string;
 }
 
@@ -36,7 +37,8 @@ const esc = (s: string) =>
     .replace(/[,;]/g, (c) => `\\${c}`)
     .replace(/\n/g, "\\n");
 
-export function icsFile(items: CalendarItem[], stampedAt = new Date()): string {
+/** A calendar file (.ics) with every item as an all-day or timed event. */
+export function icsFile(items: CalendarItem[], stampedAt: Date = new Date()): string {
   const stamp = stampedAt
     .toISOString()
     .replace(/[-:]/g, "")
@@ -75,6 +77,7 @@ export function downloadIcs(name: string, items: CalendarItem[]): void {
   download(`${name.replace(/[^\w-]+/g, "-").toLowerCase()}.ics`, icsFile(items), "text/calendar");
 }
 
+/** A Google Maps search link for a place. */
 export function mapLink(place: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`;
 }

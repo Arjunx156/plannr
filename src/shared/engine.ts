@@ -15,6 +15,7 @@ import {
   withTasks,
   withThread,
 } from "./eventEdits";
+import { keysOf } from "./guards";
 import {
   applyPlanAction,
   PLAN_ACTION_TYPES,
@@ -75,10 +76,11 @@ export type EventAction =
 
 /** Actions handled in this file; the plan's record actions are handled in planActions.ts. */
 export type CoreAction = Exclude<EventAction, PlanAction>;
-type ActionOf<T extends CoreAction["type"]> = Extract<CoreAction, { type: T }>;
+/** The one core action with this type. */
+export type CoreActionOf<T extends CoreAction["type"]> = Extract<CoreAction, { type: T }>;
 
 /** One entry per action type: the mapped type makes the compiler insist on every one. */
-export type ByAction<R> = { [T in CoreAction["type"]]: (ev: PlannrEvent, action: ActionOf<T>) => R };
+export type ByAction<R> = { [T in CoreAction["type"]]: (ev: PlannrEvent, action: CoreActionOf<T>) => R };
 
 // ---------------------------------------------------------------- reducers
 
@@ -147,7 +149,7 @@ function fillSlot(slot: Slot, name: string): Slot {
 }
 
 /** Puts a volunteer on one role's slot, adding them to the volunteer list if they're new. */
-function assignShift(ev: CommunityEvent, { role, slot, name }: ActionOf<"assignShift">): CommunityEvent {
+function assignShift(ev: CommunityEvent, { role, slot, name }: CoreActionOf<"assignShift">): CommunityEvent {
   const roles = ev.shifts.roles.map((r) =>
     r.role === role ? { ...r, slots: r.slots.map((s, i) => (i === slot ? fillSlot(s, name) : s)) } : r,
   );
@@ -156,7 +158,7 @@ function assignShift(ev: CommunityEvent, { role, slot, name }: ActionOf<"assignS
 }
 
 /** Adds to a budget category's spend and its line items. */
-function addLineItem(ev: PlannrEvent, { categoryId, item, spent }: ActionOf<"addLineItem">): PlannrEvent {
+function addLineItem(ev: PlannrEvent, { categoryId, item, spent }: CoreActionOf<"addLineItem">): PlannrEvent {
   return onPersonal(ev, (e) =>
     withCategory(e, categoryId, (c) => ({ ...c, spent: c.spent + spent, items: [...c.items, item] })),
   );
@@ -199,16 +201,17 @@ const REDUCERS: ByAction<PlannrEvent> = {
   archiveEvent: (ev, a) => ({ ...ev, archived: a.archived }),
   renameEvent: (ev, a) => ({ ...ev, name: eventName(a.name, ev.name) }),
   // The id and archive state belong to the event, not the draft.
-  replacePlan: (ev, a) => ({ ...a.event, id: ev.id, archived: ev.archived }) as PlannrEvent,
+  replacePlan: (ev, a) => ({ ...a.event, id: ev.id, archived: ev.archived }),
 };
 
 /** Every action type Plannr accepts; the server refuses anything else. */
-export const EVENT_ACTION_TYPES = new Set<EventAction["type"]>([
-  ...(Object.keys(REDUCERS) as CoreAction["type"][]),
+export const EVENT_ACTION_TYPES: ReadonlySet<EventAction["type"]> = new Set<EventAction["type"]>([
+  ...keysOf(REDUCERS),
   ...PLAN_ACTION_TYPES,
 ]);
 
 const PLAN_TYPES = new Set<string>(PLAN_ACTION_TYPES);
+const ACTION_TYPES: ReadonlySet<string> = EVENT_ACTION_TYPES;
 
 /** Whether an action changes the plan's records (handled in planActions.ts). */
 export function isPlanAction(a: EventAction): a is PlanAction {
@@ -216,7 +219,7 @@ export function isPlanAction(a: EventAction): a is PlanAction {
 }
 
 /** Conversation with the assistant: saved with the plan, but not part of its history. */
-export const QUIET_ACTIONS = new Set<EventAction["type"]>([
+export const QUIET_ACTIONS: ReadonlySet<EventAction["type"]> = new Set<EventAction["type"]>([
   "pushMessage",
   "previewStatus",
   "messageActionDone",
@@ -225,11 +228,15 @@ export const QUIET_ACTIONS = new Set<EventAction["type"]>([
 
 /** Whether an object's `type` names a known action; the server also validates its fields. */
 export function isEventAction(a: { type: string }): a is EventAction {
-  return EVENT_ACTION_TYPES.has(a.type as EventAction["type"]);
+  return ACTION_TYPES.has(a.type);
 }
 
 /** Captures anything time-dependent so replaying the action later gives the same plan. */
-export function stamp(action: EventAction, today = TODAY, now = new Date().toISOString()): EventAction {
+export function stamp(
+  action: EventAction,
+  today: string = TODAY,
+  now: string = new Date().toISOString(),
+): EventAction {
   if (action.type === "bookPhotographer" && !action.advanceDue)
     return { ...action, advanceDue: addDays(today, ADVANCE_DUE_DAYS) };
   if (isPlanAction(action)) return stampPlanAction(action, today, now);
@@ -239,9 +246,16 @@ export function stamp(action: EventAction, today = TODAY, now = new Date().toISO
 /** Applies one change to one event. Pure: no clock, no randomness, no side effects. */
 export function applyEventAction(ev: PlannrEvent, action: EventAction): PlannrEvent {
   if (isPlanAction(action)) return applyPlanAction(ev, action);
-  // TypeScript can't correlate the table's key with its handler's argument; the table's type does.
-  const reduce = REDUCERS[action.type] as (ev: PlannrEvent, action: CoreAction) => PlannrEvent;
-  return reduce(ev, action);
+  return reduceCore(action.type, ev, action);
+}
+
+/** Looks up a reducer by a generic key, which lets TypeScript match the handler to its action. */
+function reduceCore<T extends CoreAction["type"]>(
+  type: T,
+  ev: PlannrEvent,
+  action: CoreActionOf<T>,
+): PlannrEvent {
+  return REDUCERS[type](ev, action);
 }
 
 /** Folds a list of actions over a starting plan. */

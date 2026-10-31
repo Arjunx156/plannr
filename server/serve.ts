@@ -5,14 +5,15 @@
  */
 import { mkdirSync } from "node:fs";
 import { join, normalize } from "node:path";
-import { type AppEnv, createApp } from "./app";
+import { createApp } from "./app";
+import { readEnv } from "./env";
 import { matchShare, sharePage } from "./share";
 
 const DIST = join(import.meta.dir, "..", "dist");
-const env = process.env as AppEnv;
+const env = readEnv();
 // A self-hosted server is production unless told otherwise: it needs BETTER_AUTH_SECRET.
 env.PLANNR_ENV ??= "production";
-const port = Number(env.PORT ?? 3000);
+const port = env.PORT ?? 3000;
 
 async function database() {
   if (env.DATABASE_URL) return (await import("./db/neon")).createNeonDb(env.DATABASE_URL);

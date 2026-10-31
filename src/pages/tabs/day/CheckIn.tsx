@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { Scanner } from "../../../components/scanner";
 import type { FunctionDay } from "../../../data/baseTypes";
 import type { Household, RsvpStatus } from "../../../data/guestTypes";
@@ -29,7 +30,7 @@ interface Props {
 }
 
 /** Guest check-in at the door, by name or by scanning an entry QR code. */
-export function CheckIn({ ev, fn, editable }: Props) {
+export function CheckIn({ ev, fn, editable }: Props): JSX.Element | null {
   const { dispatch } = useStore();
   const finder = useFinder();
   const invited = list(ev, "households").filter((h) => h.functions.includes(fn.id));
@@ -72,7 +73,7 @@ export function CheckIn({ ev, fn, editable }: Props) {
           <GuestRow key={h.id} h={h} fnId={fn.id} editable={editable} onSet={(n) => set(h.id, n)} />
         ))}
       </ul>
-      <span className="text-xs text-muted">
+      <span className="text-muted text-xs">
         Guests who said yes have an entry code on their invitation page.
         {scanNote("search by name")}
       </span>
@@ -92,10 +93,10 @@ function GuestRow({ h, fnId, editable, onSet }: RowProps) {
   const a = h.rsvp[fnId];
   const n = h.checkedIn?.[fnId] ?? 0;
   return (
-    <li className="flex items-center justify-between gap-2 border-t border-sand-2 py-2 text-sm first:border-0">
+    <li className="flex items-center justify-between gap-2 border-sand-2 border-t py-2 text-sm first:border-0">
       <span className="flex min-w-0 flex-col">
         <span className="font-medium">{h.name}</span>
-        <span className="text-xs text-muted">
+        <span className="text-muted text-xs">
           {answerText(a)}
           {n ? ` · ${n} in` : ""}
         </span>

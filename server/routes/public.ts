@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { HOUR_MS } from "../../src/lib/dates";
+import { isRecord } from "../../src/shared/guards";
 import { count, pruneErrors, recordError } from "../admin";
 import { devOutbox, isProduction, mailFailure, signInMethods } from "../auth";
 import { nightlyBackup } from "../backup";
@@ -9,6 +11,9 @@ import { previewInvite } from "../members";
 import { HttpError } from "../plans";
 import { sendReminders } from "../reminders";
 import { type Api, body, clientIp, type RouteDeps } from "./kit";
+
+// The cron runs on UTC; reminders go by the date in India.
+const IST_OFFSET_MS = 5.5 * HOUR_MS;
 
 /**
  * Routes anyone may call without signing in: health, anonymous counts and crash reports,
@@ -29,19 +34,21 @@ function openRoutes(app: Api, { db, allow }: RouteDeps): void {
   // Daily counts with no one's identity, and crash reports from browsers.
   app.post("/m", async (c) => {
     if (!(await allow(`m:${clientIp(c)}`))) return c.body(null, 204);
-    const raw = (await c.req.json().catch(() => ({}))) as { name?: string };
-    if (raw.name === "visit") await count(db, "visit");
+    const body: unknown = await c.req.json().catch(() => ({}));
+    if (isRecord(body) && body["name"] === "visit") await count(db, "visit");
     return c.body(null, 204);
   });
   app.post("/errors", async (c) => {
     if (!(await allow(`e:${clientIp(c)}`))) return c.body(null, 204);
-    const e = (await c.req.json().catch(() => ({}))) as { message?: unknown; stack?: unknown; url?: unknown };
-    if (typeof e.message === "string" && e.message.trim())
+    const body: unknown = await c.req.json().catch(() => ({}));
+    const e = isRecord(body) ? body : {};
+    const { message, stack, url } = e;
+    if (typeof message === "string" && message.trim())
       await recordError(db, {
         source: "client",
-        message: e.message,
-        stack: typeof e.stack === "string" ? e.stack : undefined,
-        url: typeof e.url === "string" ? e.url : undefined,
+        message,
+        stack: typeof stack === "string" ? stack : undefined,
+        url: typeof url === "string" ? url : undefined,
         userAgent: c.req.header("user-agent"),
       });
     return c.body(null, 204);
@@ -98,7 +105,7 @@ function dailyRoutes(app: Api, { db, env, push }: RouteDeps): void {
     await Promise.all([pruneErrors(db), pruneLimits(db)]).catch((e: unknown) =>
       console.error("[cron] pruning failed:", e instanceof Error ? e.message : e),
     );
-    const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+    const today = new Date(Date.now() + IST_OFFSET_MS).toISOString().slice(0, 10);
     const reminders = push
       ? await sendReminders(db, push, today)
       : { skipped: "Reminders aren't configured" };

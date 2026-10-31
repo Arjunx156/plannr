@@ -7,11 +7,13 @@ import { applyEventAction, type EventAction, isEventAction } from "../shared/eng
 import type { AccountUser } from "../shared/types";
 import type { Action, AppState, Draft, RemoteMeta, Session } from "./types";
 
+/** An empty draft, optionally tied to the event it will refine. */
 export function freshDraft(forEvent?: string): Draft {
   return { profile: emptyProfile(), asked: [], chat: [], guidedStep: 0, generated: false, forEvent };
 }
 /** The planner's own events in the demo: everything except the samples. */
-export const ownEvents = (events: PlannrEvent[]) => events.filter((e) => !SEED_IDS.includes(e.id));
+export const ownEvents = (events: PlannrEvent[]): PlannrEvent[] =>
+  events.filter((e) => !SEED_IDS.includes(e.id));
 
 /** The parts of the session an account decides; city and language stay as the planner set them. */
 export function sessionFromUser(user: AccountUser): Omit<Session, "city" | "language"> {
@@ -140,9 +142,12 @@ const APP_REDUCERS: {
 /** The app's state after one action: plan changes go to the plan engine, the rest are handled here. */
 export function reducer(state: AppState, action: Action): AppState {
   if (isEventAction(action)) return mapEvent(state, action.eventId, (e) => applyEventAction(e, action));
-  // TypeScript can't correlate the table's key with its handler's argument; the table's type does.
-  const reduce = APP_REDUCERS[action.type] as (state: AppState, action: AppAction) => AppState;
-  return reduce(state, action);
+  return reduceApp(action.type, state, action);
+}
+
+/** Looks up a reducer by a generic key, which lets TypeScript match the handler to its action. */
+function reduceApp<T extends AppAction["type"]>(type: T, state: AppState, action: AppActionOf<T>): AppState {
+  return APP_REDUCERS[type](state, action);
 }
 
 /** A fresh state. The demo's sample events are passed in once loaded; tests pass them directly. */

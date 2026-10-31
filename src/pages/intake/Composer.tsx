@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { type JSX, useRef, useState } from "react";
 import { HoldToSpeak, LangSelect } from "../../components/voice";
 import type { SpeechCode } from "../../lib/voice";
 
@@ -18,7 +18,14 @@ interface ComposerProps {
 }
 
 /** Where the family types or speaks, adds inspiration images, and asks for the draft. */
-export function Composer({ ready, thinking, answered, onSend, onImages, onDraft }: ComposerProps) {
+export function Composer({
+  ready,
+  thinking,
+  answered,
+  onSend,
+  onImages,
+  onDraft,
+}: ComposerProps): JSX.Element {
   const [text, setText] = useState("");
   const [lang, setLang] = useState<SpeechCode>("EN");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -33,7 +40,7 @@ export function Composer({ ready, thinking, answered, onSend, onImages, onDraft 
         e.preventDefault();
         submit();
       }}
-      className="sticky bottom-3 mt-auto flex flex-col gap-2.5 rounded-2xl border-[1.5px] border-ink bg-surface py-3 pr-3 pl-[18px] shadow-[0_8px_24px_rgba(40,25,10,.08)]"
+      className="focus-frame sticky bottom-3 mt-auto flex flex-col gap-2.5 rounded-2xl border-[1.5px] border-ink bg-surface py-3 pr-3 pl-[18px] shadow-[0_8px_24px_rgba(40,25,10,.08)]"
     >
       <label htmlFor="chat-input" className="sr-only">
         Message Plannr
@@ -51,7 +58,7 @@ export function Composer({ ready, thinking, answered, onSend, onImages, onDraft 
         placeholder={composerHint(ready, answered)}
         className="resize-none bg-transparent text-base leading-[1.4] outline-none placeholder:text-muted"
       />
-      <div className="flex flex-wrap items-center gap-2 text-[13px] font-medium">
+      <div className="flex flex-wrap items-center gap-2 font-medium text-[13px]">
         <input
           ref={fileRef}
           type="file"

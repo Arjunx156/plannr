@@ -1,11 +1,11 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { type JSX, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { Logo, Toran } from "../components/brand";
 import { usePageMeta } from "../components/pageMeta";
-import type { Kind } from "../data/baseTypes";
 import type { PlannrEvent } from "../data/types";
 import { emptyProfile } from "../lib/intake";
 import { KIND_LABEL } from "../lib/profileRows";
+import { isRecord, isString, keysOf, oneOf } from "../shared/guards";
 import { useStore } from "../store/store";
 import type { Action } from "../store/types";
 import { Guided } from "./Guided";
@@ -18,7 +18,7 @@ import { Chat } from "./intake/Chat";
  */
 function startingDraft(params: URLSearchParams, events: PlannrEvent[], prompt: string | undefined): Action[] {
   const eventId = params.get("event");
-  const type = params.get("type") as Kind | null;
+  const type = oneOf(params.get("type"), keysOf(KIND_LABEL));
   if (eventId) {
     const ev = events.find((e) => e.id === eventId);
     const reset: Action = { type: "draftReset", forEvent: eventId };
@@ -28,7 +28,7 @@ function startingDraft(params: URLSearchParams, events: PlannrEvent[], prompt: s
       { type: "draft", patch: { profile: { ...emptyProfile(), kind: ev.kind, names: ev.name } } },
     ];
   }
-  if (type && KIND_LABEL[type]) {
+  if (type) {
     const functions = type === "wedding" ? ["Ceremony"] : [];
     return [
       { type: "draftReset" },
@@ -38,7 +38,8 @@ function startingDraft(params: URLSearchParams, events: PlannrEvent[], prompt: s
   return prompt || params.get("fresh") ? [{ type: "draftReset" }] : [];
 }
 
-export function Intake() {
+/** Describe the event: the chat or the guided steps, then on to the draft plan. */
+export function Intake(): JSX.Element {
   const [params, setParams] = useSearchParams();
   const mode = params.get("mode") === "guided" ? "guided" : "chat";
   usePageMeta(mode === "guided" ? "Guided plan" : "Describe your event", {
@@ -52,7 +53,10 @@ export function Intake() {
   // The chat mounts only after the draft is set up, so its greeting can't be wiped by a reset.
   const [ready, setReady] = useState(false);
   // The landing page hands its sentence over in router state; keep it for the chat to send once.
-  const [autoSend] = useState(() => (location.state as { prompt?: string } | null)?.prompt);
+  const [autoSend] = useState(() => {
+    const handed: unknown = location.state;
+    return isRecord(handed) && isString(handed["prompt"]) ? handed["prompt"] : undefined;
+  });
 
   // A layout effect, so the reset lands before the first paint and before the chat's own effects.
   useLayoutEffect(() => {
@@ -77,12 +81,12 @@ export function Intake() {
   return (
     <div className="flex min-h-dvh flex-col bg-paper">
       <Toran />
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3.5 sm:px-10">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-line border-b px-4 py-3.5 sm:px-10">
         <Logo to="/" />
         <div
           role="tablist"
           aria-label="Intake style"
-          className="order-3 grid w-full grid-cols-2 rounded-[10px] bg-sand-2 p-1 text-[13px] font-semibold sm:order-none sm:w-[320px]"
+          className="order-3 grid w-full grid-cols-2 rounded-[10px] bg-sand-2 p-1 font-semibold text-[13px] sm:order-none sm:w-[320px]"
         >
           {(["chat", "guided"] as const).map((m) => (
             <button
@@ -97,7 +101,7 @@ export function Intake() {
             </button>
           ))}
         </div>
-        <span className="text-[13px] font-medium text-body">
+        <span className="font-medium text-[13px] text-body">
           {state.session.signedIn ? (
             <>
               Signed in as {state.session.firstName} ·{" "}

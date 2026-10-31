@@ -1,0 +1,15 @@
+name: An idea
+description: Something that would make planning an event easier
+labels: [idea]
+body:
+  - type: textarea
+    id: who
+    attributes:
+      label: Who it's for, and what they're trying to do
+      description: A family, a guest, a vendor or a committee, and the moment it would help.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What they do today

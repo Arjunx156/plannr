@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { type JSX, useState } from "react";
 import { Field } from "../../../components/fields";
 import type { SiteInfo } from "../../../data/recordTypes";
 import type { PlannrEvent } from "../../../data/types";
 import { aiWrite } from "../../../lib/ai";
 import { LANG_NAME } from "../../../lib/guestText";
+import { oneOf } from "../../../shared/guards";
 import { toast, useStore } from "../../../store/store";
 import { Section } from "../layout";
 
+/** The couple's or family's story for the website, with a translation into a second language. */
 export function Story({
   ev,
   site,
@@ -19,10 +21,10 @@ export function Story({
   editable: boolean;
   ai: boolean;
   onSave: (p: Partial<SiteInfo>, m?: string) => void;
-}) {
+}): JSX.Element {
   const [story, setStory] = useState(site.story ?? "");
   const [local, setLocal] = useState(site.storyLocal ?? "");
-  const [lang, setLang] = useState(site.lang ?? "ml");
+  const [lang, setLang] = useState(oneOf(site.lang, LOCAL_LANGS) ?? "ml");
   const [busy, setBusy] = useState(false);
   const { dispatch } = useStore();
   const dirty =
@@ -55,7 +57,7 @@ export function Story({
             className="field appearance-auto"
             value={lang}
             disabled={!editable}
-            onChange={(e) => setLang(e.target.value)}
+            onChange={(e) => setLang(oneOf(e.target.value, LOCAL_LANGS) ?? lang)}
           >
             {LOCAL_LANGS.map((l) => (
               <option key={l} value={l}>
@@ -71,12 +73,12 @@ export function Story({
             disabled={busy || !story.trim()}
             onClick={translate}
           >
-            {busy ? "Translating…" : `Translate into ${LANG_NAME[lang as keyof typeof LANG_NAME]}`}
+            {busy ? "Translating…" : `Translate into ${LANG_NAME[lang]}`}
           </button>
         )}
       </div>
       <Field
-        label={`In ${LANG_NAME[lang as keyof typeof LANG_NAME] ?? "your language"}`}
+        label={`In ${LANG_NAME[lang]}`}
         htmlFor="site-story-local"
         hint="Guests switch languages at the top of the page. Have a native speaker read it before you publish."
       >
@@ -104,4 +106,5 @@ export function Story({
   );
 }
 
+/** The second languages a website can carry beside English. */
 export const LOCAL_LANGS = ["ml", "hi", "ta"] as const;

@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useNavigate } from "react-router";
 import { usePageMeta } from "../components/pageMeta";
 import { SkipLink } from "../components/ui";
@@ -8,7 +9,7 @@ import { SamplePlans } from "./landing/samplePlans";
 import { Examples, Faq, Features, HowItWorks, Occasions, Pricing } from "./landing/sections";
 
 /** The front page: what Plannr does, for whom, and a sentence box to start with. */
-export function Landing() {
+export function Landing(): JSX.Element {
   usePageMeta("Plannr");
   const navigate = useNavigate();
   const { state, dispatch } = useStore();

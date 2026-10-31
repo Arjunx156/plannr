@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { bindText, TextField } from "../../../components/fields";
 import { Pill } from "../../../components/ui";
 import type { PlannrEvent } from "../../../data/types";
@@ -66,7 +66,7 @@ function QuoteItem({
   onRemove: () => void;
 }) {
   return (
-    <li className="flex flex-col gap-0.5 border-t border-sand-2 py-2 first:border-0">
+    <li className="flex flex-col gap-0.5 border-sand-2 border-t py-2 first:border-0">
       <span className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="font-medium">{q.label}</span>
         <span className="tabular font-semibold">
@@ -74,8 +74,8 @@ function QuoteItem({
           {q.perGuest ? ` a plate · ${inr(quoteTotal(q.amount, true, guests))} for ${guests}` : ""}
         </span>
       </span>
-      {q.inclusions && <span className="text-xs text-body">Includes: {q.inclusions}</span>}
-      {q.terms && <span className="text-xs text-body">Terms: {q.terms}</span>}
+      {q.inclusions && <span className="text-body text-xs">Includes: {q.inclusions}</span>}
+      {q.terms && <span className="text-body text-xs">Terms: {q.terms}</span>}
       <span className="flex items-center gap-2">
         {chosen && <Pill tone="ok">chosen</Pill>}
         {editable && bookable && (
@@ -84,7 +84,7 @@ function QuoteItem({
           </button>
         )}
         {editable && (
-          <button type="button" className="link text-xs text-muted" onClick={onRemove}>
+          <button type="button" className="link text-muted text-xs" onClick={onRemove}>
             Remove
           </button>
         )}
@@ -101,7 +101,7 @@ interface QuotesProps {
 }
 
 /** The vendor's quotes, totalled for this guest count, with a form to add one or read one from a photo. */
-export function Quotes({ ev, v, editable, patch, onBook }: QuotesProps) {
+export function Quotes({ ev, v, editable, patch, onBook }: QuotesProps): JSX.Element {
   const { dispatch } = useStore();
   const cats = ev.layout === "personal" ? ev.budget.categories : [];
   const guests = guestsOf(ev);

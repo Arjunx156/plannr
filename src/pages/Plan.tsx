@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type JSX, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { Logo, Toran } from "../components/brand";
 import { canDraft } from "../components/intake";
@@ -39,11 +39,11 @@ function Drafting({ plan, gemini }: { plan: PlanDraft; gemini: GeminiState }) {
       <span className="spinner" role="status" aria-label="Drafting your plan" />
       <h1 className="font-serif text-[36px] leading-[1.1]">Drafting the plan for {plan.title}</h1>
       {writing && (
-        <p className="m-0 max-w-[480px] text-sm text-peacock">
+        <p className="m-0 max-w-[480px] text-peacock text-sm">
           Gemini is tailoring it to your city, date, guests and priorities.
         </p>
       )}
-      <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-sm text-body">
+      <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-body text-sm">
         <li>
           Splitting {inr(plan.budget.total)} for {plan.guests.total} guests
         </li>
@@ -55,13 +55,13 @@ function Drafting({ plan, gemini }: { plan: PlanDraft; gemini: GeminiState }) {
 }
 
 /** /new/generating: the drafted plan, tailored by Gemini when AI is on, before it's accepted. */
-export function Plan() {
+export function Plan(): JSX.Element | null {
   usePageMeta("Your plan", { private: true });
   const { state } = useStore();
   const navigate = useNavigate();
   const accept = useAcceptPlan();
   const p = state.draft.profile;
-  const { plan, notes, gemini, retry } = useGeminiDraft();
+  const { plan, notes, gemini, why, retry } = useGeminiDraft();
   const drafting = useDrafting(gemini);
   const [accepted, setAccepted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -92,7 +92,7 @@ export function Plan() {
   return (
     <div className="min-h-dvh bg-paper">
       <Toran />
-      <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3.5 sm:px-8">
+      <header className="flex items-center justify-between gap-3 border-line border-b px-4 py-3.5 sm:px-8">
         <Logo to="/" />
         <Link to="/new" className="link text-sm">
           ← Edit details
@@ -123,7 +123,7 @@ export function Plan() {
           <VendorsSection plan={plan} />
           <GuestsSection plan={plan} />
         </div>
-        <NotesSection notes={notes} gemini={gemini} ideasLabel={plan.ideas} retry={retry} />
+        <NotesSection notes={notes} gemini={gemini} why={why} ideasLabel={plan.ideas} retry={retry} />
       </main>
     </div>
   );

@@ -11,6 +11,7 @@ import { eventPath, ids, type Rule, type Watch, weeksTo, whenText } from "./watc
 /** Vendors start to matter six months out, and are urgent ten weeks out. */
 const VENDOR_HORIZON_WEEKS = 26;
 const VENDOR_URGENT_WEEKS = 10;
+/** Tasks past their due date. */
 export const overdueTasks: Rule<PersonalEvent | CommunityEvent> = (ev, today) => {
   const overdue = ev.tasks.list.filter((t) => !t.done && t.due < today);
   if (overdue.length === 0) return [];
@@ -30,6 +31,7 @@ export const overdueTasks: Rule<PersonalEvent | CommunityEvent> = (ev, today) =>
     },
   ];
 };
+/** Vendor categories still unbooked, flagged sooner the closer the event is. */
 export const vendorsNeeded: Rule<PersonalEvent | CommunityEvent> = (ev, today) => {
   const needed = list(ev, "vendors").filter((v) => v.stage === "needed");
   const weeks = weeksTo(today, ev.date);
@@ -223,6 +225,7 @@ const duplicateHouseholds: Rule<PersonalEvent> = (ev) => {
     },
   ];
 };
+/** Every notice rule for a wedding, birthday or other family event, in the order they show. */
 export const PERSONAL_RULES: Rule<PersonalEvent>[] = [
   latePayments,
   paymentsThisWeek,

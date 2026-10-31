@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { Field, TextField } from "../../components/fields";
 import { Modal } from "../../components/overlays";
 import { useEditable } from "../../components/taskHooks";
@@ -17,7 +17,7 @@ import { Section, Stat, TabPage } from "./layout";
 import { ShareLink } from "./ShareLink";
 
 /** /events/:id/funds — money in, money out, expense approvals and the permits. */
-export function FundsTab({ ev }: { ev: PlannrEvent }) {
+export function FundsTab({ ev }: { ev: PlannrEvent }): JSX.Element {
   if (ev.layout !== "community") return <NotCommunity ev={ev} title="Funds" />;
   return <Funds ev={ev} />;
 }
@@ -67,7 +67,7 @@ function Funds({ ev }: { ev: CommunityEvent }) {
         <Sponsors ev={ev} editable={editable} />
       </div>
       <Permits ev={ev} editable={editable} />
-      <span className="text-xs text-muted">
+      <span className="text-muted text-xs">
         The fund report shows residents the totals, the approved expenses and the sponsors who've paid. Names
         of who claimed what stay with the committee.
       </span>
@@ -107,11 +107,11 @@ function Approvals({ ev, editable }: { ev: CommunityEvent; editable: boolean }) 
         {approvals.map((a) => (
           <li
             key={a.id}
-            className="flex flex-wrap items-center gap-3 border-t border-sand-2 py-2.5 text-sm first:border-0"
+            className="flex flex-wrap items-center gap-3 border-sand-2 border-t py-2.5 text-sm first:border-0"
           >
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="font-medium">{a.label}</span>
-              <span className="text-xs text-muted">
+              <span className="text-muted text-xs">
                 {a.by}
                 {a.category ? ` · ${a.category}` : ""}
                 {a.decidedBy ? ` · ${a.status} by ${a.decidedBy}` : ""}
@@ -127,13 +127,13 @@ function Approvals({ ev, editable }: { ev: CommunityEvent; editable: boolean }) 
           </li>
         ))}
         {approvals.length === 0 && (
-          <li className="text-sm text-muted">
+          <li className="text-muted text-sm">
             No claims yet. Committee members claim what they spent here; the treasurer approves.
           </li>
         )}
       </ul>
       {why && approvals.some((a) => a.status === "pending") && (
-        <span className="text-xs text-muted">{why}</span>
+        <span className="text-muted text-xs">{why}</span>
       )}
       <Modal open={adding} onClose={() => setAdding(false)} title="Claim an expense">
         <ClaimForm

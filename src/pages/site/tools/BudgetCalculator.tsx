@@ -1,5 +1,7 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
+import { cssVars, percent } from "../../../components/cssVars";
 import { Field } from "../../../components/fields";
+import { SWATCH_BG } from "../../../components/ui";
 import type { Kind } from "../../../data/baseTypes";
 import { inr, parseAmount } from "../../../lib/format";
 import { splitBudget } from "../../../lib/plan";
@@ -13,7 +15,7 @@ const KINDS: { id: Kind; label: string }[] = [
 ];
 
 /** /tools/budget-calculator — splits a total across categories for the kind of event and its guest count. */
-export function BudgetCalculator() {
+export function BudgetCalculator(): JSX.Element {
   const [kind, setKind] = useState<Kind>("wedding");
   const [total, setTotal] = useState("18L");
   const [guests, setGuests] = useState("250");
@@ -38,7 +40,7 @@ export function BudgetCalculator() {
             id="bc-kind"
             className="field"
             value={kind}
-            onChange={(e) => setKind(e.target.value as Kind)}
+            onChange={(e) => setKind(KINDS.find((k) => k.id === e.target.value)?.id ?? kind)}
           >
             {KINDS.map((k) => (
               <option key={k.id} value={k.id}>
@@ -79,21 +81,21 @@ export function BudgetCalculator() {
             {lines.map((l) => (
               <li
                 key={l.name}
-                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-t border-sand-2 py-2.5 first:border-0"
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-sand-2 border-t py-2.5 first:border-0"
               >
                 <span className="font-medium">{l.name}</span>
                 <span className="tabular">{inr(l.amount)}</span>
                 <span className="col-span-2 block h-2 rounded-[2px] bg-sand-2">
                   <span
-                    className="block h-2 rounded-[2px]"
-                    style={{ width: `${(l.amount / amount) * 100}%`, background: l.color }}
+                    ref={cssVars({ "--w": percent(l.amount / amount) })}
+                    className={`block h-2 w-(--w) rounded-[2px] ${SWATCH_BG[l.color]}`}
                   />
                 </span>
               </li>
             ))}
           </ul>
           {catering && people > 0 && (
-            <p className="m-0 text-sm text-body">
+            <p className="m-0 text-body text-sm">
               The catering line allows about <strong>{inr(catering.amount / people)} a plate</strong>. Compare
               that with the per-plate quotes you get, multiplied by the guests you expect at each meal.
             </p>

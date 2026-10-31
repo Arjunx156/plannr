@@ -1,6 +1,7 @@
 import type { Kind } from "../data/baseTypes";
 import type { Profile } from "../data/types";
 
+/** The profile fields the intake can ask about. */
 export type QuestionField =
   | "kind"
   | "city"
@@ -11,12 +12,14 @@ export type QuestionField =
   | "extras"
   | "priorities";
 
+/** One intake question, with the chips that answer it. */
 export interface Question {
   field: QuestionField;
   prompt: string;
   options?: string[];
 }
 
+/** For each kind of event, what families most often protect and what they cut first. */
 export const PRIORITY_OPTIONS: Record<Kind, { most: string[]; cut: string[] }> = {
   wedding: {
     most: ["Food", "Photography", "Ceremony décor", "Attire", "Entertainment", "Guest stay"],

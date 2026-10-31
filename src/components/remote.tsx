@@ -1,5 +1,6 @@
-import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from "react";
+import { type Dispatch, type JSX, type SetStateAction, useCallback, useEffect, useState } from "react";
 
+/** Data from the server as a screen sees it: the answer, whether it's loading, and any error. */
 export interface Remote<T> {
   /** null until the first answer arrives. */
   data: T | null;
@@ -46,13 +47,21 @@ export function useRemote<T>(load: (() => Promise<T>) | undefined, refresh?: unk
 }
 
 /** Says a load failed, plainly, with a way to try again. */
-export function LoadError({ what, error, onRetry }: { what: string; error: string; onRetry: () => void }) {
+export function LoadError({
+  what,
+  error,
+  onRetry,
+}: {
+  what: string;
+  error: string;
+  onRetry: () => void;
+}): JSX.Element {
   return (
     <div
       role="alert"
       className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-5"
     >
-      <p className="m-0 text-sm text-body">
+      <p className="m-0 text-body text-sm">
         Couldn't load {what}: {error}. Check the connection and try again.
       </p>
       <button type="button" className="btn btn-outline btn-sm" onClick={onRetry}>

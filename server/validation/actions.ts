@@ -4,6 +4,7 @@ import { id, iso, money, name, stamp, str } from "./fields";
 import { answer, coll, lineItem, RECORDS, site } from "./records";
 
 const base = { eventId: z.string().max(120).optional() };
+/** The shape of one task. */
 export const task = z.object({
   id,
   title: name(200),

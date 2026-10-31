@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import type { PlannrEvent } from "../../../data/types";
 import { list } from "../../../shared/records";
 import { useStore } from "../../../store/store";
@@ -6,7 +6,7 @@ import { newId } from "../ids";
 import { Section } from "../layout";
 
 /** Things the family wants every suggestion to respect. The assistant reads these first. */
-export function Memory({ ev, editable }: { ev: PlannrEvent; editable: boolean }) {
+export function Memory({ ev, editable }: { ev: PlannrEvent; editable: boolean }): JSX.Element {
   const { dispatch } = useStore();
   const notes = list(ev, "memory");
   const [text, setText] = useState("");
@@ -23,14 +23,14 @@ export function Memory({ ev, editable }: { ev: PlannrEvent; editable: boolean })
   };
   return (
     <Section title="What Plannr remembers">
-      <p className="m-0 text-sm text-body">
+      <p className="m-0 text-body text-sm">
         Every suggestion respects these: dietary rules, accessibility, what's not up for change.
       </p>
       <ul className="m-0 flex list-none flex-col p-0">
         {notes.map((m) => (
           <li
             key={m.id}
-            className="flex items-center justify-between gap-3 border-t border-sand-2 py-2 text-sm first:border-0"
+            className="flex items-center justify-between gap-3 border-sand-2 border-t py-2 text-sm first:border-0"
           >
             <span>◆ {m.text}</span>
             {editable && (
@@ -46,7 +46,7 @@ export function Memory({ ev, editable }: { ev: PlannrEvent; editable: boolean })
           </li>
         ))}
         {notes.length === 0 && (
-          <li className="text-sm text-muted">
+          <li className="text-muted text-sm">
             Nothing yet. Try “No alcohol” or “Ammachi uses a wheelchair”.
           </li>
         )}

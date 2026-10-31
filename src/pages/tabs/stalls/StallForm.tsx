@@ -1,10 +1,11 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type JSX, useState } from "react";
 import { bindText, TextField } from "../../../components/fields";
 import type { Stall } from "../../../data/communityTypes";
 import { parseAmount } from "../../../lib/format";
 import { newId } from "../ids";
 
-export function StallForm({ fee, onAdd }: { fee: number; onAdd: (s: Stall) => void }) {
+/** Adds a stall by hand: the stallholder, what they sell and the fee. */
+export function StallForm({ fee, onAdd }: { fee: number; onAdd: (s: Stall) => void }): JSX.Element {
   const [form, setForm] = useState({
     name: "",
     owner: "",

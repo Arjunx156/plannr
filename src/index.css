@@ -152,6 +152,29 @@
   background: radial-gradient(rgba(233, 184, 101, 0.4) 1.3px, transparent 1.6px) 0 0 / 16px 16px;
 }
 
+/* the landing hero's looser, softer kolam */
+@utility kolam-hero {
+  background: radial-gradient(rgba(217, 150, 43, 0.3) 1.4px, transparent 1.7px) 0 0 / 20px 20px;
+}
+
+/* a kasavu sari's gold border: a 2px rule along the top */
+@utility kasavu-edge {
+  background: linear-gradient(var(--color-kasavu), var(--color-kasavu)) 0 0 / 100% 2px no-repeat;
+}
+
+/* stripes for an occasion that mixes two kinds of event */
+@utility bar-mixed {
+  background: repeating-linear-gradient(90deg, var(--color-marigold) 0 12px, var(--color-leaf) 12px 24px);
+}
+
+/* fixed controls sit clear of the phone's home bar, and the toast clear of the tab bar too */
+@utility above-edge {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+@utility above-tabbar {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+}
+
 @utility eyebrow {
   font-family: var(--font-mono);
   font-weight: 500;
@@ -424,6 +447,14 @@
   .field::placeholder {
     color: var(--color-muted);
   }
+  /* A text box drawn without an outline of its own: its frame shows the focus ring instead. */
+  .focus-frame:has(:is(input, textarea):focus-visible) {
+    outline: 2px solid var(--color-peacock);
+    outline-offset: 2px;
+  }
+  .on-dark .focus-frame:has(:is(input, textarea):focus-visible) {
+    outline-color: var(--color-gold-soft);
+  }
   .label {
     font: 500 13px / 1 var(--font-sans);
   }
@@ -505,5 +536,36 @@
   }
   body {
     background: var(--color-surface);
+  }
+}
+
+/*
+ * High contrast themes (Windows contrast themes, forced colours) repaint every background in the page
+ * colour, which would hide each bar's fill and a pressed chip's state. These draw them in the theme's own
+ * colours instead. Unlayered, so they win over the fill and state colours set by utilities.
+ */
+@media (forced-colors: active) {
+  .bar {
+    border: 1px solid CanvasText;
+  }
+  .bar > span,
+  [class~="w-(--w)"] {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+  .chip[aria-pressed="true"],
+  .chip[aria-selected="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+  }
+  .pill {
+    border: 1px solid CanvasText;
+  }
+  .spinner {
+    forced-color-adjust: none;
+    border-color: GrayText;
+    border-top-color: CanvasText;
   }
 }

@@ -37,3 +37,9 @@ coverage
 /demo/
 Plannr-demo/
 Plannr-demo.zip
+
+# Editor and agent settings stay on the machine that made them.
+.claude/
+
+# Lighthouse CI reports
+.lighthouseci/

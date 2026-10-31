@@ -1,10 +1,12 @@
-import { useCallback, useState } from "react";
+import { type JSX, useCallback, useState } from "react";
 import { LoadError, useRemote } from "../../components/remote";
 import { useEditable } from "../../components/taskHooks";
 import { Pill, Spinner } from "../../components/ui";
 import type { PlannrEvent } from "../../data/types";
 import { api } from "../../lib/api";
+import { DAY_MS } from "../../lib/dates";
 import { initials, timeAgo } from "../../lib/format";
+import { errorMessage } from "../../shared/guards";
 import type { HistoryEntry } from "../../shared/types";
 import { toast, useStore } from "../../store/store";
 import { TabPage } from "./layout";
@@ -13,14 +15,14 @@ import { NeedsAccount } from "./NeedsAccount";
 function dayHeading(iso: string): string {
   const d = new Date(iso);
   const today = new Date();
-  const yesterday = new Date(Date.now() - 86400000);
+  const yesterday = new Date(Date.now() - DAY_MS);
   if (d.toDateString() === today.toDateString()) return "Today";
   if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
   return d.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
 }
 
 /** Each entry with the day heading it starts, if it's the first of its day. */
-function withDayHeadings(entries: HistoryEntry[]): { entry: HistoryEntry; heading?: string }[] {
+function withDayHeadings(entries: HistoryEntry[]): { entry: HistoryEntry; heading?: string | undefined }[] {
   return entries.map((entry, i) => {
     const day = dayHeading(entry.at);
     const previous = entries[i - 1];
@@ -38,7 +40,7 @@ function HistoryRow({
   onUndo,
 }: {
   entry: HistoryEntry;
-  heading?: string;
+  heading?: string | undefined;
   first: boolean;
   editable: boolean;
   /** The entry being undone or redone, if any. */
@@ -47,20 +49,20 @@ function HistoryRow({
 }) {
   const verb = h.undone ? "Redo" : "Undo";
   return (
-    <li className={`flex flex-col ${first ? "" : "border-t border-sand-2"}`}>
+    <li className={`flex flex-col ${first ? "" : "border-sand-2 border-t"}`}>
       {heading && <span className="eyebrow px-5 pt-4 text-muted">{heading}</span>}
       <div className="flex items-start gap-3 px-5 py-3">
         <span
           aria-hidden="true"
-          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sand text-[11px] font-semibold"
+          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sand font-semibold text-[11px]"
         >
           {initials(h.by ?? "?")}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className={`text-sm font-medium ${h.undone ? "text-muted line-through" : ""}`}>
+          <span className={`font-medium text-sm ${h.undone ? "text-muted line-through" : ""}`}>
             {h.summary}
           </span>
-          <span className="text-xs text-muted">
+          <span className="text-muted text-xs">
             {h.by ?? "Someone"} · {timeAgo(h.at)}
             {h.undone && " · undone"}
           </span>
@@ -82,7 +84,8 @@ function HistoryRow({
   );
 }
 
-export function HistoryTab({ ev }: { ev: PlannrEvent }) {
+/** Every change to the plan, newest first, with undo for the latest ones. */
+export function HistoryTab({ ev }: { ev: PlannrEvent }): JSX.Element {
   const { state, dispatch, sync } = useStore();
   const editable = useEditable(ev);
   const version = state.remote[ev.id]?.version;
@@ -112,7 +115,7 @@ export function HistoryTab({ ev }: { ev: PlannrEvent }) {
       dispatch({ type: "syncPlan", plan });
       dispatch(toast(`${entry.undone ? "Redone" : "Undone"}: ${entry.summary}`));
     } catch (e) {
-      dispatch(toast((e as Error).message));
+      dispatch(toast(errorMessage(e)));
     }
     setBusy("");
   };
@@ -130,7 +133,7 @@ export function HistoryTab({ ev }: { ev: PlannrEvent }) {
         </div>
       )}
       {list?.length === 0 && (
-        <p className="m-0 rounded-2xl border border-dashed border-line-2 p-8 text-center text-body">
+        <p className="m-0 rounded-2xl border border-line-2 border-dashed p-8 text-center text-body">
           No changes yet. Tick off a task or adjust the budget and it shows up here.
         </p>
       )}

@@ -1,4 +1,4 @@
-import { lazy, type ReactNode, Suspense } from "react";
+import { type JSX, lazy, type ReactNode, Suspense } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router";
 import { Logo } from "./components/brand";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -76,7 +76,8 @@ const Gallery = SHOW_GALLERY
   ? lazy(() => import("./pages/Gallery").then((m) => ({ default: m.Gallery })))
   : null;
 
-export function App() {
+/** The whole app: routes, lazy-loaded screens and the error boundary around them. */
+export function App(): JSX.Element {
   return (
     <ErrorBoundary>
       <Suspense fallback={<Loading />}>

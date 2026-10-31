@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import { handleAi } from "./ai";
 import { type AppEnv, createApp } from "./app";
 import { createNeonDb } from "./db/neon";
+import { readEnv } from "./env";
 import { aiConfig } from "./gemini";
 import { matchShare, sharePage } from "./share";
 
@@ -20,7 +21,7 @@ function offline(env: AppEnv) {
   app.get("/auth/methods", (c) => c.json({ guest: false, email: false, google: false }));
   app.get("/ai/status", async (c) => {
     const out = await handleAi("status", {}, aiConfig(env));
-    return c.json(out.body as object, out.status as 200);
+    return c.json(out.body, out.status);
   });
   app.post("/ai/:route", async (c) => {
     const out = await handleAi(
@@ -28,7 +29,7 @@ function offline(env: AppEnv) {
       await c.req.json().catch(() => undefined),
       aiConfig(env),
     );
-    return c.json(out.body as object, out.status as 200);
+    return c.json(out.body, out.status);
   });
   app.all("*", (c) =>
     c.json({ error: "Accounts aren't switched on yet: the database isn't connected" }, 503),
@@ -36,7 +37,7 @@ function offline(env: AppEnv) {
   return app;
 }
 
-const env = process.env as AppEnv;
+const env = readEnv();
 const db = env.DATABASE_URL ? createNeonDb(env.DATABASE_URL) : undefined;
 const app = db ? createApp({ db, env }) : offline(env);
 

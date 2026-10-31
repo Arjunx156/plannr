@@ -1,9 +1,19 @@
 import AxeBuilder from "@axe-core/playwright";
-import { test as base, expect, type Page } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type Page,
+  type PlaywrightTestArgs,
+  type PlaywrightTestOptions,
+  type PlaywrightWorkerArgs,
+  type PlaywrightWorkerOptions,
+  type TestType,
+} from "@playwright/test";
 
 /** Sunday 27 Sep 2026, 6 pm in Kochi: the day the demo story is written for. */
-export const STORY_TIME = new Date("2026-09-27T18:00:00+05:30");
+export const STORY_TIME: Date = new Date("2026-09-27T18:00:00+05:30");
 
+/** Canned answers for each AI route, so the journeys never call Gemini. */
 export interface AiMocks {
   intake?: Record<string, unknown>;
   assistant?: Record<string, unknown>;
@@ -12,21 +22,21 @@ export interface AiMocks {
 }
 
 /** Turns Gemini on for this page and answers each route with a canned reply. */
-export async function mockAi(page: Page, mocks: AiMocks) {
+export async function mockAi(page: Page, mocks: AiMocks): Promise<void> {
   await page.route("**/api/ai/status", (r) => r.fulfill({ json: { enabled: true, model: "test" } }));
   for (const [route, body] of Object.entries(mocks))
     await page.route(`**/api/ai/${route}`, (r) => r.fulfill({ json: body }));
 }
 
 /** Starts in the demo, with the sample events seeded in this browser. */
-export async function signInDemo(page: Page) {
+export async function signInDemo(page: Page): Promise<void> {
   await page.goto("/signin?next=/events");
   await page.getByRole("button", { name: "Explore the demo" }).click();
   await expect(page).toHaveURL(/\/events$/);
 }
 
 /** Starts a real guest account on the test server, named so co-planners can tell who's who. */
-export async function signInGuest(page: Page, name: string) {
+export async function signInGuest(page: Page, name: string): Promise<void> {
   await page.goto("/signin");
   await page.getByRole("button", { name: "Continue as a guest" }).click();
   await expect(page).toHaveURL(/\/onboarding/);
@@ -35,10 +45,14 @@ export async function signInGuest(page: Page, name: string) {
   await expect(page).toHaveURL(/\/events$/);
 }
 
-/** Fails on serious or critical WCAG 2.2 A/AA problems, and on serious breaches of axe's best practices. */
-export async function expectAccessible(page: Page) {
+/**
+ * Fails on serious or critical WCAG 2.2 A/AA problems, and on serious breaches of axe's best practices.
+ * `skip` names axe rules that can't judge the page as it's being shown, with the reason at the call.
+ */
+export async function expectAccessible(page: Page, skip: string[] = []): Promise<void> {
   const { violations } = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa", "best-practice"])
+    .disableRules(skip)
     .analyze();
   const serious = violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(
@@ -46,7 +60,8 @@ export async function expectAccessible(page: Page) {
   ).toEqual([]);
 }
 
-export async function expectNoSideScroll(page: Page) {
+/** Fails when the page scrolls sideways: content must reflow to the viewport (WCAG 1.4.10). */
+export async function expectNoSideScroll(page: Page): Promise<void> {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 }
@@ -55,7 +70,13 @@ export async function expectNoSideScroll(page: Page) {
  * Every test fails on a page error or a console error. That includes content security policy
  * violations, which the browser reports as console errors, so the built pages' CSP is checked too.
  */
-export const test = base.extend<{ errors: string[] }>({
+export const test: TestType<
+  PlaywrightTestArgs &
+    PlaywrightTestOptions & {
+      errors: string[];
+    },
+  PlaywrightWorkerArgs & PlaywrightWorkerOptions
+> = base.extend<{ errors: string[] }>({
   errors: [
     async ({ page }, use) => {
       const errors: string[] = [];

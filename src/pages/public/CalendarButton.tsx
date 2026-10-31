@@ -1,8 +1,15 @@
+import type { JSX } from "react";
 import { downloadIcs } from "../../lib/ics";
 import type { PublicBasics } from "../../shared/public";
 
 /** Adds every function to the guest's calendar as one .ics file. */
-export function CalendarButton({ view, label }: { view: { event: PublicBasics }; label: string }) {
+export function CalendarButton({
+  view,
+  label,
+}: {
+  view: { event: PublicBasics };
+  label: string;
+}): JSX.Element {
   return (
     <button
       type="button"
