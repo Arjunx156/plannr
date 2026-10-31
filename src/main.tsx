@@ -8,7 +8,7 @@ import "./index.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
-import { App } from "./App";
+import { App, preloadPage } from "./App";
 import { startDevice } from "./lib/device";
 import { startReporting } from "./lib/report";
 import { StoreProvider } from "./store/store";
@@ -18,6 +18,10 @@ startReporting();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root");
+
+// A pre-rendered page's code arrives before the first render, so its HTML is swapped for the same
+// page rather than a loading screen. If it can't load, the page loads lazily as usual.
+await preloadPage(location.pathname).catch(() => undefined);
 
 createRoot(root).render(
   <StrictMode>

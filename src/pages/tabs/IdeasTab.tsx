@@ -1,14 +1,16 @@
 import { type FormEvent, useState } from "react";
-import { useEditable } from "../../components/tasks";
+import { useEditable } from "../../components/taskHooks";
 import { Pill } from "../../components/ui";
-import type { Idea, PlannrEvent } from "../../data/types";
+import type { Idea } from "../../data/recordTypes";
+import type { PlannrEvent } from "../../data/types";
 import { suggestIdeas } from "../../lib/ai";
 import { addDays, TODAY } from "../../lib/dates";
 import { inr, plural } from "../../lib/format";
 import { deviceIdeas, ideaRecord, type PlannedEvent } from "../../lib/ideas";
 import { findRecord, list } from "../../shared/records";
 import { toast, useStore } from "../../store/store";
-import { newId, Section, TabPage } from "./common";
+import { newId } from "./ids";
+import { Section, TabPage } from "./layout";
 
 const EFFORT: Record<NonNullable<Idea["effort"]>, string> = {
   low: "Easy",
@@ -43,7 +45,7 @@ function Suggest({ ev }: { ev: PlannedEvent }) {
     const fromAi = await suggestIdeas(ev);
     const found = fromAi ?? deviceIdeas(ev);
     setBusy(false);
-    if (!found.length) {
+    if (found.length === 0) {
       setNote("Nothing new to suggest for now. Add your own idea below.");
       return;
     }
@@ -148,7 +150,7 @@ function Board({ ev, editable }: { ev: PlannedEvent; editable: boolean }) {
             </span>
           </li>
         ))}
-        {!ideas.length && (
+        {ideas.length === 0 && (
           <li className="text-sm text-muted">
             No ideas yet. Ask Plannr for some that fit this event, or add your own below.
           </li>

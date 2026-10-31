@@ -1,9 +1,13 @@
-import type { CommunityEvent, Message, PersonalEvent, PlannrEvent, Preview } from "../data/types";
-import { fundTotals, rsvpSummary, vendorSummary } from "../shared/derive";
-import { vendorsOf } from "../shared/records";
+import type { Message } from "../data/messageTypes";
+import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../data/types";
+import { fundTotals } from "../shared/balances";
+import { rsvpSummary, vendorSummary } from "../shared/derive";
+import { vendorsOf } from "../shared/eventLists";
 import { DECOR_AFTER_CUT } from "../shared/suggestions";
+import { decorPreview, haldiPreview } from "./assistantPreviews";
 import { dayLabel, fridayOnOrBefore, fullDate, shortDate, TODAY } from "./dates";
 import { inr } from "./format";
+import { msgId } from "./messageId";
 import { budgetTotals, communityReadiness, personalReadiness, settle } from "./metrics";
 
 /**
@@ -12,12 +16,6 @@ import { budgetTotals, communityReadiness, personalReadiness, settle } from "./m
  * without touching the panel: it returns the same Message shape.
  */
 export type AssistantContext = "dashboard" | "budget";
-
-let seq = 0;
-export function msgId(): string {
-  seq += 1;
-  return `m${Date.now().toString(36)}${seq}`;
-}
 
 const has = (text: string, re: RegExp) => re.test(text);
 
@@ -113,7 +111,7 @@ function leftToBook(ev: PersonalEvent): Message {
 function overPlan(ev: PersonalEvent): Message {
   const totals = budgetTotals(ev.budget);
   const over = ev.budget.categories.filter((c) => (c.projected ?? c.planned) > c.planned);
-  if (!over.length)
+  if (over.length === 0)
     return ai(`Nothing is over plan. ${inr(totals.remaining)} is left of ${inr(ev.budget.total)}.`);
   const lines = over.map((c) => `${c.name} by ${inr((c.projected ?? c.planned) - c.planned)}`).join(" and ");
   const ideas = ev.budget.savings.reduce((s, x) => s + x.amount, 0);
@@ -165,7 +163,7 @@ function snacks(): Message {
 
 function nextTasks(ev: PersonalEvent): Message {
   const open = ev.tasks.list.filter((x) => !x.done).slice(0, 4);
-  if (!open.length) return ai("Everything on the list is done. Enjoy the day.");
+  if (open.length === 0) return ai("Everything on the list is done. Enjoy the day.");
   return ai(`Next up: ${open.map((x) => `${x.title} (${x.who}, ${dayLabel(x.due)})`).join("; ")}.`);
 }
 
@@ -224,16 +222,17 @@ function freeVolunteers(ev: CommunityEvent): Message {
   const gap = food ? Math.max(0, food.need - food.names.length) : 0;
   return ai(
     `Food safety 5–8 pm ${gap ? `still needs ${gap}` : "is covered"}. Not on any shift in that slot: ${free.join(", ") || "nobody"}.`,
-    { source: free.length ? "Tap an open cell in the shift grid to assign someone." : undefined },
+    { source: free.length > 0 ? "Tap an open cell in the shift grid to assign someone." : undefined },
   );
 }
 
 function fundSummary(ev: CommunityEvent): Message {
   const { received, expected } = fundTotals(ev);
   const pending = ev.funds.approvals.filter((a) => a.status === "pending");
-  const waiting = pending.length
-    ? ` ${pending.length} ${pending.length === 1 ? "expense waits" : "expenses wait"} for treasurer approval: ${inr(pending.reduce((s, a) => s + a.amount, 0))}.`
-    : " Nothing is waiting for approval.";
+  const waiting =
+    pending.length > 0
+      ? ` ${pending.length} ${pending.length === 1 ? "expense waits" : "expenses wait"} for treasurer approval: ${inr(pending.reduce((s, a) => s + a.amount, 0))}.`
+      : " Nothing is waiting for approval.";
   return ai(
     `${inr(received)} received of ${inr(expected)} expected. ${inr(ev.funds.spent)} spent against a ${inr(ev.funds.budget)} budget.${waiting}`,
   );
@@ -256,54 +255,6 @@ function communityReply(ev: CommunityEvent, text: string): Message {
   const q: Question = { text, lower: text.toLowerCase(), context: "dashboard" };
   const intent = COMMUNITY_INTENTS.find((i) => i.matches(q, ev));
   return (intent?.answer ?? communityFallback)(ev, q);
-}
-
-/** The preview for moving the haldi to the Friday before it. */
-export function haldiPreview(from: string): Preview {
-  const to = fridayOnOrBefore(from);
-  return {
-    id: msgId(),
-    title: "Preview · 4 changes",
-    tag: "Haldi",
-    change: "move-haldi",
-    status: "pending",
-    rows: [
-      { title: "Haldi date", from: shortDate(from), to: `${shortDate(to)}, 5:00 pm` },
-      {
-        title: "2 tasks move a day earlier",
-        detail: "Haldi caterer headcount · Collect turmeric & marigolds (Priya)",
-      },
-      {
-        title: "Makeup artist needs to confirm",
-        detail: "Glam by Neha quoted for Saturday. I'll draft a WhatsApp asking about Friday.",
-      },
-      {
-        title: "Heads-up",
-        detail: "Mehendi is Thursday night, so the bride has back-to-back evenings.",
-        headsUp: true,
-      },
-    ],
-  };
-}
-
-/** The preview for the ₹50,000 décor cut. */
-export function decorPreview(): Preview {
-  return {
-    id: msgId(),
-    title: "Preview · Décor",
-    tag: "−₹50,000",
-    change: "cut-decor",
-    status: "pending",
-    rows: [
-      { title: "Reception backdrop", amount: "−₹20,000" },
-      { title: "Entrance arch → toran", amount: "−₹12,000" },
-      { title: "Centrepieces → urulis", amount: "−₹18,000" },
-      {
-        title: "Also updates",
-        detail: "Mangalya Décor needs a revised quote. 1 new task: “Source 30 brass urulis” for Priya.",
-      },
-    ],
-  };
 }
 
 /** The assistant panel's first line: what it can see of this event. */

@@ -22,7 +22,7 @@ const proc = Bun.spawn(
 if ((await proc.exited) !== 0) throw new Error("SSR build failed");
 
 const { render } = (await import(join(ssrOut, "prerender.js"))) as {
-  render: (url: string) => { html: string; title: string; description: string };
+  render: (url: string) => Promise<{ html: string; title: string; description: string }>;
 };
 const shell = await Bun.file(join(root, "dist", "index.html")).text();
 const site = siteUrl(process.env);
@@ -35,7 +35,7 @@ export function fileFor(route: string): string {
 const outDir = join(root, "dist", "prerendered");
 await rm(outDir, { recursive: true, force: true });
 for (const route of PUBLIC_ROUTES) {
-  const { html, title, description } = render(route);
+  const { html, title, description } = await render(route);
   if (!html.includes("<h1")) throw new Error(`Pre-rendering ${route} produced no heading`);
   let page = shell
     .replace('<div id="root"></div>', `<div id="root">${html}</div>`)

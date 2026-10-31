@@ -1,4 +1,6 @@
-import type { Household, PlanRecords } from "../types";
+import type { Household } from "../guestTypes";
+import type { PlanRecords } from "../recordTypes";
+import { answerFor } from "./answers";
 
 /**
  * The demo birthday's guests, vendors and run sheet.
@@ -35,12 +37,7 @@ export const birthdayRecords: PlanRecords = {
     expected,
     functions: ["day"],
     rsvp: {
-      day:
-        answer === "no"
-          ? { status: "no", count: 0 }
-          : answer === null
-            ? { status: "pending", count: 0 }
-            : { status: "yes", count: answer },
+      day: answerFor(answer),
     },
     invitedAt: "2026-09-15",
     ...(answer !== null ? { respondedAt: "2026-09-20" } : {}),

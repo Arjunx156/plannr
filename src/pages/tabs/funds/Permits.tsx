@@ -1,10 +1,14 @@
 import { type FormEvent, useState } from "react";
-import { Modal, Pill, toneText } from "../../../components/ui";
-import type { CommunityEvent, Permit } from "../../../data/types";
+import { Modal } from "../../../components/overlays";
+import { Pill, toneText } from "../../../components/ui";
+import type { Permit } from "../../../data/communityTypes";
+import type { CommunityEvent } from "../../../data/types";
 import { addDays, longDate, shortDate, TODAY } from "../../../lib/dates";
 import { list } from "../../../shared/records";
 import { toast, useStore } from "../../../store/store";
-import { DraftBox, newId, Section } from "../common";
+import { DraftBox } from "../DraftBox";
+import { newId } from "../ids";
+import { Section } from "../layout";
 
 /** Who an application goes to, from what the permit is for. */
 function addressee(label: string): string {

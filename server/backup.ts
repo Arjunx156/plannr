@@ -3,18 +3,8 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import { del, list, put } from "@vercel/blob";
 import { getTableColumns } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
-import {
-  account,
-  changes,
-  comments,
-  events,
-  invites,
-  links,
-  members,
-  pushSubs,
-  templates,
-  user,
-} from "./db/schema";
+import { account, user } from "./db/authSchema";
+import { changes, comments, events, invites, links, members, pushSubs, templates } from "./db/schema";
 import type { Db } from "./db/types";
 
 /**
@@ -127,6 +117,6 @@ export async function nightlyBackup(
     for (const b of page.blobs) if (b.uploadedAt.getTime() < cutoff) old.push(b.url);
     cursor = page.hasMore ? page.cursor : undefined;
   } while (cursor);
-  if (old.length) await del(old, { token });
+  if (old.length > 0) await del(old, { token });
   return { stored: blob.pathname, bytes: bytes.length, removed: old.length };
 }

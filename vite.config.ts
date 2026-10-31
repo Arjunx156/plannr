@@ -20,5 +20,18 @@ export default defineConfig(({ mode }) => {
       plannrCsp(),
       plannrPreload(),
     ],
+    build: {
+      rolldownOptions: {
+        output: {
+          // React and the router change far less often than Plannr does: in a file of their own,
+          // a returning visitor's cached copy survives most deploys.
+          codeSplitting: {
+            groups: [
+              { name: "react", test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/ },
+            ],
+          },
+        },
+      },
+    },
   };
 });

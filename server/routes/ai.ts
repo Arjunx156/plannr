@@ -1,7 +1,8 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
-import { handleAi, MAX_BODY, MAX_READ_BODY, ROUTE_COST, streamAssistant } from "../ai";
+import { handleAi, MAX_BODY, MAX_READ_BODY, ROUTE_COST } from "../ai";
+import { streamAssistant } from "../aiStream";
 import { aiUsage } from "../db/schema";
 import type { Db } from "../db/types";
 import { type Api, clientIp, type RouteDeps } from "./kit";
@@ -53,7 +54,7 @@ export function aiRoutes(app: Api, { db, auth, ai, allow }: RouteDeps): void {
   /** The rate limit, size cap and daily allowance every AI call goes through. */
   const gate = async (c: Context, route: string): Promise<{ key: string } | Response> => {
     const ip = clientIp(c);
-    if (!allow(`ai:${ip}`)) return c.json({ error: "Too many requests" }, 429);
+    if (!(await allow(`ai:${ip}`))) return c.json({ error: "Too many requests" }, 429);
     if (Number(c.req.header("content-length") ?? 0) > (route === "read" ? MAX_READ_BODY : MAX_BODY))
       return c.json({ error: "Request too large" }, 413);
     // A daily allowance per person (or per network for the demo), so one user can't run up the bill.

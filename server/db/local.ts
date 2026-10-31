@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { schema } from "./schema.js";
-import type { Db } from "./types.js";
+import { schema } from "./schema";
+import type { Db } from "./types";
 
 // Next to this file normally; from the project root when Vite has bundled it into its config.
 const MIGRATIONS = [

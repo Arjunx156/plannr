@@ -1,16 +1,24 @@
 import { type FormEvent, useState } from "react";
-import { Field, Modal, Pill, TextField } from "../../../components/ui";
-import type { PlannrEvent, Quote, Vendor } from "../../../data/types";
+import { bindText, Field, TextField } from "../../../components/fields";
+import { Modal } from "../../../components/overlays";
+import { Pill } from "../../../components/ui";
+import type { PlannrEvent } from "../../../data/types";
+import type { Quote, Vendor } from "../../../data/vendorTypes";
 import { STAGE_LABEL } from "../../../shared/derive";
 import { useStore } from "../../../store/store";
-import { CategorySelect, newId } from "../common";
+import { CategorySelect } from "../amounts";
+import { newId } from "../ids";
+import { AskForQuote } from "./AskForQuote";
+import { OnTheDay } from "./OnTheDay";
+import { Quotes } from "./quotes";
 import { STAGE_TONE, STAGES } from "./shared";
-import { AskForQuote, OnTheDay, type PatchVendor, Quotes, VendorDetails } from "./VendorSections";
+import { type PatchVendor, VendorDetails } from "./vendorDetails";
 
 /** Adds a vendor or a category still to find. */
 export function AddVendor({ ev, onAdd }: { ev: PlannrEvent; onAdd: (v: Vendor) => void }) {
   const cats = ev.layout === "personal" ? ev.budget.categories : [];
   const [form, setForm] = useState({ category: "", name: "", phone: "", categoryId: "" });
+  const field = bindText(form, setForm);
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const category = form.category.trim() || cats.find((c) => c.id === form.categoryId)?.name || "";
@@ -27,13 +35,7 @@ export function AddVendor({ ev, onAdd }: { ev: PlannrEvent; onAdd: (v: Vendor) =
   };
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
-      <TextField
-        id="v-cat"
-        label="What for"
-        value={form.category}
-        onChange={(category) => setForm({ ...form, category })}
-        placeholder="Mehendi artist"
-      />
+      <TextField id="v-cat" label="What for" {...field("category")} placeholder="Mehendi artist" />
       <Field label="Name" htmlFor="v-name" hint="Leave empty while you're still looking.">
         <input
           id="v-name"
@@ -45,19 +47,11 @@ export function AddVendor({ ev, onAdd }: { ev: PlannrEvent; onAdd: (v: Vendor) =
       <TextField
         id="v-phone"
         label="WhatsApp number"
-        value={form.phone}
-        onChange={(phone) => setForm({ ...form, phone })}
+        {...field("phone")}
         inputMode="tel"
         placeholder="+91 98470 12345"
       />
-      {cats.length > 0 && (
-        <CategorySelect
-          id="v-budget"
-          categories={cats}
-          value={form.categoryId}
-          onChange={(categoryId) => setForm({ ...form, categoryId })}
-        />
-      )}
+      {cats.length > 0 && <CategorySelect id="v-budget" categories={cats} {...field("categoryId")} />}
       <button
         type="submit"
         className="btn btn-primary self-start"

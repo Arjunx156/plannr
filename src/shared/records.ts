@@ -1,30 +1,11 @@
-import type {
-  Announcement,
-  Approval,
-  Category,
-  CheckItem,
-  CommunityEvent,
-  FunctionDay,
-  FundSource,
-  Gift,
-  Household,
-  Idea,
-  MemoryNote,
-  Pass,
-  Payment,
-  Permit,
-  PersonalEvent,
-  Photo,
-  PlannrEvent,
-  RoomBlock,
-  RunItem,
-  SeatTable,
-  Settlement,
-  Sponsor,
-  Stall,
-  Vendor,
-  VendorStage,
-} from "../data/types";
+import type { FunctionDay } from "../data/baseTypes";
+import type { Category, Gift, Payment, Settlement } from "../data/budgetTypes";
+import type { Approval, FundSource, Pass, Permit, Sponsor, Stall } from "../data/communityTypes";
+import type { Household, RoomBlock, SeatTable } from "../data/guestTypes";
+import type { Announcement, CheckItem, Idea, MemoryNote, Photo, RunItem } from "../data/recordTypes";
+import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../data/types";
+import type { Vendor } from "../data/vendorTypes";
+import { functionsOf, slugId, vendorsOf } from "./eventLists";
 
 /**
  * Every list a plan holds, in one place: where it lives on the event, what it holds when an
@@ -78,53 +59,6 @@ const q = (s: string | undefined) => `“${s ?? ""}”`;
 /** Gives permits and fund sources stable ids; seed data names them by label only. */
 function withIds<T extends { id?: string; label: string }>(list: T[]): (T & { id: string })[] {
   return list.map((x) => ({ ...x, id: x.id ?? slugId(x.label) }));
-}
-
-export function slugId(text: string): string {
-  return (
-    text
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[^\w\s-]/g, "")
-      .trim()
-      .replace(/[\s_]+/g, "-")
-      .slice(0, 40) || "item"
-  );
-}
-
-const DAY_LABEL: Record<PlannrEvent["kind"], string> = {
-  wedding: "The wedding",
-  birthday: "The party",
-  community: "The day",
-  other: "The day",
-};
-
-/** The event's functions; an event without any is one day. */
-export function functionsOf(ev: PlannrEvent): FunctionDay[] {
-  if (ev.layout === "empty") return [];
-  if (ev.functions?.length) return ev.functions;
-  const time = ev.countdown.line.match(/\d{1,2}(?::\d{2})?\s?[ap]m/i)?.[0];
-  return [{ id: "day", label: DAY_LABEL[ev.kind], date: ev.date, ...(time ? { time } : {}) }];
-}
-
-const LEGACY_STAGE: [keyof PersonalEvent["vendors"], VendorStage][] = [
-  ["booked", "booked"],
-  ["talking", "quoted"],
-  ["needed", "needed"],
-];
-
-/** Vendors as records; plans made before vendor records list them by category only. */
-export function vendorsOf(ev: PlannrEvent): Vendor[] {
-  if (ev.layout === "empty") return [];
-  if (ev.vendorList) return ev.vendorList;
-  if (ev.layout !== "personal") return [];
-  const out: Vendor[] = [];
-  for (const [key, stage] of LEGACY_STAGE) {
-    const names = ev.vendors[key];
-    if (!Array.isArray(names)) continue;
-    for (const category of names) out.push({ id: slugId(category), category, name: "", stage, quotes: [] });
-  }
-  return out;
 }
 
 const STORES: { [C in Coll]: Store<C> } = {

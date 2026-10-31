@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
+import { usePageMeta } from "../components/pageMeta";
 import { AppShell } from "../components/shell";
-import { usePageMeta } from "../components/ui";
 import { timeAgo } from "../lib/format";
-import { Section } from "./tabs/common";
+import { Section } from "./tabs/layout";
 
 interface Summary {
   days: { day: string; name: string; count: number }[];
@@ -96,7 +96,7 @@ export function Admin() {
                     </td>
                   </tr>
                 ))}
-                {!days.length && (
+                {days.length === 0 && (
                   <tr>
                     <td className="py-2 text-muted">Nothing counted yet.</td>
                   </tr>
@@ -122,7 +122,9 @@ export function Admin() {
                 </span>
               </li>
             ))}
-            {!data.errors.length && <li className="text-sm text-muted">No errors in the last 30 days.</li>}
+            {data.errors.length === 0 && (
+              <li className="text-sm text-muted">No errors in the last 30 days.</li>
+            )}
           </ul>
         </Section>
       </main>

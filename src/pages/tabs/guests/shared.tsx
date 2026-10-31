@@ -1,5 +1,7 @@
-import { Field } from "../../../components/ui";
-import type { FunctionDay, Household, PlannrEvent } from "../../../data/types";
+import { Field } from "../../../components/fields";
+import type { FunctionDay } from "../../../data/baseTypes";
+import type { Household } from "../../../data/guestTypes";
+import type { PlannrEvent } from "../../../data/types";
 
 /** The WhatsApp invitation for one household, with their RSVP link. */
 export function inviteMessage(ev: PlannrEvent, h: Household): string {

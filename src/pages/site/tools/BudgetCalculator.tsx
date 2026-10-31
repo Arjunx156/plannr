@@ -1,9 +1,9 @@
 import { type FormEvent, useState } from "react";
-import { Field } from "../../../components/ui";
-import type { Kind } from "../../../data/types";
+import { Field } from "../../../components/fields";
+import type { Kind } from "../../../data/baseTypes";
 import { inr, parseAmount } from "../../../lib/format";
 import { splitBudget } from "../../../lib/plan";
-import { CallToAction, SitePage } from "../Layout";
+import { CallToAction, SitePage } from "../siteLayout";
 
 const KINDS: { id: Kind; label: string }[] = [
   { id: "wedding", label: "Wedding" },

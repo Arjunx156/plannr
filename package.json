@@ -18,6 +18,7 @@
     "db:generate": "drizzle-kit generate",
     "ai:eval": "bun scripts/ai-eval.ts",
     "size": "bun scripts/size-budget.ts",
+    "structure": "bun scripts/structure.ts",
     "coverage": "bun test --coverage && bun scripts/coverage-gate.ts"
   },
   "dependencies": {

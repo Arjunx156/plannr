@@ -1,11 +1,17 @@
-import { type FormEvent, useState } from "react";
-import { Field, Modal, TextField } from "../../../components/ui";
-import type { PayMethod, Payment, PersonalEvent, Vendor } from "../../../data/types";
-import { addDays, shortDate, TODAY } from "../../../lib/dates";
+import { useState } from "react";
+import { Modal } from "../../../components/overlays";
+import { QrCode } from "../../../components/qr";
+import type { Payment } from "../../../data/budgetTypes";
+import type { PersonalEvent } from "../../../data/types";
+import type { Vendor } from "../../../data/vendorTypes";
+import { shortDate, TODAY } from "../../../lib/dates";
 import { inr } from "../../../lib/format";
 import { list } from "../../../shared/records";
-import { toast, useStore } from "../../../store/store";
-import { CategorySelect, newId, parseAmount, QrCode, Section, upiLink, WhatForAmount } from "../common";
+import { useStore } from "../../../store/store";
+import { Section } from "../layout";
+import { upiLink } from "../links";
+import { AddPayment } from "./AddPayment";
+import { MarkPaid } from "./MarkPaid";
 import { METHOD_LABEL } from "./shared";
 
 /** The payment schedule: what is due when, with UPI links and marking as paid. */
@@ -52,7 +58,7 @@ export function Payments({ ev, editable }: { ev: PersonalEvent; editable: boolea
             onQr={setQr}
           />
         ))}
-        {!open.length && !showPaid && (
+        {open.length === 0 && !showPaid && (
           <li className="text-sm text-muted">Nothing due. Everything scheduled is paid.</li>
         )}
       </ul>
@@ -162,164 +168,5 @@ function UpiButtons({
         UPI QR
       </button>
     </>
-  );
-}
-
-function MarkPaid({
-  ev,
-  payment,
-  onClose,
-}: {
-  ev: PersonalEvent;
-  payment: Payment | null;
-  onClose: () => void;
-}) {
-  const { dispatch } = useStore();
-  const sides = ev.budget.split?.sides ?? [];
-  const [on, setOn] = useState(TODAY);
-  const [method, setMethod] = useState<PayMethod>("upi");
-  const [by, setBy] = useState("");
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!payment) return;
-    dispatch({
-      type: "markPaid",
-      eventId: ev.id,
-      paymentId: payment.id,
-      paid: true,
-      on,
-      method,
-      by: by || payment.by,
-    });
-    dispatch(toast(`Marked ${inr(payment.amount)} paid. The budget and the family split now include it.`));
-    onClose();
-  };
-  return (
-    <Modal open={!!payment} onClose={onClose} title={payment ? `Paid: ${payment.label}` : "Paid"}>
-      {payment && (
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <span className="font-serif text-[28px] leading-none tabular">{inr(payment.amount)}</span>
-          <Field label="Paid on" htmlFor="paid-on">
-            <input
-              id="paid-on"
-              type="date"
-              className="field"
-              value={on}
-              max={TODAY}
-              onChange={(e) => setOn(e.target.value)}
-            />
-          </Field>
-          <fieldset className="m-0 flex flex-wrap gap-1.5 border-0 p-0">
-            <legend className="label mb-1.5">How</legend>
-            {(Object.keys(METHOD_LABEL) as PayMethod[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                aria-pressed={method === m}
-                className="chip chip-sm"
-                onClick={() => setMethod(m)}
-              >
-                {METHOD_LABEL[m]}
-              </button>
-            ))}
-          </fieldset>
-          {sides.length > 0 && (
-            <Field label="Paid by" htmlFor="paid-by">
-              <select
-                id="paid-by"
-                className="field"
-                value={by || payment.by || ""}
-                onChange={(e) => setBy(e.target.value)}
-              >
-                <option value="">Not counted in the split</option>
-                {sides.map((s) => (
-                  <option key={s.name} value={s.name}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
-          <button type="submit" className="btn btn-primary self-start">
-            Mark paid
-          </button>
-        </form>
-      )}
-    </Modal>
-  );
-}
-
-function AddPayment({ ev, onDone }: { ev: PersonalEvent; onDone: () => void }) {
-  const { dispatch } = useStore();
-  const vendors = list(ev, "vendors").filter((v) => v.name);
-  const [form, setForm] = useState({
-    label: "",
-    amount: "",
-    date: addDays(TODAY, 14),
-    vendorId: "",
-    categoryId: "",
-  });
-  const amount = parseAmount(form.amount);
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!form.label.trim() || !amount) return;
-    const v = vendors.find((x) => x.id === form.vendorId);
-    const record: Payment = {
-      id: newId("pay"),
-      label: form.label.trim(),
-      amount,
-      date: form.date,
-      paid: false,
-      ...(form.vendorId ? { vendorId: form.vendorId } : {}),
-      ...(form.categoryId || v?.categoryId ? { categoryId: form.categoryId || v?.categoryId } : {}),
-    };
-    dispatch({ type: "addRecord", eventId: ev.id, coll: "payments", record });
-    onDone();
-  };
-  return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
-      <WhatForAmount
-        id="pay"
-        label={form.label}
-        amount={form.amount}
-        placeholder="Florist advance"
-        onChange={(patch) => setForm({ ...form, ...patch })}
-        beside={
-          <TextField
-            id="pay-date"
-            label="Due"
-            value={form.date}
-            onChange={(date) => setForm({ ...form, date })}
-            type="date"
-          />
-        }
-      />
-      <Field label="Vendor" htmlFor="pay-vendor">
-        <select
-          id="pay-vendor"
-          className="field"
-          value={form.vendorId}
-          onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
-        >
-          <option value="">None</option>
-          {vendors.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.name} ({v.category})
-            </option>
-          ))}
-        </select>
-      </Field>
-      <CategorySelect
-        id="pay-cat"
-        categories={ev.budget.categories}
-        value={form.categoryId}
-        onChange={(categoryId) => setForm({ ...form, categoryId })}
-        none={form.vendorId ? "The vendor's category" : "None"}
-        hint="Marking it paid adds it to this category's spending."
-      />
-      <button type="submit" className="btn btn-primary self-start" disabled={!form.label.trim() || !amount}>
-        Schedule {amount ? inr(amount) : ""}
-      </button>
-    </form>
   );
 }

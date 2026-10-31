@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   checks:
-    name: Lint, types, unit tests, build
+    name: Lint, types, structure, duplication, unit tests, build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -28,6 +28,9 @@ jobs:
       - run: bun audit --audit-level=moderate
       - run: bun x biome ci .
       - run: bun x tsc -b
+      - run: bun scripts/structure.ts
+      # Fails on any copied block of 5 lines and 50 tokens or more; settings in .jscpd.json.
+      - run: bun x jscpd@4.3.0 src server scripts --silent
       - run: bun run coverage
       - run: bun x vite build
       - run: bun scripts/size-budget.ts

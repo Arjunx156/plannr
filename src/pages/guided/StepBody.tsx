@@ -1,12 +1,16 @@
 import { type ReactNode, useState } from "react";
+import type { ImagePreview } from "../../components/intake";
 import { PriorityPicker } from "../../components/intake";
-import type { Kind, Profile } from "../../data/types";
+import type { Kind } from "../../data/baseTypes";
+import type { Profile } from "../../data/types";
 import { addDays, longDate, TODAY } from "../../lib/dates";
 import { inr } from "../../lib/format";
-import { KIND_LABEL, togglePick } from "../../lib/intake";
+import { togglePick } from "../../lib/intakeQuestions";
+import { KIND_LABEL } from "../../lib/profileRows";
 import { TEMPLATES, type TemplateId, templateProfile } from "../../lib/templates";
 import { useStore } from "../../store/store";
-import { addOnce, Block, Chips, type ImagePreview, QuickPicks, type StepProps, toggle } from "./fields";
+import { CoPlannersStep } from "./CoPlannersStep";
+import { Block, Chips, QuickPicks, type StepProps, toggle } from "./fields";
 import { LookStep } from "./LookStep";
 
 /** Functions a planner can pick for each kind of event. */
@@ -39,7 +43,10 @@ function KindStep({ p, set }: StepProps) {
           onToggle={(o) => {
             const kind = (Object.keys(KIND_LABEL) as Kind[]).find((k) => label(k) === o) ?? "other";
             // A wedding always has its ceremony; the planner adds the rest.
-            set({ kind, functions: kind === "wedding" && !p.functions.length ? ["Ceremony"] : p.functions });
+            set({
+              kind,
+              functions: kind === "wedding" && p.functions.length === 0 ? ["Ceremony"] : p.functions,
+            });
           }}
         />
       </Block>
@@ -213,77 +220,6 @@ function NeedsStep({ p, set }: StepProps) {
 
 function PrioritiesStep({ p, set }: StepProps) {
   return <PriorityPicker profile={p} onToggle={(o, list) => set({ [list]: togglePick(p[list], o, list) })} />;
-}
-
-/** An Indian mobile number (ten digits from 6–9) or an email address. */
-function isContact(v: string): boolean {
-  return /^[6-9]\d{9}$/.test(v.replace(/\D/g, "")) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-}
-
-function CoPlannersStep({ p, set }: StepProps) {
-  const [invite, setInvite] = useState("");
-  const [error, setError] = useState("");
-  return (
-    <div className="flex flex-col gap-4">
-      <form
-        className="flex max-w-[560px] flex-wrap items-end gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const v = invite.trim();
-          if (!isContact(v)) {
-            setError("Enter a 10-digit mobile number or an email address.");
-            return;
-          }
-          setError("");
-          set({ coPlanners: addOnce(p.coPlanners, v) });
-          setInvite("");
-        }}
-      >
-        <div className="flex min-w-[240px] flex-1 flex-col gap-1.5">
-          <label htmlFor="invite" className="label">
-            Mobile number or email
-          </label>
-          <input
-            id="invite"
-            className="field"
-            value={invite}
-            onChange={(e) => setInvite(e.target.value)}
-            placeholder="98470 55555 or rohan@example.com"
-            aria-invalid={!!error}
-            aria-describedby={error ? "invite-error" : undefined}
-          />
-        </div>
-        <button type="submit" className="btn btn-secondary btn-lg">
-          Add co-planner
-        </button>
-      </form>
-      {error && (
-        <p id="invite-error" role="alert" className="m-0 text-[13px] text-rust-ink">
-          {error}
-        </p>
-      )}
-      {p.coPlanners.length ? (
-        <ul className="m-0 flex max-w-[560px] list-none flex-col p-0">
-          {p.coPlanners.map((c) => (
-            <li key={c} className="flex items-center justify-between border-t border-sand-2 py-2.5 text-sm">
-              <span>{c}</span>
-              <button
-                type="button"
-                className="btn btn-danger btn-sm"
-                onClick={() => set({ coPlanners: p.coPlanners.filter((x) => x !== c) })}
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="m-0 text-sm text-muted">
-          No co-planners yet. You can invite people any time from the dashboard.
-        </p>
-      )}
-    </div>
-  );
 }
 
 /** The guided form's steps, in order; the last is co-planners. */

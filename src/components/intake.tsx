@@ -1,5 +1,6 @@
+import { type ReactNode, useRef } from "react";
 import type { Profile } from "../data/types";
-import { PRIORITY_OPTIONS } from "../lib/intake";
+import { PRIORITY_OPTIONS } from "../lib/intakeQuestions";
 
 /** Plannr can draft once it knows the type, place, date, headcount and budget. */
 export function canDraft(p: Profile): boolean {
@@ -57,5 +58,75 @@ export function PriorityPicker({
         })}
       </div>
     </div>
+  );
+}
+
+/** An inspiration image picked on this phone. The plan keeps only its name; the picture stays here. */
+export type ImagePreview = { name: string; url: string };
+
+/** Previews for the images among picked or dropped files. */
+export function imagesFrom(files: Iterable<File> | null): ImagePreview[] {
+  return [...(files ?? [])]
+    .filter((f) => f.type.startsWith("image/"))
+    .map((f) => ({ name: f.name, url: URL.createObjectURL(f) }));
+}
+
+/** One inspiration: the picture when this phone has it, else its file name or link. */
+export function InspirationTile({
+  name,
+  url,
+  className,
+}: {
+  name: string;
+  url?: string | undefined;
+  className: string;
+}) {
+  return (
+    <div
+      className={`hatch relative flex items-end overflow-hidden font-mono leading-[1.2] font-medium text-muted ${className}`}
+    >
+      {url ? (
+        <img src={url} alt={name} className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <span className="break-all">{name.replace(/^https?:\/\//, "")}</span>
+      )}
+    </div>
+  );
+}
+
+/** A dashed button that opens the photo picker, and takes images dropped on it. */
+export function AddImages({
+  onAdd,
+  className,
+  children,
+}: {
+  onAdd: (files: FileList) => void;
+  className: string;
+  children: ReactNode;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(e) => e.target.files && onAdd(e.target.files)}
+      />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          onAdd(e.dataTransfer.files);
+        }}
+        className={`border-[1.5px] border-dashed border-line-2 font-medium text-body hover:border-ink ${className}`}
+      >
+        {children}
+      </button>
+    </>
   );
 }

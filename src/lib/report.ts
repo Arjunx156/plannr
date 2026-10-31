@@ -10,7 +10,7 @@ function post(path: string, body: unknown): void {
   try {
     const data = new Blob([JSON.stringify(body)], { type: "application/json" });
     if (!navigator.sendBeacon?.(path, data))
-      void fetch(path, { method: "POST", body: data, keepalive: true }).catch(() => {});
+      void fetch(path, { method: "POST", body: data, keepalive: true }).catch(() => undefined);
   } catch {
     // Reporting is best-effort.
   }

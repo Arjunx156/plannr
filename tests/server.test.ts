@@ -2,8 +2,8 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { type App, createApp, spendAi } from "../server/app";
 import { signInMethods } from "../server/auth";
+import { rateLimit } from "../server/db/authSchema";
 import { createLocalDb } from "../server/db/local";
-import { rateLimit } from "../server/db/schema";
 import { seedEvents } from "../src/data/seed";
 import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 
@@ -17,7 +17,7 @@ class Client {
   async call(path: string, init: { method?: string; body?: unknown } = {}) {
     const headers: Record<string, string> = { origin: ORIGIN };
     if (init.body !== undefined) headers["content-type"] = "application/json";
-    if (this.cookies.size) headers.cookie = [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; ");
+    if (this.cookies.size > 0) headers.cookie = [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; ");
     const res = await app.request(path, {
       method: init.method ?? (init.body === undefined ? "GET" : "POST"),
       headers,
@@ -782,7 +782,7 @@ describe("morning reminders", () => {
       expect(backup.skipped).toContain("BACKUP_KEY");
       // The seeded wedding has overdue tasks or payments, so the morning has something to say.
       expect(sent.length).toBe(out.sent);
-      if (sent.length) expect(sent[0]?.title).toContain(ev.name);
+      if (sent.length > 0) expect(sent[0]?.title).toContain(ev.name);
     } finally {
       app = prev;
     }

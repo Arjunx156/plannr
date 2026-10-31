@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { useEditable } from "../../components/tasks";
+import { useEditable } from "../../components/taskHooks";
 import type { PlannrEvent } from "../../data/types";
 import { longDate, TODAY } from "../../lib/dates";
 import { functionOn } from "../../shared/derive";
-import { functionsOf } from "../../shared/records";
-import { TabPage } from "./common";
-import { CheckIn, PassCheckIn } from "./day/CheckIn";
-import { Album, Arrivals, Checklist, Helpers } from "./day/OnTheDay";
+import { functionsOf } from "../../shared/eventLists";
+import { CheckIn } from "./day/CheckIn";
+import { Album, Arrivals, Checklist, Helpers } from "./day/daySections";
+import { PassCheckIn } from "./day/PassCheckIn";
 import { RunSheet } from "./day/RunSheet";
-import { Updates } from "./SiteTab";
+import { TabPage } from "./layout";
+import { Updates } from "./site/Updates";
 
 /** /events/:id/day — the run sheet, check-in and everything the day itself needs, on one phone. */
 export function DayTab({ ev }: { ev: PlannrEvent }) {

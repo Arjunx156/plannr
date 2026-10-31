@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { PlannrEvent } from "../src/data/types";
 import type { EventAction } from "../src/shared/engine";
-import type { Action } from "../src/store/store";
 import { SyncQueue } from "../src/store/sync";
+import type { Action } from "../src/store/types";
 
 type Reply = { status: number; body?: unknown } | "offline";
 let replies: ((path: string, init?: RequestInit) => Reply)[] = [];

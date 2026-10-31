@@ -22,7 +22,7 @@ export function plannrPreload(): Plugin {
         const links = fonts.map(
           (f) => `<link rel="preload" href="/${f}" as="font" type="font/woff2" crossorigin />`,
         );
-        return links.length ? html.replace("</title>", `</title>\n    ${links.join("\n    ")}`) : html;
+        return links.length > 0 ? html.replace("</title>", `</title>\n    ${links.join("\n    ")}`) : html;
       },
     },
   };

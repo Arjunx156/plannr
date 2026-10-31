@@ -1,7 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import { schema } from "./schema.js";
-import type { Db } from "./types.js";
+import { schema } from "./schema";
+import type { Db } from "./types";
 
 /** Neon over HTTP: one round trip per query, no connection to keep warm in a serverless function. */
 export function createNeonDb(url: string): Db {

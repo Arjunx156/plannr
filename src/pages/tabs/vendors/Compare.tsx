@@ -1,9 +1,10 @@
 import { Pill } from "../../../components/ui";
-import type { PlannrEvent, Quote, Vendor } from "../../../data/types";
+import type { PlannrEvent } from "../../../data/types";
+import type { Quote, Vendor } from "../../../data/vendorTypes";
 import { inr, plural } from "../../../lib/format";
 import { quoteTotal } from "../../../shared/derive";
 import { list } from "../../../shared/records";
-import { Section } from "../common";
+import { Section } from "../layout";
 import { guestsOf } from "./shared";
 
 /** Whether this quote is the one the vendor was booked on (a booking with no quote chosen counts for all). */

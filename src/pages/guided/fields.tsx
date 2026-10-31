@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { ImagePreview } from "../../components/intake";
 import type { Profile } from "../../data/types";
 
 /** The guided form's shared pieces: labelled blocks, chip pickers and the props every step takes. */
@@ -60,8 +61,6 @@ export function toggle(list: string[], v: string): string[] {
 
 /** Adds to a list once. */
 export const addOnce = (list: string[], v: string) => [...new Set([...list, v])];
-
-export type ImagePreview = { name: string; url: string };
 
 export interface StepProps {
   p: Profile;

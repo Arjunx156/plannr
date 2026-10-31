@@ -5,9 +5,10 @@
  */
 import { getRequestListener } from "@hono/node-server";
 import { Hono } from "hono";
-import { aiConfig, handleAi } from "./ai";
+import { handleAi } from "./ai";
 import { type AppEnv, createApp } from "./app";
 import { createNeonDb } from "./db/neon";
+import { aiConfig } from "./gemini";
 import { matchShare, sharePage } from "./share";
 
 /** The built index.html, inlined by scripts/vercel-build.ts so shared links get their own titles. */

@@ -8,171 +8,15 @@ import {
   useReducer,
   useRef,
 } from "react";
-import { DEMO_USER, SEED_IDS, SEED_REVISION } from "../data/demoMeta";
-import type { PlannrEvent, Profile } from "../data/types";
-import { demoShift } from "../lib/dates";
-import { initials } from "../lib/format";
-import { emptyProfile, type Question, type QuestionField } from "../lib/intake";
-import { applyEventAction, type EventAction, isEventAction, QUIET_ACTIONS, stamp } from "../shared/engine";
-import {
-  type AccountUser,
-  type ActivityEntry,
-  canEdit,
-  type PlanSummary,
-  type Role,
-  type SignInMethods,
-} from "../shared/types";
+import { SEED_REVISION } from "../data/demoMeta";
+import type { PlannrEvent } from "../data/types";
+import { isEventAction, QUIET_ACTIONS, stamp } from "../shared/engine";
+import { canEdit } from "../shared/types";
+import { initialState, ownEvents, reducer } from "./reducer";
 import { SyncQueue } from "./sync";
-
-export interface Session {
-  signedIn: boolean;
-  name: string;
-  firstName: string;
-  initials: string;
-  city: string;
-  language: string;
-  plan: string;
-}
-
-export interface ChatTurn {
-  id: string;
-  role: "user" | "ai";
-  text: string;
-  question?: Question;
-}
-
-export interface Draft {
-  profile: Profile;
-  asked: QuestionField[];
-  chat: ChatTurn[];
-  guidedStep: number;
-  /** Set once the plan is generated, so the summary can be revisited. */
-  generated: boolean;
-  /** The event the draft becomes when accepted, if it fills in an existing one. */
-  forEvent?: string;
-  /** Gemini's ideas for this draft, kept so they reach the ideas board however the plan is accepted. */
-  ideas?: string[];
-}
-
-export interface Toast {
-  id: string;
-  text: string;
-  undo?: Action;
-}
-
-/** Where a plan lives on the server, and what this person may do with it. */
-export interface RemoteMeta {
-  version: number;
-  role: Role;
-  side: string | null;
-}
-
-export interface Account {
-  status: "unknown" | "signed-out" | "signed-in";
-  user?: AccountUser;
-  /** What the server offers; all false when accounts aren't switched on there. */
-  methods?: SignInMethods;
-}
-
-export interface SyncStatus {
-  pending: number;
-  offline: boolean;
-}
-
-export interface AppState {
-  version: 2;
-  /** Days the demo story was moved when it was seeded; a new week reseeds it. */
-  demoShift: number;
-  /**
-   * Which sample data the demo events were made from; new samples replace old ones. 0 until the
-   * samples have loaded: they're fetched only when someone opens the demo.
-   */
-  seed?: number;
-  /** "demo": everything stays in this browser. "account": plans live on the server and sync. */
-  mode: "demo" | "account";
-  account: Account;
-  /** Server details for each plan in account mode, by event id. */
-  remote: Record<string, RemoteMeta>;
-  sync: SyncStatus;
-  /** Plans made on this device before signing in, waiting to be saved to the account. */
-  localImports: PlannrEvent[];
-  session: Session;
-  events: PlannrEvent[];
-  draft: Draft;
-  notificationsRead: boolean;
-  /** Recent changes across the account's plans, for the inbox. Fetched, never saved. */
-  activity: ActivityEntry[];
-  /** When the inbox was last opened; newer changes by others count as unread. */
-  inboxSeen: string;
-  toasts: Toast[];
-}
-
-export type Action =
-  | EventAction
-  | { type: "signIn" }
-  | { type: "updateSession"; patch: Partial<Session> }
-  | { type: "signOut" }
-  | { type: "resetDemo" }
-  /** The demo's sample events, once they've loaded. */
-  | { type: "seedDemo"; events: PlannrEvent[] }
-  | { type: "addEvent"; event: PlannrEvent; remote?: RemoteMeta }
-  | { type: "methods"; methods: SignInMethods }
-  | { type: "accountStatus"; status: Account["status"] }
-  | { type: "enterDemo" }
-  | { type: "enterAccount"; user: AccountUser }
-  | { type: "leaveAccount" }
-  | { type: "setPlans"; plans: PlanSummary[]; skip?: string[] }
-  | { type: "syncPlan"; plan: { event: PlannrEvent; version: number; role?: Role; side?: string | null } }
-  | { type: "syncStatus"; patch: Partial<SyncStatus> }
-  | { type: "dropImport"; id: string }
-  | { type: "draft"; patch: Partial<Draft> }
-  | { type: "draftReset"; forEvent?: string }
-  | { type: "readNotifications" }
-  | { type: "setActivity"; activity: ActivityEntry[] }
-  | { type: "toast"; toast: Toast }
-  | { type: "dismissToast"; id: string };
+import type { Action, AppState } from "./types";
 
 const STORAGE_KEY = "plannr:v1";
-
-function freshDraft(forEvent?: string): Draft {
-  return { profile: emptyProfile(), asked: [], chat: [], guidedStep: 0, generated: false, forEvent };
-}
-
-/** The planner's own events in the demo: everything except the samples. */
-const ownEvents = (events: PlannrEvent[]) => events.filter((e) => !SEED_IDS.includes(e.id));
-
-/** The parts of the session an account decides; city and language stay as the planner set them. */
-export function sessionFromUser(user: AccountUser): Omit<Session, "city" | "language"> {
-  const name = user.name.trim() || user.email.split("@")[0] || "Planner";
-  return {
-    signedIn: true,
-    name,
-    firstName: name.split(/\s+/)[0] ?? name,
-    initials: initials(name),
-    plan: user.isAnonymous ? "Guest" : "Free",
-  };
-}
-
-/** A fresh state. The demo's sample events are passed in once loaded; tests pass them directly. */
-export function initialState(demo: PlannrEvent[] = []): AppState {
-  return {
-    version: 2,
-    demoShift: demoShift(),
-    seed: demo.length ? SEED_REVISION : 0,
-    mode: "demo",
-    account: { status: "unknown" },
-    remote: {},
-    sync: { pending: 0, offline: false },
-    localImports: [],
-    session: { signedIn: false, ...DEMO_USER },
-    events: demo,
-    draft: freshDraft(),
-    notificationsRead: false,
-    activity: [],
-    inboxSeen: new Date(0).toISOString(),
-    toasts: [],
-  };
-}
 
 function load(): AppState {
   try {
@@ -213,128 +57,6 @@ export function migrate(saved: SavedState): AppState {
 /** The demo is open but its sample events haven't arrived yet. */
 export function demoLoading(state: AppState): boolean {
   return state.mode === "demo" && state.session.signedIn && state.seed !== SEED_REVISION;
-}
-
-function mapEvent(state: AppState, id: string, fn: (ev: PlannrEvent) => PlannrEvent): AppState {
-  return { ...state, events: state.events.map((e) => (e.id === id ? fn(e) : e)) };
-}
-
-type AppAction = Exclude<Action, EventAction>;
-type AppActionOf<T extends AppAction["type"]> = Extract<AppAction, { type: T }>;
-
-/** Signing in keeps a device's work: the same person keeps everything, and a guest who adds an email is the same person. */
-function enterAccount(state: AppState, { user }: AppActionOf<"enterAccount">): AppState {
-  const sameUser = state.mode === "account" && state.account.user?.id === user.id;
-  const upgraded = state.mode === "account" && !!state.account.user?.isAnonymous;
-  // Events made in the demo are offered for import into the new account.
-  const own = state.mode === "demo" ? ownEvents(state.events) : [];
-  return {
-    ...state,
-    mode: "account",
-    account: { ...state.account, status: "signed-in", user },
-    session: {
-      ...(sameUser || upgraded ? state.session : { city: "", language: "English" }),
-      ...sessionFromUser(user),
-    },
-    events: sameUser ? state.events : [],
-    remote: sameUser ? state.remote : {},
-    localImports: [...state.localImports.filter((e) => !own.some((o) => o.id === e.id)), ...own],
-  };
-}
-
-/** The account's plans from the server; events still syncing (`skip`) keep the device's copy. */
-function setPlans(state: AppState, { plans, skip = [] }: AppActionOf<"setPlans">): AppState {
-  const keep = new Set(skip);
-  const kept = state.events.filter((e) => keep.has(e.id));
-  const fresh = plans.filter((p) => !keep.has(p.event.id)).map((p) => p.event);
-  const remote = Object.fromEntries(
-    plans.map((p) => [p.event.id, { version: p.version, role: p.role, side: p.side } satisfies RemoteMeta]),
-  );
-  return { ...state, events: [...fresh, ...kept], remote };
-}
-
-/** One plan as the server has it now; role and side carry over when the server didn't send them. */
-function syncPlan(state: AppState, { plan }: AppActionOf<"syncPlan">): AppState {
-  const { event, version } = plan;
-  const prev = state.remote[event.id];
-  const exists = state.events.some((e) => e.id === event.id);
-  const meta: RemoteMeta = {
-    version,
-    role: plan.role ?? prev?.role ?? "viewer",
-    side: plan.side !== undefined ? plan.side : (prev?.side ?? null),
-  };
-  return {
-    ...state,
-    events: exists ? state.events.map((e) => (e.id === event.id ? event : e)) : [...state.events, event],
-    remote: { ...state.remote, [event.id]: meta },
-  };
-}
-
-/** Marks the inbox read up to its newest entry, by the server's clock: a phone set to the wrong time still clears it. */
-function readNotifications(state: AppState): AppState {
-  const newest = state.activity[0]?.at;
-  return {
-    ...state,
-    notificationsRead: true,
-    inboxSeen: newest && newest > state.inboxSeen ? newest : state.inboxSeen,
-  };
-}
-
-const APP_REDUCERS: { [T in AppAction["type"]]: (state: AppState, action: AppActionOf<T>) => AppState } = {
-  signIn: (state) => ({ ...state, session: { ...state.session, signedIn: true } }),
-  updateSession: (state, a) => ({ ...state, session: { ...state.session, ...a.patch } }),
-  signOut: (state) => ({ ...state, session: { ...state.session, signedIn: false } }),
-  resetDemo: (state) => ({
-    ...initialState(),
-    account: state.account,
-    session: { ...DEMO_USER, signedIn: true },
-  }),
-  seedDemo: (state, a) =>
-    state.mode === "demo"
-      ? {
-          ...state,
-          seed: SEED_REVISION,
-          demoShift: demoShift(),
-          events: [...a.events, ...ownEvents(state.events)],
-        }
-      : state,
-  addEvent: (state, a) => ({
-    ...state,
-    events: [...state.events.filter((e) => e.id !== a.event.id), a.event],
-    remote: a.remote ? { ...state.remote, [a.event.id]: a.remote } : state.remote,
-  }),
-  methods: (state, a) => ({ ...state, account: { ...state.account, methods: a.methods } }),
-  accountStatus: (state, a) => ({ ...state, account: { ...state.account, status: a.status } }),
-  enterDemo: (state) => ({
-    ...initialState(),
-    draft: state.draft,
-    account: { ...state.account, status: state.mode === "account" ? "signed-out" : state.account.status },
-    session: { ...DEMO_USER, signedIn: true },
-  }),
-  enterAccount,
-  leaveAccount: (state) => ({
-    ...initialState(),
-    draft: state.draft,
-    account: { status: "signed-out", methods: state.account.methods },
-  }),
-  setPlans,
-  syncPlan,
-  syncStatus: (state, a) => ({ ...state, sync: { ...state.sync, ...a.patch } }),
-  dropImport: (state, a) => ({ ...state, localImports: state.localImports.filter((e) => e.id !== a.id) }),
-  draft: (state, a) => ({ ...state, draft: { ...state.draft, ...a.patch } }),
-  draftReset: (state, a) => ({ ...state, draft: freshDraft(a.forEvent) }),
-  readNotifications,
-  setActivity: (state, a) => ({ ...state, activity: a.activity }),
-  toast: (state, a) => ({ ...state, toasts: [...state.toasts.filter((t) => t.id !== a.toast.id), a.toast] }),
-  dismissToast: (state, a) => ({ ...state, toasts: state.toasts.filter((t) => t.id !== a.id) }),
-};
-
-/** The app's state after one action: plan changes go to the plan engine, the rest are handled here. */
-export function reducer(state: AppState, action: Action): AppState {
-  if (isEventAction(action)) return mapEvent(state, action.eventId, (e) => applyEventAction(e, action));
-  // TypeScript can't correlate the table's key with its handler's argument; the table's type does.
-  const reduce = APP_REDUCERS[action.type] as (state: AppState, action: AppAction) => AppState;
-  return reduce(state, action);
 }
 
 interface Store {
@@ -380,7 +102,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loadDemo) return;
     let live = true;
-    import("../data/seed").then((m) => live && raw({ type: "seedDemo", events: m.seedEvents() }));
+    import("../data/seed")
+      .then((m) => live && raw({ type: "seedDemo", events: m.seedEvents() }))
+      .catch(() => live && raw(toast("Couldn't load the sample events. Check the connection and reload.")));
     return () => {
       live = false;
     };

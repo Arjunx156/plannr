@@ -1,9 +1,12 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { Field, Logo, Spinner, Toran, usePageMeta } from "../components/ui";
+import { CardPage, PAPER_CARD } from "../components/brand";
+import { Field } from "../components/fields";
+import { usePageMeta } from "../components/pageMeta";
+import { Spinner } from "../components/ui";
 import { ApiError, api } from "../lib/api";
 import { longDate } from "../lib/dates";
-import { KIND_LABEL } from "../lib/intake";
+import { KIND_LABEL } from "../lib/profileRows";
 import { type InvitePreview, ROLE_LABEL } from "../shared/types";
 import { useAccount } from "../store/account";
 import { toast, useStore } from "../store/store";
@@ -16,19 +19,10 @@ const CAN: Record<InvitePreview["role"], string> = {
     "You'll see the whole plan and follow along as it changes. The owner can make you a co-planner later.",
 };
 
-/** /join/:token: an invitation to plan an event together. */
-export function Join() {
-  const { token = "" } = useParams();
-  usePageMeta("You're invited", { private: true });
-  const { state, dispatch } = useStore();
-  const { refreshPlans, signedIn } = useAccount();
-  const navigate = useNavigate();
+/** The invite behind the link: undefined while loading, null with a reason when it can't be opened. */
+function useInvite(token: string) {
   const [invite, setInvite] = useState<InvitePreview | null>();
   const [problem, setProblem] = useState("");
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
   useEffect(() => {
     let live = true;
     api
@@ -43,19 +37,23 @@ export function Join() {
       live = false;
     };
   }, [token]);
+  return { invite, problem };
+}
 
-  const account = state.mode === "account" && !!state.account.user;
-  const member = invite ? state.remote[invite.eventId] : undefined;
-  const methods = state.account.methods;
-  const next = `?next=${encodeURIComponent(`/join/${token}`)}`;
+/** Joining: straight in with an account, or as a guest who gives a name first. */
+function useJoin(token: string) {
+  const { dispatch } = useStore();
+  const { refreshPlans, signedIn } = useAccount();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   const accept = async () => {
     const joined = await api.acceptInvite(token);
     await refreshPlans();
     dispatch(toast(`You're in as ${ROLE_LABEL[joined.role].toLowerCase()}.`));
-    navigate(`/events/${joined.eventId}`);
+    void navigate(`/events/${joined.eventId}`);
   };
-
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
     setError("");
@@ -66,9 +64,8 @@ export function Join() {
       setError((e as Error).message || "Something went wrong. Try again.");
     }
   };
-
-  const joinAsGuest = (e: FormEvent) => {
-    e.preventDefault();
+  const join = () => void run(accept);
+  const joinAsGuest = (name: string) => {
     const clean = name.trim();
     if (!clean) {
       setError("Add your name so the others know who joined.");
@@ -81,48 +78,57 @@ export function Join() {
       await accept();
     });
   };
+  return { busy, error, join, joinAsGuest };
+}
+
+/** /join/:token: an invitation to plan an event together. */
+export function Join() {
+  const { token = "" } = useParams();
+  usePageMeta("You're invited", { private: true });
+  const { state } = useStore();
+  const { invite, problem } = useInvite(token);
+  const { busy, error, join, joinAsGuest } = useJoin(token);
+  const [name, setName] = useState("");
+  const onJoinAsGuest = (e: FormEvent) => {
+    e.preventDefault();
+    joinAsGuest(name);
+  };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-sand">
-      <Toran />
-      <div className="flex items-center px-5 py-4 sm:px-10">
-        <Logo to="/" />
-      </div>
-      <main id="main" className="flex flex-1 items-start justify-center px-4 pb-12 sm:items-center">
-        <section className="flex w-full max-w-[560px] flex-col gap-5 rounded-xl bg-paper p-6 shadow-[0_1px_2px_rgba(0,0,0,.06),0_16px_48px_rgba(60,40,20,.10)] sm:px-12 sm:py-10">
-          {invite === undefined && (
-            <div className="flex min-h-[220px] items-center justify-center">
-              <Spinner label="Opening the invite" />
-            </div>
-          )}
-          {invite !== undefined && !invite?.valid && <InviteGone invite={invite} problem={problem} />}
-          {invite?.valid && (
-            <>
-              <InviteDetails invite={invite} />
-              <JoinChoice
-                invite={invite}
-                member={!!member}
-                account={account}
-                guestAllowed={!!methods?.guest}
-                yourName={state.session.name}
-                busy={busy}
-                name={name}
-                setName={setName}
-                next={next}
-                error={error}
-                onJoin={() => run(accept)}
-                onJoinAsGuest={joinAsGuest}
-              />
-              {error && (
-                <p id="join-error" role="alert" className="m-0 text-[13px] font-medium text-rust-ink">
-                  {error}
-                </p>
-              )}
-            </>
-          )}
-        </section>
-      </main>
-    </div>
+    <CardPage>
+      <section className={`max-w-[560px] gap-5 ${PAPER_CARD} sm:px-12 sm:py-10`}>
+        {invite === undefined && (
+          <div className="flex min-h-[220px] items-center justify-center">
+            <Spinner label="Opening the invite" />
+          </div>
+        )}
+        {invite !== undefined && !invite?.valid && <InviteGone invite={invite} problem={problem} />}
+        {invite?.valid && (
+          <>
+            <InviteDetails invite={invite} />
+            <JoinChoice
+              invite={invite}
+              member={!!state.remote[invite.eventId]}
+              account={state.mode === "account" && !!state.account.user}
+              guestAllowed={!!state.account.methods?.guest}
+              yourName={state.session.name}
+              busy={busy}
+              name={name}
+              setName={setName}
+              next={`?next=${encodeURIComponent(`/join/${token}`)}`}
+              error={error}
+              onJoin={join}
+              onJoinAsGuest={onJoinAsGuest}
+            />
+            {error && (
+              <p id="join-error" role="alert" className="m-0 text-[13px] font-medium text-rust-ink">
+                {error}
+              </p>
+            )}
+          </>
+        )}
+      </section>
+    </CardPage>
   );
 }
 

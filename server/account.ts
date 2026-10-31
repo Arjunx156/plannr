@@ -1,5 +1,6 @@
 import { and, asc, eq, ne } from "drizzle-orm";
-import { comments, events, members, templates, user } from "./db/schema";
+import { user } from "./db/authSchema";
+import { comments, events, members, templates } from "./db/schema";
 import type { Db } from "./db/types";
 
 /**

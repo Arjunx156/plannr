@@ -102,7 +102,7 @@ export async function sendReminders(
       if (result === "gone") gone.push(device.endpoint);
     }
   }
-  if (gone.length) await db.delete(pushSubs).where(inArray(pushSubs.endpoint, gone));
+  if (gone.length > 0) await db.delete(pushSubs).where(inArray(pushSubs.endpoint, gone));
   if (sent)
     await db
       .update(pushSubs)

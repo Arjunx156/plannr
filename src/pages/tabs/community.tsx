@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { useEditable } from "../../components/tasks";
+import { useEditable } from "../../components/taskHooks";
 import { Pill } from "../../components/ui";
-import type { Approval, CommunityEvent, PlannrEvent } from "../../data/types";
+import type { Approval } from "../../data/communityTypes";
+import type { CommunityEvent, PlannrEvent } from "../../data/types";
 import { useStore } from "../../store/store";
-import { TabPage } from "./common";
+import { TabPage } from "./layout";
 
 /** Shown when a community-only page is opened for a wedding or birthday. */
 export function NotCommunity({ ev, title }: { ev: PlannrEvent; title: string }) {

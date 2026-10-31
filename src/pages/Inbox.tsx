@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { AppShell, type InboxItem, useInbox } from "../components/shell";
-import { usePageMeta } from "../components/ui";
+import { type InboxItem, useInbox } from "../components/inbox";
+import { usePageMeta } from "../components/pageMeta";
+import { AppShell } from "../components/shell";
 import { initials, timeAgo } from "../lib/format";
 import { useStore } from "../store/store";
 
@@ -39,7 +40,7 @@ export function Inbox() {
           </span>
           <h1 className="font-serif text-[44px] leading-none">Inbox</h1>
         </div>
-        {items.length ? (
+        {items.length > 0 ? (
           <ol className="m-0 flex list-none flex-col rounded-2xl border border-line bg-surface p-0">
             {items.map((item, i) => {
               const heading = day(item);
@@ -73,7 +74,7 @@ export function Inbox() {
                       </span>
                     </span>
                     {isNew(item) && (
-                      <span className="mt-1 rounded-full bg-maroon px-2 py-px text-[10px] font-semibold text-white">
+                      <span className="mt-1 rounded-full bg-maroon px-2 py-px text-xs font-semibold text-white">
                         New
                       </span>
                     )}

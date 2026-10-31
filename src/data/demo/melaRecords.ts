@@ -1,4 +1,5 @@
-import type { Pass, Stall, Vendor } from "../types";
+import type { Pass, Stall } from "../communityTypes";
+import type { Vendor } from "../vendorTypes";
 
 /**
  * The demo mela's stalls, passes, sponsors, vendors and run sheet.
@@ -74,7 +75,7 @@ const melaVendors: Vendor[] = [
     category: "Sound & lights",
     name: "Lumen Events",
     contact: "Vinod",
-    phone: "+91 98470 31212",
+    phone: "+919847031212",
     stage: "quoted",
     quotes: [
       { id: "mq2", amount: 62000, label: "Stage sound, 24 lights, generator", terms: "₹25,000 advance" },

@@ -1,7 +1,10 @@
-import type { AiProposal, PlannrEvent } from "../data/types";
+import type { AiProposal } from "../data/messageTypes";
+import type { PlannrEvent } from "../data/types";
 import { addDays } from "../lib/dates";
-import { describeAction, type EventAction } from "./engine";
-import { findRecord, functionsOf } from "./records";
+import { describeAction } from "./describeAction";
+import type { EventAction } from "./engine";
+import { functionsOf } from "./eventLists";
+import { findRecord } from "./records";
 import { genericRipple, headcountRipple, moveFunctionRipple, type Ripple } from "./ripple";
 
 /**
@@ -102,11 +105,11 @@ export function proposalRipple(ev: PlannrEvent, proposals: AiProposal[], today: 
       return headcountRipple(ev, only.guests);
     if (only.kind === "moveFunction" && only.fnId && only.date) {
       const r = moveFunctionRipple(ev, only.fnId, only.date);
-      return r.lines.length ? r : undefined;
+      return r.lines.length > 0 ? r : undefined;
     }
   }
   const actions = proposals.flatMap((p) => proposalActions(ev, p, today));
-  if (!actions.length) return undefined;
+  if (actions.length === 0) return undefined;
   return genericRipple(
     ev,
     actions.length === 1 ? "Proposed change" : `${actions.length} proposed changes`,

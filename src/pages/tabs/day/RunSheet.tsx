@@ -1,9 +1,13 @@
 import { type FormEvent, useState } from "react";
-import { Modal, TextField } from "../../../components/ui";
-import type { FunctionDay, PlannrEvent, RunItem } from "../../../data/types";
+import { bindText, TextField } from "../../../components/fields";
+import { Modal } from "../../../components/overlays";
+import type { FunctionDay } from "../../../data/baseTypes";
+import type { RunItem } from "../../../data/recordTypes";
+import type { PlannrEvent } from "../../../data/types";
 import { clock, nowAndNext, runsheetFor } from "../../../shared/derive";
 import { toast, useStore } from "../../../store/store";
-import { newId, Section } from "../common";
+import { newId } from "../ids";
+import { Section } from "../layout";
 import { useClock } from "./useClock";
 
 /** The live run sheet for one function, with what's on now and a shift for running late. */
@@ -90,7 +94,7 @@ export function RunSheet({
             onEdit={() => setEditing(r)}
           />
         ))}
-        {!items.length && (
+        {items.length === 0 && (
           <li className="text-sm text-muted">
             Nothing on the run sheet for {fn.label} yet. Add the timings and who's in charge of each.
           </li>
@@ -200,6 +204,7 @@ function RunItemForm({
     phone: item?.phone ?? "",
     note: item?.note ?? "",
   });
+  const field = bindText(form, setForm);
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!form.title.trim() || !form.time) return;
@@ -219,42 +224,14 @@ function RunItemForm({
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
       <div className="grid grid-cols-[120px_1fr] gap-3">
-        <TextField
-          id="ri-time"
-          label="Time"
-          value={form.time}
-          onChange={(time) => setForm({ ...form, time })}
-          type="time"
-        />
-        <TextField
-          id="ri-title"
-          label="What happens"
-          value={form.title}
-          onChange={(title) => setForm({ ...form, title })}
-          placeholder="Baraat arrives"
-        />
+        <TextField id="ri-time" label="Time" {...field("time")} type="time" />
+        <TextField id="ri-title" label="What happens" {...field("title")} placeholder="Baraat arrives" />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <TextField
-          id="ri-owner"
-          label="Who's in charge"
-          value={form.owner}
-          onChange={(owner) => setForm({ ...form, owner })}
-        />
-        <TextField
-          id="ri-phone"
-          label="Their phone"
-          value={form.phone}
-          onChange={(phone) => setForm({ ...form, phone })}
-          inputMode="tel"
-        />
+        <TextField id="ri-owner" label="Who's in charge" {...field("owner")} />
+        <TextField id="ri-phone" label="Their phone" {...field("phone")} inputMode="tel" />
       </div>
-      <TextField
-        id="ri-note"
-        label="Note"
-        value={form.note}
-        onChange={(note) => setForm({ ...form, note })}
-      />
+      <TextField id="ri-note" label="Note" {...field("note")} />
       <span className="flex gap-2">
         <button type="submit" className="btn btn-primary" disabled={!form.title.trim()}>
           Save

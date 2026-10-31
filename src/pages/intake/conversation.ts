@@ -1,14 +1,10 @@
-import type { Kind, Profile } from "../../data/types";
-import {
-  detectDate,
-  detectKind,
-  KIND_LABEL,
-  nextQuestion,
-  parseDescription,
-  type Question,
-  type QuestionField,
-} from "../../lib/intake";
-import type { Draft } from "../../store/store";
+import type { Kind } from "../../data/baseTypes";
+import type { Profile } from "../../data/types";
+import { detectKind, parseDescription } from "../../lib/intake";
+import { detectDate } from "../../lib/intakeDates";
+import { nextQuestion, type Question, type QuestionField } from "../../lib/intakeQuestions";
+import { KIND_LABEL } from "../../lib/profileRows";
+import type { Draft } from "../../store/types";
 
 /**
  * How the intake chat talks: what it says back after each answer and which question it asks next.
@@ -61,8 +57,8 @@ export function acknowledge(prev: Profile, next: Profile): string {
     );
   if (fresh.includes("Vegetarian")) parts.push("a vegetarian menu");
   if (fresh.some((n) => /allerg/i.test(n))) parts.push("allergy notes on the RSVP form");
-  if (next.venues && next.venues !== prev.venues && !parts.length) parts.push(`venue: ${next.venues}`);
-  return parts.length ? `Noted: ${joinList(parts)}.` : "Noted.";
+  if (next.venues && next.venues !== prev.venues && parts.length === 0) parts.push(`venue: ${next.venues}`);
+  return parts.length > 0 ? `Noted: ${joinList(parts)}.` : "Noted.";
 }
 
 /** The chat's first line, shaped by what's already known (from "Plan a wedding", say). */

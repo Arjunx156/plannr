@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { emptyProfile, MAX_PRIORITIES, parseDescription, togglePick } from "../src/lib/intake";
+import { emptyProfile, parseDescription } from "../src/lib/intake";
+import { MAX_PRIORITIES, togglePick } from "../src/lib/intakeQuestions";
 import {
   acknowledge,
   askedAfter,
@@ -12,7 +13,7 @@ import {
   readAnswer,
   turnId,
 } from "../src/pages/intake/conversation";
-import type { Draft } from "../src/store/store";
+import type { Draft } from "../src/store/types";
 
 describe("the intake conversation", () => {
   test("opens with what it understood, for each kind of event", () => {

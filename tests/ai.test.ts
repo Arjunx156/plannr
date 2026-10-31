@@ -1,9 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { aiConfig, handleAi, partialText, rateLimiter, streamAssistant } from "../server/ai.ts";
-import { assistantPrompt, assistantRequest, sanitizeIntake, sanitizePlan } from "../server/prompts.ts";
+import { handleAi } from "../server/ai.ts";
+import { partialText, streamAssistant } from "../server/aiStream.ts";
+import { aiConfig } from "../server/gemini.ts";
+import { assistantPrompt, assistantRequest } from "../server/prompts/assistant.ts";
+import { sanitizeIntake } from "../server/prompts/intake.ts";
+import { sanitizePlan } from "../server/prompts/plan.ts";
 import { seedEvents } from "../src/data/seed";
 import type { PersonalEvent } from "../src/data/types";
-import { eventFacts, mergeAiProfile } from "../src/lib/ai";
+import { mergeAiProfile } from "../src/lib/aiIntake.ts";
+import { eventFacts } from "../src/lib/assistantClient.ts";
 import { emptyProfile, parseDescription } from "../src/lib/intake";
 import { proposalActions, proposalRipple } from "../src/shared/proposals";
 
@@ -184,27 +189,6 @@ describe("plan notes", () => {
     expect(s.tips).toEqual([{ title: "Book early", detail: "Studios fill up." }]);
     expect(s.watchouts.length).toBe(3);
     expect(s.ideas).toEqual([]);
-  });
-});
-
-describe("rate limiter", () => {
-  test("allows a burst then blocks until the window resets", () => {
-    const allow = rateLimiter(2, 1000);
-    expect(allow("ip", 0)).toBe(true);
-    expect(allow("ip", 1)).toBe(true);
-    expect(allow("ip", 2)).toBe(false);
-    expect(allow("other", 2)).toBe(true);
-    expect(allow("ip", 1001)).toBe(true);
-  });
-
-  test("a flood of new addresses can't wipe an abuser's count, and finished windows are forgotten", () => {
-    const allow = rateLimiter(1, 1000, 10);
-    expect(allow("abuser", 0)).toBe(true);
-    expect(allow("abuser", 1)).toBe(false);
-    for (let i = 0; i < 50; i++) allow(`flood-${i}`, 2);
-    expect(allow("abuser", 3)).toBe(false);
-    // Once its window ends, the abuser starts afresh like anyone else.
-    expect(allow("abuser", 1001)).toBe(true);
   });
 });
 
@@ -427,7 +411,7 @@ describe("streaming the assistant's answer", () => {
     const urls: string[] = [];
     const out = await streamAssistant(
       body,
-      () => {},
+      () => undefined,
       { ...config, fallback: "backup" },
       async (url) => {
         urls.push(url);
@@ -439,6 +423,6 @@ describe("streaming the assistant's answer", () => {
   });
 
   test("without a key it says so instead of streaming", async () => {
-    expect((await streamAssistant(body, () => {}, { model: "m" })).status).toBe(503);
+    expect((await streamAssistant(body, () => undefined, { model: "m" })).status).toBe(503);
   });
 });

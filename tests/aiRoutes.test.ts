@@ -1,10 +1,11 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { type AiConfig, MAX_BODY } from "../server/ai";
+import { MAX_BODY } from "../server/ai";
 import { type App, createApp, DAILY_AI, spendAi } from "../server/app";
 import { createLocalDb } from "../server/db/local";
 import { aiUsage } from "../server/db/schema";
 import type { Db } from "../server/db/types";
+import type { AiConfig } from "../server/gemini";
 
 /**
  * The /api/ai/* routes end to end: the burst limit, size cap and daily allowance in front of

@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router";
+import { Logo } from "../components/brand";
 import { canDraft } from "../components/intake";
-import { Logo } from "../components/ui";
 import type { Profile } from "../data/types";
 import { inr } from "../lib/format";
-import { KIND_LABEL } from "../lib/intake";
+import { KIND_LABEL } from "../lib/profileRows";
 import { useStore } from "../store/store";
 import { StepBody } from "./guided/StepBody";
 
@@ -60,7 +60,7 @@ export function Guided() {
 
   const draftPlan = () => {
     dispatch({ type: "draft", patch: { generated: false } });
-    navigate("/new/generating");
+    void navigate("/new/generating");
   };
 
   return (

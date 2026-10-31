@@ -1,15 +1,20 @@
 import { type FormEvent, useState } from "react";
-import { useEditable } from "../../components/tasks";
-import { Field, Modal, TextField } from "../../components/ui";
-import type { Approval, CommunityEvent, PlannrEvent } from "../../data/types";
-import { inr, inrShort, plural } from "../../lib/format";
-import { fundTotals } from "../../shared/derive";
+import { Field, TextField } from "../../components/fields";
+import { Modal } from "../../components/overlays";
+import { useEditable } from "../../components/taskHooks";
+import type { Approval } from "../../data/communityTypes";
+import type { CommunityEvent, PlannrEvent } from "../../data/types";
+import { inr, inrShort, parseAmount, plural } from "../../lib/format";
+import { fundTotals } from "../../shared/balances";
 import { toast, useStore } from "../../store/store";
-import { newId, parseAmount, Section, ShareLink, Stat, TabPage, WhatForAmount } from "./common";
+import { WhatForAmount } from "./amounts";
 import { ApprovalDecision, NotCommunity, useDecides } from "./community";
 import { Permits } from "./funds/Permits";
 import { Sources } from "./funds/Sources";
 import { Sponsors } from "./funds/Sponsors";
+import { newId } from "./ids";
+import { Section, Stat, TabPage } from "./layout";
+import { ShareLink } from "./ShareLink";
 
 /** /events/:id/funds — money in, money out, expense approvals and the permits. */
 export function FundsTab({ ev }: { ev: PlannrEvent }) {
@@ -121,7 +126,7 @@ function Approvals({ ev, editable }: { ev: CommunityEvent; editable: boolean }) 
             />
           </li>
         ))}
-        {!approvals.length && (
+        {approvals.length === 0 && (
           <li className="text-sm text-muted">
             No claims yet. Committee members claim what they spent here; the treasurer approves.
           </li>

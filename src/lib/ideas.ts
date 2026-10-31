@@ -1,5 +1,8 @@
-import type { Category, CommunityEvent, Idea, PersonalEvent } from "../data/types";
-import { functionsOf, list } from "../shared/records";
+import type { Category } from "../data/budgetTypes";
+import type { Idea } from "../data/recordTypes";
+import type { CommunityEvent, PersonalEvent } from "../data/types";
+import { functionsOf } from "../shared/eventLists";
+import { list } from "../shared/records";
 import { monthName } from "./dates";
 import { plural } from "./format";
 

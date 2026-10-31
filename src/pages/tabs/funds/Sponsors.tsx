@@ -1,16 +1,20 @@
 import { type FormEvent, useState } from "react";
-import { Pill, TextField } from "../../../components/ui";
-import type { CommunityEvent, Sponsor } from "../../../data/types";
-import { inr } from "../../../lib/format";
+import { bindText, TextField } from "../../../components/fields";
+import { Pill } from "../../../components/ui";
+import type { Sponsor } from "../../../data/communityTypes";
+import type { CommunityEvent } from "../../../data/types";
+import { inr, parseAmount } from "../../../lib/format";
 import { list } from "../../../shared/records";
 import { toast, useStore } from "../../../store/store";
-import { newId, parseAmount, Section } from "../common";
+import { newId } from "../ids";
+import { Section } from "../layout";
 
 /** Sponsors by tier, what each pledged and what has arrived. */
 export function Sponsors({ ev, editable }: { ev: CommunityEvent; editable: boolean }) {
   const { dispatch } = useStore();
   const sponsors = list(ev, "sponsors");
   const [form, setForm] = useState({ name: "", tier: "", amount: "" });
+  const field = bindText(form, setForm);
   const add = (e: FormEvent) => {
     e.preventDefault();
     const amount = parseAmount(form.amount);
@@ -56,30 +60,13 @@ export function Sponsors({ ev, editable }: { ev: CommunityEvent; editable: boole
             />
           </li>
         ))}
-        {!sponsors.length && <li className="text-sm text-muted">No sponsors yet.</li>}
+        {sponsors.length === 0 && <li className="text-sm text-muted">No sponsors yet.</li>}
       </ul>
       {editable && (
         <form onSubmit={add} className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[1fr_110px_110px_auto]">
-          <TextField
-            id="sp-name"
-            label="Sponsor"
-            value={form.name}
-            onChange={(name) => setForm({ ...form, name })}
-          />
-          <TextField
-            id="sp-tier"
-            label="Tier"
-            value={form.tier}
-            onChange={(tier) => setForm({ ...form, tier })}
-            placeholder="Gold"
-          />
-          <TextField
-            id="sp-amount"
-            label="Amount"
-            value={form.amount}
-            onChange={(amount) => setForm({ ...form, amount })}
-            inputMode="decimal"
-          />
+          <TextField id="sp-name" label="Sponsor" {...field("name")} />
+          <TextField id="sp-tier" label="Tier" {...field("tier")} placeholder="Gold" />
+          <TextField id="sp-amount" label="Amount" {...field("amount")} inputMode="decimal" />
           <button
             type="submit"
             className="btn btn-secondary btn-sm h-10"

@@ -1,5 +1,9 @@
-import type { Category, CommunityEvent, Message, PersonalEvent, PlannrEvent, Task } from "../data/types";
-import { findRecord, patch as patchRecord, upsert, vendorsOf } from "./records";
+import type { Task } from "../data/baseTypes";
+import type { Category } from "../data/budgetTypes";
+import type { Message } from "../data/messageTypes";
+import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../data/types";
+import { vendorsOf } from "./eventLists";
+import { findRecord, patch as patchRecord, upsert } from "./records";
 
 /**
  * Small immutable updates shared by the plan's reducers. Each returns a new event and
@@ -32,7 +36,7 @@ export function withTasks<E extends PlannedEvent>(ev: E, fn: (list: Task[]) => T
 /** Appends tasks the plan doesn't have yet, counting only the ones actually added. */
 export function addTasks<E extends PlannedEvent>(ev: E, tasks: Task[]): E {
   const fresh = tasks.filter((t) => !ev.tasks.list.some((x) => x.id === t.id));
-  return fresh.length ? withTasks(ev, (list) => [...list, ...fresh], fresh.length) : ev;
+  return fresh.length > 0 ? withTasks(ev, (list) => [...list, ...fresh], fresh.length) : ev;
 }
 
 /** Marks one task done. */

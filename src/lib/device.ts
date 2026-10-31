@@ -91,7 +91,7 @@ export type ReminderState = "on" | "off" | "blocked" | "unsupported" | "unavaila
 
 async function registration(): Promise<ServiceWorkerRegistration | undefined> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return undefined;
-  return navigator.serviceWorker.getRegistration().then((r) => r ?? undefined);
+  return (await navigator.serviceWorker.getRegistration()) ?? undefined;
 }
 
 export async function reminderState(): Promise<ReminderState> {

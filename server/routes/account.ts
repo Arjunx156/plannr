@@ -3,7 +3,8 @@ import { z } from "zod";
 import { deleteAccount, exportAccount } from "../account";
 import { adminSummary, count, isAdmin, METRIC_NAMES } from "../admin";
 import { pushSubs } from "../db/schema";
-import { activity, HttpError } from "../plans";
+import { activity } from "../history";
+import { HttpError } from "../plans";
 import { type Api, body, type RouteDeps } from "./kit";
 
 /** A browser's push subscription, as the Push API hands it over. */

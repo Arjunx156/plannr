@@ -8,7 +8,7 @@ export function LangSelect({ value, onChange }: { value: SpeechCode; onChange: (
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as SpeechCode)}
-        className="min-h-8 cursor-pointer appearance-none rounded-md bg-sand py-1.5 pr-5 pl-2 font-mono text-[11px] font-semibold"
+        className="min-h-8 cursor-pointer appearance-none rounded-md bg-sand py-1.5 pr-5 pl-2 font-mono text-xs font-semibold"
       >
         {SPEECH_LANGS.map((l) => (
           <option key={l.code} value={l.code}>

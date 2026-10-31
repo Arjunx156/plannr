@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import type { PlannrEvent } from "../src/data/types";
-import { slugId } from "../src/shared/records";
+import { slugId } from "../src/shared/eventLists";
 import { fromTemplate, toTemplate } from "../src/shared/templates";
 import type { PlanSummary, TemplateRow } from "../src/shared/types";
 import { events, templates } from "./db/schema";

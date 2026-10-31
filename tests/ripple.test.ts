@@ -3,16 +3,12 @@ import { seedEvents } from "../src/data/seed";
 import type { CommunityEvent, PersonalEvent, PlannrEvent } from "../src/data/types";
 import { introFor, reply } from "../src/lib/assistant";
 import { budgetTotals } from "../src/lib/metrics";
-import { describeAction, replay } from "../src/shared/engine";
+import { bookingRipple } from "../src/shared/bookingRipple";
+import { describeAction } from "../src/shared/describeAction";
+import { replay } from "../src/shared/engine";
 import { proposalActions, proposalRipple } from "../src/shared/proposals";
 import { list } from "../src/shared/records";
-import {
-  bookingRipple,
-  chosenActions,
-  genericRipple,
-  headcountRipple,
-  moveFunctionRipple,
-} from "../src/shared/ripple";
+import { chosenActions, genericRipple, headcountRipple, moveFunctionRipple } from "../src/shared/ripple";
 
 const TODAY = "2026-09-27";
 const events = seedEvents();
@@ -44,7 +40,7 @@ describe("previewing a change before it applies", () => {
   });
 
   test("booking a vendor sets its budget line and payments", () => {
-    const v = list(wedding, "vendors").find((x) => x.stage !== "booked" && x.quotes.length);
+    const v = list(wedding, "vendors").find((x) => x.stage !== "booked" && x.quotes.length > 0);
     if (!v) throw new Error("seed has a quoted vendor");
     const r = bookingRipple(wedding, v.id, v.quotes[0]?.id);
     const ids = r.lines.map((l) => l.id);

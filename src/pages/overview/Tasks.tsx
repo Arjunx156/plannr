@@ -1,8 +1,10 @@
 import { type FormEvent, useState } from "react";
 import { Link } from "react-router";
-import { TaskRow, useEditable, useTaskToggle } from "../../components/tasks";
+import { useEditable, useTaskToggle } from "../../components/taskHooks";
+import { TaskRow } from "../../components/tasks";
 import { Panel } from "../../components/ui";
-import type { CommunityEvent, PersonalEvent, Task } from "../../data/types";
+import type { Task } from "../../data/baseTypes";
+import type { CommunityEvent, PersonalEvent } from "../../data/types";
 import { TODAY } from "../../lib/dates";
 import { tasksDone } from "../../lib/metrics";
 import { useStore } from "../../store/store";
@@ -67,7 +69,7 @@ export function Tasks({
             onOpen={(x) => onOpenTask(x.id)}
           />
         ))}
-        {!visible.length && <li className="py-2 text-sm text-muted">Nothing open. Enjoy the quiet.</li>}
+        {visible.length === 0 && <li className="py-2 text-sm text-muted">Nothing open. Enjoy the quiet.</li>}
       </ul>
       {editable && (
         <form onSubmit={add} className="flex gap-2">

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { desc, gte, sql } from "drizzle-orm";
-import { aiUsage, errors, events, metrics, user } from "./db/schema";
+import { user } from "./db/authSchema";
+import { aiUsage, errors, events, metrics } from "./db/schema";
 import type { Db } from "./db/types";
 
 /**

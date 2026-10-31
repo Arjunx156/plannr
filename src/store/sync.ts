@@ -1,6 +1,6 @@
 import { ApiError, api } from "../lib/api";
 import type { EventAction } from "../shared/engine";
-import type { Action } from "./store";
+import type { Action } from "./types";
 
 /** The server takes at most this many changes per request. */
 const BATCH = 50;
@@ -74,7 +74,8 @@ export class SyncQueue {
     if (!this.owner) return;
     const actions = [...this.inflight.values(), ...this.pending.values()].flat();
     try {
-      if (actions.length) localStorage.setItem(OUTBOX_KEY, JSON.stringify({ userId: this.owner, actions }));
+      if (actions.length > 0)
+        localStorage.setItem(OUTBOX_KEY, JSON.stringify({ userId: this.owner, actions }));
       else localStorage.removeItem(OUTBOX_KEY);
     } catch {
       // Storage full: changes still sync while this tab stays open.

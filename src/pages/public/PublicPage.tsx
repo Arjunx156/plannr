@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { Logo, Spinner, usePageMeta } from "../../components/ui";
+import { Logo } from "../../components/brand";
+import { usePageMeta } from "../../components/pageMeta";
+import { Spinner } from "../../components/ui";
 import { ApiError, api } from "../../lib/api";
 import { shrinkImage } from "../../lib/images";
-import { type PublicKind, type PublicView, projectView } from "../../shared/public";
+import type { PublicKind, PublicView } from "../../shared/public";
+import { projectView } from "../../shared/publicViews";
 import { demoLoading, useStore } from "../../store/store";
 import { viewPage } from "./views";
 
@@ -79,11 +82,12 @@ export function PreviewPage() {
   const demo = state.mode === "demo";
   const back = `/events/${eventId}`;
   const act = demo
-    ? async (actions: unknown[]) => {
+    ? (actions: unknown[]) => {
         for (const a of actions as { type: string; householdId?: string }[]) {
           const action = a.type === "rsvp" ? { ...a, householdId: decodeURIComponent(target) } : a;
           dispatch({ ...(action as object), eventId } as Parameters<typeof dispatch>[0]);
         }
+        return Promise.resolve();
       }
     : undefined;
   if (!view && demoLoading(state))

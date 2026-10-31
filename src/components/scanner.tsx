@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Modal } from "./ui";
+import { Modal } from "./overlays";
 
 /**
  * Scanning QR codes with the phone's camera, where the browser can (Chrome on Android).
@@ -56,7 +56,7 @@ export function Scanner({
           if (text) found.current(text);
           else timer = window.setTimeout(tick, 250);
         };
-        tick();
+        void tick();
       })
       .catch(() => setError(hint));
     return () => {

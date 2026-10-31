@@ -1,12 +1,12 @@
 import type { PersonalEvent } from "../../../data/types";
 import { longDate, TODAY } from "../../../lib/dates";
 import { inr } from "../../../lib/format";
-import { settleUp, splitBalances } from "../../../shared/derive";
+import { settleUp, splitBalances } from "../../../shared/balances";
 import { list } from "../../../shared/records";
 import { toast, useStore } from "../../../store/store";
-import { newId, Section } from "../common";
+import { newId } from "../ids";
+import { Section } from "../layout";
 
-/** How costs are shared between the families, and who owes whom to settle up. */
 /** Where one side stands against its fair share: even, ahead, or behind. */
 function balanceLine(balance: number): { color: string; text: string } {
   if (Math.abs(balance) < 1) return { color: "text-leaf-ink", text: "Even" };
@@ -14,6 +14,7 @@ function balanceLine(balance: number): { color: string; text: string } {
   return { color: "text-rust-ink", text: `${inr(-balance)} behind their share` };
 }
 
+/** How costs are shared between the families, and who owes whom to settle up. */
 export function Split({ ev, editable }: { ev: PersonalEvent; editable: boolean }) {
   const { dispatch } = useStore();
   const balances = splitBalances(ev);

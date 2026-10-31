@@ -3,11 +3,12 @@ import { seedEvents } from "../src/data/seed";
 import type { CommunityEvent, PersonalEvent } from "../src/data/types";
 import { daysUntil, dueLabel } from "../src/lib/dates";
 import { inr, inrShort, inrSigned } from "../src/lib/format";
-import { emptyProfile, nextQuestion, parseDescription } from "../src/lib/intake";
+import { emptyProfile, parseDescription } from "../src/lib/intake";
+import { nextQuestion } from "../src/lib/intakeQuestions";
 import { budgetTotals, communityReadiness, personalReadiness, settle, whatIf } from "../src/lib/metrics";
 import { eventFromDraft } from "../src/lib/newEvent";
 import { draftPlan, splitBudget } from "../src/lib/plan";
-import { initialState, reducer } from "../src/store/store";
+import { initialState, reducer } from "../src/store/reducer";
 
 const [wedding, birthday, mela] = seedEvents() as [PersonalEvent, PersonalEvent, CommunityEvent];
 
@@ -109,7 +110,8 @@ describe("plan", () => {
     expect(plan.tasks).toBe(71);
     expect(plan.vendors).toHaveLength(11);
     expect(plan.guests.groups.map((g) => g.count)).toEqual([110, 100, 30, 10]);
-    expect(plan.timeline.map((t) => t.when)).toEqual(["NOW–OCT", "JAN", "MAR", "WEEK OF"]);
+    expect(plan.timeline.map((t) => t.due)).toEqual([...plan.timeline.map((t) => t.due)].sort());
+    expect(plan.timeline.at(-1)?.title).toBe("Share the run sheet and pay the balances");
     expect(plan.basis).toBe(
       "Based on 250 guests in Kochi, four functions, April, and food · photography · ceremony décor as priorities.",
     );

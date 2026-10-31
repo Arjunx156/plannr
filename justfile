@@ -6,10 +6,12 @@ default: check
 dev:
     bun run dev
 
-# Format check, lint, types, tests, production build
+# Format check, lint, types, file sizes and import cycles, duplicated code, tests, production build
 check:
     bun x biome check .
     bun x tsc -b
+    bun scripts/structure.ts
+    bun x jscpd@4.3.0 src server scripts --silent
     bun test
     bun x vite build
 
@@ -19,6 +21,10 @@ fmt:
 
 test *args:
     bun test {{args}}
+
+# Score the AI against real cases in four languages (calls Gemini; needs GEMINI_API_KEY)
+eval:
+    bun run ai:eval
 
 # Browser journeys and accessibility checks against the production build
 e2e *args:

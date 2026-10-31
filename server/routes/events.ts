@@ -1,65 +1,37 @@
 import { z } from "zod";
-import type { PlannrEvent } from "../../src/data/types";
-import { EVENT_ACTION_TYPES, type EventAction } from "../../src/shared/engine";
+import { addComment, listComments } from "../comments";
+import { history, undoChange } from "../history";
 import { isLinkKind, linkFor, listLinks, renameSite, revokeLink } from "../links";
-import {
-  acceptInvite,
-  addComment,
-  applyActions,
-  createInvite,
-  createPlan,
-  getPlan,
-  HttpError,
-  history,
-  listComments,
-  listMembers,
-  listPlans,
-  planVersion,
-  removeMember,
-  requireRole,
-  undoChange,
-  updateMember,
-} from "../plans";
+import { acceptInvite, createInvite, listMembers, removeMember, updateMember } from "../members";
+import { applyActions, createPlan, getPlan, HttpError, listPlans, planVersion, requireRole } from "../plans";
 import { deleteTemplate, listTemplates, planFromTemplate, saveTemplate } from "../templates";
-import { parseAction } from "../validate";
+import { checkPlan, parseAction } from "../validate";
 import { type Api, body, type RouteDeps } from "./kit";
 
-const MAX_EVENT_BYTES = 400 * 1024;
+/** The largest plan that can be created; the body cap in app.ts enforces it as the request streams in. */
+export const MAX_EVENT_BYTES = 400 * 1024;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-/** The outline every plan must have; the rest is checked change by change. */
-const eventShape = z
-  .object({
-    id: z.string().min(3).max(120),
-    kind: z.enum(["wedding", "birthday", "community", "other"]),
-    layout: z.enum(["personal", "community", "empty"]),
-    name: z.string().min(1).max(200),
-    date: z.string().regex(ISO_DATE),
-  })
-  .passthrough();
-
-const actionShape = z
-  .object({
-    type: z.string().refine((t) => EVENT_ACTION_TYPES.has(t as EventAction["type"]), "Unknown change"),
-    // Only a new draft carries a whole plan; it gets the same checks as creating one.
-    event: eventShape.optional(),
-  })
-  .passthrough()
-  .refine((a) => a.type !== "replacePlan" || !!a.event, "A new draft needs its plan");
 
 const roleShape = z.enum(["planner", "viewer"]);
 
 /** Plans and everything inside one: changes, history, people, invites, links, templates and comments. */
-export function eventRoutes(app: Api, { db, store }: RouteDeps): void {
-  // ------------------------------------------------------------ plans
+export function eventRoutes(app: Api, deps: RouteDeps): void {
+  planRoutes(app, deps);
+  templateRoutes(app, deps);
+  linkRoutes(app, deps);
+  historyRoutes(app, deps);
+  peopleRoutes(app, deps);
+  commentRoutes(app, deps);
+}
+
+/** Creating plans, reading them and changing them. */
+function planRoutes(app: Api, { db, store }: RouteDeps): void {
   app.get("/events", async (c) => c.json({ plans: await listPlans(db, c.get("userId")) }));
   app.post("/events", async (c) => {
-    if (Number(c.req.header("content-length") ?? 0) > MAX_EVENT_BYTES)
-      throw new HttpError(413, "That plan is too large");
-    const { event } = await body(c, z.object({ event: eventShape }));
-    // eventShape checks the plan's outline (id, kind, layout, name, date) and passes the rest
-    // through; the size limit above bounds it, and every later change is validated action by action.
-    return c.json(await createPlan(db, c.get("userId"), event as unknown as PlannrEvent), 201);
+    const { event } = await body(c, z.object({ event: z.unknown() }));
+    const plan = checkPlan(event);
+    if (!plan.ok) throw new HttpError(400, plan.error);
+    return c.json(await createPlan(db, c.get("userId"), plan.event), 201);
   });
   app.get("/events/:id", async (c) => c.json(await getPlan(db, c.req.param("id"), c.get("userId"))));
   app.post("/events/:id/photo", async (c) => {
@@ -70,7 +42,7 @@ export function eventRoutes(app: Api, { db, store }: RouteDeps): void {
     c.json({ version: await planVersion(db, c.req.param("id"), c.get("userId")) }),
   );
   app.post("/events/:id/actions", async (c) => {
-    const { actions } = await body(c, z.object({ actions: z.array(actionShape).min(1).max(50) }));
+    const { actions } = await body(c, z.object({ actions: z.array(z.unknown()).min(1).max(50) }));
     const parsed = actions.map((a) => parseAction(a));
     const bad = parsed.find((p) => !p.ok);
     if (bad && !bad.ok) throw new HttpError(400, bad.error);
@@ -83,8 +55,10 @@ export function eventRoutes(app: Api, { db, store }: RouteDeps): void {
       ),
     );
   });
+}
 
-  // ------------------------------------------------------------ templates
+/** Templates saved from one plan to start another. */
+function templateRoutes(app: Api, { db }: RouteDeps): void {
   app.get("/templates", async (c) => c.json({ templates: await listTemplates(db, c.get("userId")) }));
   app.post("/events/:id/template", async (c) => {
     const { name } = await body(c, z.object({ name: z.string().trim().min(1).max(120) }));
@@ -101,8 +75,10 @@ export function eventRoutes(app: Api, { db, store }: RouteDeps): void {
     await deleteTemplate(db, c.get("userId"), c.req.param("id"));
     return c.json({ ok: true });
   });
+}
 
-  // ------------------------------------------------------------ shared links
+/** Links that let guests, helpers and vendors open their part of a plan. */
+function linkRoutes(app: Api, { db }: RouteDeps): void {
   app.get("/events/:id/links", async (c) =>
     c.json({ links: await listLinks(db, c.req.param("id"), c.get("userId")) }),
   );
@@ -122,8 +98,10 @@ export function eventRoutes(app: Api, { db, store }: RouteDeps): void {
     const { slug } = await body(c, z.object({ slug: z.string().max(60) }));
     return c.json(await renameSite(db, c.req.param("id"), c.get("userId"), slug));
   });
+}
 
-  // ------------------------------------------------------------ history
+/** Every change made to a plan, and undoing or redoing one. */
+function historyRoutes(app: Api, { db }: RouteDeps): void {
   app.get("/events/:id/history", async (c) =>
     c.json({
       history: await history(db, c.req.param("id"), c.get("userId"), Number(c.req.query("limit") ?? 100)),
@@ -135,8 +113,10 @@ export function eventRoutes(app: Api, { db, store }: RouteDeps): void {
   app.post("/events/:id/history/:change/redo", async (c) =>
     c.json(await undoChange(db, c.req.param("id"), c.get("userId"), c.req.param("change"), true)),
   );
+}
 
-  // ------------------------------------------------------------ people
+/** Co-planners, their roles, and invitations to join. */
+function peopleRoutes(app: Api, { db }: RouteDeps): void {
   app.get("/events/:id/members", async (c) =>
     c.json({ members: await listMembers(db, c.req.param("id"), c.get("userId")) }),
   );
@@ -166,8 +146,10 @@ export function eventRoutes(app: Api, { db, store }: RouteDeps): void {
   app.post("/invites/:token/accept", async (c) =>
     c.json(await acceptInvite(db, c.req.param("token"), c.get("userId"))),
   );
+}
 
-  // ------------------------------------------------------------ comments
+/** Comments on tasks and records. */
+function commentRoutes(app: Api, { db }: RouteDeps): void {
   app.get("/events/:id/comments", async (c) =>
     c.json({
       comments: await listComments(

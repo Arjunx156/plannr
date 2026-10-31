@@ -1,7 +1,8 @@
 import type { PlannrEvent } from "../data/types";
 import { addDays, shortDate } from "../lib/dates";
 import { inr } from "../lib/format";
-import { functionsOf, list } from "./records";
+import { functionsOf } from "./eventLists";
+import { list } from "./records";
 
 /**
  * The morning reminder: what needs doing today across someone's events. Worked out from
@@ -77,7 +78,7 @@ export function morningMessage(
   today: string,
 ): { title: string; body: string; url: string } | undefined {
   const all = events.flatMap((ev) => remindersFor(ev, today).map((r) => ({ ...r, name: ev.name })));
-  if (!all.length) return undefined;
+  if (all.length === 0) return undefined;
   all.sort((a, b) => a.rank - b.rank);
   const eventIds = new Set(all.map((r) => r.eventId));
   const only = eventIds.size === 1 ? all[0]?.name : undefined;

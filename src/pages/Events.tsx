@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { usePageMeta } from "../components/pageMeta";
 import { AppShell } from "../components/shell";
-import { Bar, HUE_COLOR, usePageMeta } from "../components/ui";
+import { Bar, HUE_COLOR } from "../components/ui";
 import { pastEvents } from "../data/seed";
 import type { PlannrEvent } from "../data/types";
 import { ApiError, api } from "../lib/api";
 import { daysUntil, greeting, plainDate, TODAY } from "../lib/dates";
-import { KIND_LABEL } from "../lib/intake";
 import { communityReadiness, personalReadiness } from "../lib/metrics";
+import { KIND_LABEL } from "../lib/profileRows";
 import { ROLE_LABEL } from "../shared/types";
 import { toast, useStore } from "../store/store";
-import { TemplatePicker } from "./tabs/Templates";
+import { TemplatePicker } from "./tabs/planTemplates";
 
 function readiness(ev: PlannrEvent): number | undefined {
   if (ev.layout === "personal") return personalReadiness(ev, TODAY).overall;
@@ -69,7 +70,7 @@ export function Events() {
                 <div className="flex flex-1 flex-col gap-3 p-5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="eyebrow text-muted">{KIND_LABEL[ev.kind]}</span>
-                    <span className="font-mono text-[10px] text-muted">
+                    <span className="font-mono text-xs text-muted">
                       {remote
                         ? `${ROLE_LABEL[remote.role]}${remote.side ? ` · ${remote.side}` : ""}`
                         : ev.role}
@@ -103,7 +104,7 @@ export function Events() {
             className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-line-2 p-6 text-center text-ink no-underline hover:border-ink"
           >
             <span className="font-serif text-[26px]">
-              {live.length ? "Plan something new" : "Plan your first event"}
+              {live.length > 0 ? "Plan something new" : "Plan your first event"}
             </span>
             <span className="text-sm text-body">Describe it in a sentence. Plannr drafts the rest.</span>
           </Link>

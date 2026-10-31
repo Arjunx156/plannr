@@ -1,11 +1,11 @@
-import { useEditable } from "../../components/tasks";
+import { useEditable } from "../../components/taskHooks";
 import { FundProgress, Panel, StatTile, toneText } from "../../components/ui";
 import { WatchList } from "../../components/watch";
 import type { CommunityEvent } from "../../data/types";
 import { longDate } from "../../lib/dates";
 import { inr, inrShort, pct } from "../../lib/format";
 import { communityReadiness } from "../../lib/metrics";
-import { fundTotals } from "../../shared/derive";
+import { fundTotals } from "../../shared/balances";
 import { toast, useStore } from "../../store/store";
 import { ApprovalDecision, AssignSelect, freeVolunteers, ShiftGrid } from "../tabs/community";
 import { Notices } from "./Notices";

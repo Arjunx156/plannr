@@ -1,6 +1,7 @@
-import type { PlannrEvent, Vendor, VendorStage } from "../../../data/types";
+import type { PlannrEvent } from "../../../data/types";
+import type { Vendor, VendorStage } from "../../../data/vendorTypes";
 import { longDate } from "../../../lib/dates";
-import { functionsOf } from "../../../shared/records";
+import { functionsOf } from "../../../shared/eventLists";
 
 /** The vendor pipeline, in order. */
 export const STAGES: VendorStage[] = ["needed", "enquired", "quoted", "booked"];
